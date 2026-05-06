@@ -1,0 +1,469 @@
+// prisma/schema.prisma
+// SpécimenManager — Institut Pasteur Madagascar
+// Hiérarchie : Projet → Mission → Localité → Méthode → Spécimen
+// Module Dictionnaire : référentiels hiérarchiques + activation + audit
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================
+//  ÉNUMÉRATIONS
+// =============================================================
+
+enum Role {
+  admin
+  chercheur
+  terrain
+  lecteur
+}
+
+enum StatutProjet {
+  actif
+  termine
+  suspendu
+}
+
+enum StatutMission {
+  planifiee
+  en_cours
+  terminee
+  annulee
+}
+
+enum Sexe {
+  M
+  F
+  inconnu
+}
+
+enum NiveauTaxonomique {
+  ordre
+  famille
+  sous_famille
+  genre
+  sous_genre
+  espece
+  sous_espece
+}
+
+enum TypeSpecimenTaxon {
+  moustique
+  tique
+  puce
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  ACTIVATE
+  DEACTIVATE
+}
+
+// =============================================================
+//  UTILISATEURS
+// =============================================================
+
+model User {
+  id           Int       @id @default(autoincrement())
+  nom          String    @db.VarChar(100)
+  prenom       String    @db.VarChar(100)
+  email        String    @unique @db.VarChar(150)
+  passwordHash String    @map("password_hash")
+  role         Role      @default(lecteur)
+  actif        Boolean   @default(false)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  projetsResponsable Projet[]        @relation("ResponsableProjet")
+  missionsChef       Mission[]       @relation("ChefMission")
+  missionsAgent      MissionAgent[]
+  auditLogs          AuditLog[]
+
+  @@map("users")
+}
+
+// =============================================================
+//  PROJETS
+// =============================================================
+
+model Projet {
+  id            Int          @id @default(autoincrement())
+  code          String       @unique @db.VarChar(50)
+  nom           String       @db.VarChar(200)
+  description   String?      @db.Text
+  responsableId Int?         @map("responsable_id")
+  dateDebut     DateTime?    @map("date_debut") @db.Date
+  dateFin       DateTime?    @map("date_fin") @db.Date
+  statut        StatutProjet @default(actif)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  responsable User?     @relation("ResponsableProjet", fields: [responsableId], references: [id])
+  missions    Mission[]
+
+  @@map("projets")
+}
+
+// =============================================================
+//  MISSIONS
+// =============================================================
+
+model Mission {
+  id            Int           @id @default(autoincrement())
+  ordreMission  String        @unique @map("ordre_mission") @db.VarChar(50)
+  projetId      Int           @map("projet_id")
+  chefMissionId Int?          @map("chef_mission_id")
+  dateDebut     DateTime      @map("date_debut") @db.Date
+  dateFin       DateTime?     @map("date_fin") @db.Date
+  statut        StatutMission @default(planifiee)
+  observations  String?       @db.Text
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  projet      Projet         @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  chefMission User?          @relation("ChefMission", fields: [chefMissionId], references: [id])
+  agents      MissionAgent[]
+  localites   Localite[]
+
+  @@map("missions")
+}
+
+model MissionAgent {
+  missionId Int @map("mission_id")
+  userId    Int @map("user_id")
+
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([missionId, userId])
+  @@map("mission_agents")
+}
+
+// =============================================================
+//  LOCALITÉS
+// =============================================================
+
+model Localite {
+  id        Int      @id @default(autoincrement())
+  missionId Int      @map("mission_id")
+  nom       String   @db.VarChar(200)
+  toponyme  String?  @db.VarChar(200)
+  pays      String   @default("Madagascar") @db.VarChar(100)
+  region    String?  @db.VarChar(100)
+  district  String?  @db.VarChar(100)
+  commune   String?  @db.VarChar(100)
+  fokontany String?  @db.VarChar(100)
+  latitude  Float?
+  longitude Float?
+  altitudeM Float?   @map("altitude_m")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  mission  Mission           @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  methodes MethodeCollecte[]
+
+  @@map("localites")
+}
+
+// =============================================================
+//  MÉTHODES DE COLLECTE (instances opérationnelles)
+//  Tous les champs scientifiques structurants pointent
+//  vers des référentiels (interdiction du texte libre — cf. CDC).
+// =============================================================
+
+model MethodeCollecte {
+  id                  Int       @id @default(autoincrement())
+  localiteId          Int       @map("localite_id")
+  typeMethodeId       Int       @map("type_methode_id")
+  typeHabitatId       Int?      @map("type_habitat_id")
+  typeEnvironnementId Int?      @map("type_environnement_id")
+  latitude            Float?
+  longitude           Float?
+  dateCollecte        DateTime? @map("date_collecte") @db.Date
+  heureDebut          String?   @map("heure_debut")
+  heureFin            String?   @map("heure_fin")
+  notes               String?   @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  localite          Localite            @relation(fields: [localiteId], references: [id], onDelete: Cascade)
+  typeMethode       TypeMethodeCollecte @relation(fields: [typeMethodeId], references: [id])
+  typeHabitat       TypeHabitat?        @relation(fields: [typeHabitatId], references: [id])
+  typeEnvironnement TypeEnvironnement?  @relation(fields: [typeEnvironnementId], references: [id])
+  moustiques        Moustique[]
+  tiques            Tique[]
+  puces             Puce[]
+  hotes             Hote[]
+
+  @@map("methodes_collecte")
+}
+
+// =============================================================
+//  DICTIONNAIRES — RÉFÉRENTIELS
+// =============================================================
+
+// --- Taxonomie spécimens (hiérarchique : ordre→famille→sous_famille→genre→sous_genre→espece→sous_espece)
+model TaxonomieSpecimen {
+  id          Int                @id @default(autoincrement())
+  niveau      NiveauTaxonomique
+  nom         String             @db.VarChar(150)
+  parentId    Int?               @map("parent_id")
+  type        TypeSpecimenTaxon? // renseigné en haut de l'arbre (ordre)
+  auteur      String?            @db.VarChar(100)
+  annee       Int?
+  nomCommun   String?            @map("nom_commun") @db.VarChar(200)
+  description String?            @db.Text
+  actif       Boolean            @default(true)
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  createdById Int?               @map("created_by")
+  updatedById Int?               @map("updated_by")
+
+  parent  TaxonomieSpecimen?  @relation("TxsHierarchy", fields: [parentId], references: [id])
+  enfants TaxonomieSpecimen[] @relation("TxsHierarchy")
+
+  moustiques Moustique[]
+  tiques     Tique[]
+  puces      Puce[]
+
+  @@index([parentId])
+  @@index([niveau])
+  @@index([type])
+  @@index([nom])
+  @@map("taxonomie_specimens")
+}
+
+// --- Taxonomie hôtes (mêmes niveaux)
+model TaxonomieHote {
+  id          Int               @id @default(autoincrement())
+  niveau      NiveauTaxonomique
+  nom         String            @db.VarChar(150)
+  parentId    Int?              @map("parent_id")
+  nomCommun   String?           @map("nom_commun") @db.VarChar(200)
+  description String?           @db.Text
+  actif       Boolean           @default(true)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  createdById Int?              @map("created_by")
+  updatedById Int?              @map("updated_by")
+
+  parent  TaxonomieHote?  @relation("TxhHierarchy", fields: [parentId], references: [id])
+  enfants TaxonomieHote[] @relation("TxhHierarchy")
+
+  hotes Hote[]
+
+  @@index([parentId])
+  @@index([niveau])
+  @@index([nom])
+  @@map("taxonomie_hotes")
+}
+
+// --- Types de méthode de collecte (CDC-LT, BG-Sentinel, capture humaine, etc.)
+model TypeMethodeCollecte {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(50)
+  nom         String   @db.VarChar(150)
+  description String?  @db.Text
+  actif       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by")
+  updatedById Int?     @map("updated_by")
+
+  methodes MethodeCollecte[]
+
+  @@map("types_methode_collecte")
+}
+
+// --- Solutions de conservation (Ethanol 70%, RNAlater, etc.)
+model SolutionConservation {
+  id          Int      @id @default(autoincrement())
+  nom         String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  temperature String?  @db.VarChar(50)
+  actif       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by")
+  updatedById Int?     @map("updated_by")
+
+  moustiques Moustique[]
+  tiques     Tique[]
+  puces      Puce[]
+
+  @@map("solutions_conservation")
+}
+
+// --- Types d'environnement (urbain, péri-urbain, rural, forêt…)
+model TypeEnvironnement {
+  id          Int      @id @default(autoincrement())
+  nom         String   @unique @db.VarChar(150)
+  description String?  @db.Text
+  actif       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by")
+  updatedById Int?     @map("updated_by")
+
+  methodes MethodeCollecte[]
+
+  @@map("types_environnement")
+}
+
+// --- Types d'habitat (intra-domiciliaire, péri-domiciliaire, rizière, mangrove…)
+model TypeHabitat {
+  id          Int      @id @default(autoincrement())
+  nom         String   @unique @db.VarChar(150)
+  description String?  @db.Text
+  actif       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by")
+  updatedById Int?     @map("updated_by")
+
+  methodes MethodeCollecte[]
+
+  @@map("types_habitat")
+}
+
+// =============================================================
+//  HÔTES
+// =============================================================
+
+model Hote {
+  id              Int      @id @default(autoincrement())
+  methodeId       Int      @map("methode_id")
+  taxonomieHoteId Int      @map("taxonomie_hote_id")
+  especeLocale    String?  @map("espece_locale") @db.VarChar(200)
+  age             String?  @db.VarChar(50)
+  sexe            Sexe     @default(inconnu)
+  etatSante       String?  @map("etat_sante") @db.VarChar(100)
+  vaccination     String?  @db.Text
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  methode       MethodeCollecte @relation(fields: [methodeId], references: [id], onDelete: Cascade)
+  taxonomieHote TaxonomieHote   @relation(fields: [taxonomieHoteId], references: [id])
+  tiques        Tique[]
+  puces         Puce[]
+
+  @@map("hotes")
+}
+
+// =============================================================
+//  SPÉCIMENS — MOUSTIQUES
+// =============================================================
+
+model Moustique {
+  id             Int       @id @default(autoincrement())
+  methodeId      Int       @map("methode_id")
+  taxonomieId    Int       @map("taxonomie_id")
+  nombre         Int       @default(1)
+  sexe           Sexe      @default(inconnu)
+  stade          String?   @db.VarChar(50)
+  parite         String?   @db.VarChar(50)
+  repasSang      Boolean   @default(false) @map("repas_sang")
+  organePreleve  String?   @map("organe_preleve") @db.VarChar(100)
+  solutionId     Int?      @map("solution_id")
+  contenant      String?   @db.VarChar(100)
+  positionPlaque String?   @map("position_plaque") @db.VarChar(10)
+  dateCollecte   DateTime? @map("date_collecte") @db.Date
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  methode   MethodeCollecte       @relation(fields: [methodeId], references: [id], onDelete: Cascade)
+  taxonomie TaxonomieSpecimen     @relation(fields: [taxonomieId], references: [id])
+  solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
+
+  @@map("moustiques")
+}
+
+// =============================================================
+//  SPÉCIMENS — TIQUES
+// =============================================================
+
+model Tique {
+  id              Int       @id @default(autoincrement())
+  methodeId       Int       @map("methode_id")
+  hoteId          Int?      @map("hote_id")
+  taxonomieId     Int       @map("taxonomie_id")
+  nombre          Int       @default(1)
+  sexe            Sexe      @default(inconnu)
+  stade           String?   @db.VarChar(50)
+  gorge           Boolean   @default(false)
+  partieCorpsHote String?   @map("partie_corps_hote") @db.VarChar(100)
+  solutionId      Int?      @map("solution_id")
+  contenant       String?   @db.VarChar(100)
+  positionPlaque  String?   @map("position_plaque") @db.VarChar(10)
+  dateCollecte    DateTime? @map("date_collecte") @db.Date
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  methode   MethodeCollecte       @relation(fields: [methodeId], references: [id], onDelete: Cascade)
+  hote      Hote?                 @relation(fields: [hoteId], references: [id])
+  taxonomie TaxonomieSpecimen     @relation(fields: [taxonomieId], references: [id])
+  solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
+
+  @@map("tiques")
+}
+
+// =============================================================
+//  SPÉCIMENS — PUCES
+// =============================================================
+
+model Puce {
+  id             Int       @id @default(autoincrement())
+  methodeId      Int       @map("methode_id")
+  hoteId         Int?      @map("hote_id")
+  taxonomieId    Int       @map("taxonomie_id")
+  nombre         Int       @default(1)
+  sexe           Sexe      @default(inconnu)
+  stade          String?   @db.VarChar(50)
+  solutionId     Int?      @map("solution_id")
+  contenant      String?   @db.VarChar(100)
+  positionPlaque String?   @map("position_plaque") @db.VarChar(10)
+  dateCollecte   DateTime? @map("date_collecte") @db.Date
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  methode   MethodeCollecte       @relation(fields: [methodeId], references: [id], onDelete: Cascade)
+  hote      Hote?                 @relation(fields: [hoteId], references: [id])
+  taxonomie TaxonomieSpecimen     @relation(fields: [taxonomieId], references: [id])
+  solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
+
+  @@map("puces")
+}
+
+// =============================================================
+//  AUDIT — historisation générique
+// =============================================================
+
+model AuditLog {
+  id        Int         @id @default(autoincrement())
+  userId    Int?        @map("user_id")
+  action    AuditAction
+  entity    String      @db.VarChar(80)
+  entityId  Int         @map("entity_id")
+  oldValues Json?       @map("old_values")
+  newValues Json?       @map("new_values")
+  metadata  Json?
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

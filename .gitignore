@@ -1,0 +1,48 @@
+# Dépendances
+node_modules/
+**/node_modules/
+
+# Environnement (secrets)
+.env
+.env.local
+.env.*.local
+**/.env
+!**/.env.example
+
+# Builds
+dist/
+build/
+**/dist/
+**/build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Cache
+.cache/
+.vite/
+.parcel-cache/
+**/.vite/
+
+# Editeurs / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Prisma — client généré (regénéré via prisma generate)
+backend/node_modules/.prisma/
+
+# Données Postgres locales (si volume bind-mount)
+db/data/
+pgdata/
+
+# Tests / couverture
+coverage/
+
+# Uploads ponctuels
+uploads/

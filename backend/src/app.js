@@ -1,0 +1,42 @@
+// backend/src/app.js
+
+const express = require('express');
+const cors    = require('cors');
+const helmet  = require('helmet');
+
+const app = express();
+
+app.use(helmet());
+app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => { console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`); next(); });
+
+app.get('/api/health', (req, res) => res.json({ status: 'ok', app: 'SpécimenManager API', version: '2.0.0' }));
+
+app.use('/api/v1/auth',       require('./routes/auth.routes'));
+app.use('/api/v1/projets',    require('./routes/projets.routes'));
+app.use('/api/v1/missions',   require('./routes/missions.routes'));
+app.use('/api/v1/localites',  require('./routes/localites.routes'));
+app.use('/api/v1/methodes',   require('./routes/methodes.routes'));
+app.use('/api/v1/hotes',      require('./routes/hotes.routes'));
+app.use('/api/v1/moustiques', require('./routes/specimens/moustiques.routes'));
+app.use('/api/v1/tiques',     require('./routes/specimens/tiques.routes'));
+app.use('/api/v1/puces',      require('./routes/specimens/puces.routes'));
+
+// Module Dictionnaire (référentiels)
+app.use('/api/v1/dictionnaire/taxonomie-specimens',    require('./routes/dictionnaire/taxonomieSpecimens.routes'));
+app.use('/api/v1/dictionnaire/taxonomie-hotes',        require('./routes/dictionnaire/taxonomieHotes.routes'));
+app.use('/api/v1/dictionnaire/types-methode',          require('./routes/dictionnaire/typesMethode.routes'));
+app.use('/api/v1/dictionnaire/solutions-conservation', require('./routes/dictionnaire/solutionsConservation.routes'));
+app.use('/api/v1/dictionnaire/types-environnement',    require('./routes/dictionnaire/typesEnvironnement.routes'));
+app.use('/api/v1/dictionnaire/types-habitat',          require('./routes/dictionnaire/typesHabitat.routes'));
+app.use('/api/v1/dictionnaire/audit-logs',             require('./routes/dictionnaire/auditLogs.routes'));
+
+app.use((req, res) => res.status(404).json({ error: 'Route introuvable' }));
+app.use((err, req, res, next) => {
+  console.error('Erreur serveur :', err.stack);
+  res.status(500).json({ error: 'Erreur interne', message: process.env.NODE_ENV === 'development' ? err.message : undefined });
+});
+
+module.exports = app;
