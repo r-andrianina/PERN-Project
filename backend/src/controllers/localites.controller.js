@@ -144,6 +144,22 @@ const getCarteLocalites = async (req, res) => {
 };
 
 // =============================================================
+//  Validation du code localité (préfixe ID terrain)
+// =============================================================
+
+const CODE_REGEX = /^[A-Z]{3}$/;
+
+async function validateCode(code, ignoreId = null) {
+  if (!code) return null;
+  if (!CODE_REGEX.test(code)) return 'Le code doit contenir exactement 3 lettres majuscules (ex: AKZ)';
+  const where = { code };
+  if (ignoreId) where.NOT = { id: ignoreId };
+  const dupe = await prisma.localite.findFirst({ where });
+  if (dupe) return `Le code "${code}" est déjà utilisé par une autre localité`;
+  return null;
+}
+
+// =============================================================
 //  CREATE — Créer une localité
 //  POST /api/v1/localites
 //  Accès : Admin, Chercheur
@@ -151,7 +167,7 @@ const getCarteLocalites = async (req, res) => {
 
 const createLocalite = async (req, res) => {
   const {
-    missionId, nom, toponyme, pays,
+    missionId, code, nom, toponyme, pays,
     region, district, commune, fokontany,
     latitude, longitude, altitudeM,
   } = req.body;
@@ -167,9 +183,15 @@ const createLocalite = async (req, res) => {
       return res.status(404).json({ error: 'Mission introuvable' });
     }
 
+    // Validation du code (3 lettres majuscules, unique)
+    const codeUpper = code ? code.trim().toUpperCase() : null;
+    const codeErr = await validateCode(codeUpper);
+    if (codeErr) return res.status(400).json({ error: codeErr });
+
     const localite = await prisma.localite.create({
       data: {
         missionId:  parseInt(missionId),
+        code:       codeUpper,
         nom:        nom.trim(),
         toponyme:   toponyme   || null,
         pays:       pays       || 'Madagascar',
@@ -205,7 +227,7 @@ const createLocalite = async (req, res) => {
 const updateLocalite = async (req, res) => {
   const id = parseInt(req.params.id);
   const {
-    nom, toponyme, pays, region, district,
+    code, nom, toponyme, pays, region, district,
     commune, fokontany, latitude, longitude, altitudeM,
   } = req.body;
 
@@ -220,6 +242,13 @@ const updateLocalite = async (req, res) => {
   if (latitude  !== undefined) data.latitude  = latitude  ? parseFloat(latitude)  : null;
   if (longitude !== undefined) data.longitude = longitude ? parseFloat(longitude) : null;
   if (altitudeM !== undefined) data.altitudeM = altitudeM ? parseFloat(altitudeM) : null;
+
+  if (code !== undefined) {
+    const codeUpper = code ? code.trim().toUpperCase() : null;
+    const codeErr = await validateCode(codeUpper, id);
+    if (codeErr) return res.status(400).json({ error: codeErr });
+    data.code = codeUpper;
+  }
 
   try {
     const localite = await prisma.localite.update({
@@ -276,7 +305,51 @@ const deleteLocalite = async (req, res) => {
   }
 };
 
+// =============================================================
+//  LOOKUP FOKONTANY — point dans polygone PostGIS
+//  GET /api/v1/localites/lookup-fokontany?lat=...&lng=...
+// =============================================================
+
+const lookupFokontany = async (req, res) => {
+  const lat = parseFloat(req.query.lat);
+  const lng = parseFloat(req.query.lng);
+  if (isNaN(lat) || isNaN(lng)) {
+    return res.status(400).json({ error: 'Coordonnées invalides (lat & lng requis)' });
+  }
+  try {
+    // ST_Contains avec un point en lng/lat (Postgis attend X=lng, Y=lat)
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT fokontany, commune, district, region
+       FROM fokontany_geo
+       WHERE ST_Contains(geom, ST_SetSRID(ST_Point($1, $2), 4326))
+       LIMIT 1;`,
+      lng, lat,
+    );
+    if (!rows.length) {
+      // Fallback : nearest centroid (au cas où le point tombe en mer ou hors polygone)
+      const fallback = await prisma.$queryRawUnsafe(
+        `SELECT fokontany, commune, district, region,
+                ST_Distance(geom, ST_SetSRID(ST_Point($1, $2), 4326)) AS dist
+         FROM fokontany_geo
+         ORDER BY geom <-> ST_SetSRID(ST_Point($1, $2), 4326)
+         LIMIT 1;`,
+        lng, lat,
+      );
+      return res.json({
+        match: false,
+        nearest: fallback[0] || null,
+        message: 'Point hors polygone — fokontany le plus proche renvoyé',
+      });
+    }
+    return res.json({ match: true, ...rows[0] });
+  } catch (err) {
+    console.error('Erreur lookupFokontany :', err.message);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
+
 module.exports = {
   listLocalites, getLocalite, getCarteLocalites,
   createLocalite, updateLocalite, deleteLocalite,
+  lookupFokontany,
 };

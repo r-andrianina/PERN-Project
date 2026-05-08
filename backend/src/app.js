@@ -20,6 +20,7 @@ app.use('/api/v1/missions',   require('./routes/missions.routes'));
 app.use('/api/v1/localites',  require('./routes/localites.routes'));
 app.use('/api/v1/methodes',   require('./routes/methodes.routes'));
 app.use('/api/v1/hotes',      require('./routes/hotes.routes'));
+app.use('/api/v1/containers', require('./routes/containers.routes'));
 app.use('/api/v1/moustiques', require('./routes/specimens/moustiques.routes'));
 app.use('/api/v1/tiques',     require('./routes/specimens/tiques.routes'));
 app.use('/api/v1/puces',      require('./routes/specimens/puces.routes'));
@@ -32,6 +33,9 @@ app.use('/api/v1/dictionnaire/solutions-conservation', require('./routes/diction
 app.use('/api/v1/dictionnaire/types-environnement',    require('./routes/dictionnaire/typesEnvironnement.routes'));
 app.use('/api/v1/dictionnaire/types-habitat',          require('./routes/dictionnaire/typesHabitat.routes'));
 app.use('/api/v1/dictionnaire/audit-logs',             require('./routes/dictionnaire/auditLogs.routes'));
+
+// Recherche unifiée des spécimens
+app.use('/api/v1/recherche',  require('./routes/recherche.routes'));
 
 app.use((req, res) => res.status(404).json({ error: 'Route introuvable' }));
 app.use((err, req, res, next) => {

@@ -6,6 +6,8 @@ const prisma  = require('../config/prisma');
 const ExcelJS = require('exceljs');
 const fs      = require('fs');
 const { resolveSpecimenTaxonomyId, libelleTaxonomie } = require('../utils/taxonomyResolve');
+const { generateIdTerrain, generateMany, isIdTerrainUnique } = require('../utils/idTerrain');
+const { validatePlacement, nextAvailablePositions } = require('../utils/container');
 
 const includeBase = {
   methode: {
@@ -28,7 +30,8 @@ const includeBase = {
   taxonomie: {
     include: { parent: { include: { parent: true } } },
   },
-  solution: { select: { id: true, nom: true, temperature: true } },
+  solution:  { select: { id: true, nom: true, temperature: true } },
+  container: { select: { id: true, code: true, type: true } },
 };
 
 // GET /api/v1/moustiques
@@ -74,11 +77,14 @@ const getMoustique = async (req, res) => {
 };
 
 // POST /api/v1/moustiques
+// Mode "bulk" : si containerId.type=BOITE, mode='split' et nombre>1, créer N enregistrements (1/tube)
+//                aux N prochaines positions libres.
 const createMoustique = async (req, res) => {
   const {
-    methodeId, taxonomieId, nombre, sexe, stade, parite,
-    repasSang, organePreleve, solutionId, contenant,
-    positionPlaque, dateCollecte, notes,
+    methodeId, taxonomieId, idTerrain, nombre, sexe, stade, parite,
+    repasSang, organePreleve, solutionId,
+    containerId, position, dateCollecte, notes,
+    insertMode, // 'single' (default) | 'split' (1 individu/tube)
   } = req.body;
 
   if (!methodeId)   return res.status(400).json({ error: 'methodeId obligatoire' });
@@ -94,19 +100,81 @@ const createMoustique = async (req, res) => {
     if (!taxo.actif) return res.status(400).json({ error: 'Cette taxonomie est désactivée' });
     if (taxo.type && taxo.type !== 'moustique') return res.status(400).json({ error: 'Taxonomie de type non-moustique' });
 
+    const nbInt = Math.max(parseInt(nombre) || 1, 1);
+    const cId   = containerId ? parseInt(containerId) : null;
+
+    // Le container (si fourni) impose des règles :
+    //  - PLAQUE : nombre=1 par enregistrement, position obligatoire et unique
+    //  - BOITE  : nombre>=1 par tube, plusieurs spécimens peuvent partager un tube
+    //             ou mode split → N enregistrements aux N prochaines positions libres
+    let container = null;
+    if (cId) {
+      container = await prisma.container.findUnique({ where: { id: cId } });
+      if (!container) return res.status(404).json({ error: 'Container introuvable' });
+    }
+
+    // ── MODE SPLIT (boîte uniquement) — N enregistrements 1 individu/tube ──
+    if (cId && container.type === 'BOITE' && insertMode === 'split' && nbInt > 1) {
+      const positions = await nextAvailablePositions(cId, nbInt);
+      const ids = await generateMany(parseInt(methodeId), nbInt);
+      const baseData = {
+        methodeId:    parseInt(methodeId),
+        taxonomieId:  parseInt(taxonomieId),
+        nombre:       1,
+        sexe:         sexe   || 'inconnu',
+        stade:        stade         || null,
+        parite:       parite        || null,
+        repasSang:    repasSang === true || repasSang === 'true',
+        organePreleve:organePreleve || null,
+        solutionId:   solutionId ? parseInt(solutionId) : null,
+        containerId:  cId,
+        dateCollecte: dateCollecte ? new Date(dateCollecte) : null,
+        notes:        notes || null,
+      };
+      const data = positions.map((p, i) => ({ ...baseData, position: p, idTerrain: ids[i] }));
+      const created = await prisma.moustique.createMany({ data });
+      return res.status(201).json({
+        message: `${created.count} moustique(s) enregistré(s) (1 individu / tube)`,
+        count:   created.count,
+        positions,
+      });
+    }
+
+    // ── MODE SINGLE (1 enregistrement) ──
+    // Plaque : nombre forcé à 1
+    if (cId && container.type === 'PLAQUE' && nbInt > 1) {
+      return res.status(400).json({ error: 'Une plaque ne peut contenir qu\'un seul spécimen par puit (nombre forcé à 1)' });
+    }
+
+    // Validation de la position
+    if (cId) {
+      const err = await validatePlacement(cId, position);
+      if (err) return res.status(400).json({ error: err });
+    }
+
+    // Génération ou validation de l'idTerrain
+    let finalIdTerrain = idTerrain ? idTerrain.trim() : null;
+    if (finalIdTerrain) {
+      const ok = await isIdTerrainUnique(finalIdTerrain);
+      if (!ok) return res.status(409).json({ error: `L'ID "${finalIdTerrain}" est déjà utilisé` });
+    } else {
+      finalIdTerrain = await generateIdTerrain(parseInt(methodeId));
+    }
+
     const moustique = await prisma.moustique.create({
       data: {
+        idTerrain:      finalIdTerrain,
         methodeId:      parseInt(methodeId),
         taxonomieId:    parseInt(taxonomieId),
-        nombre:         nombre ? parseInt(nombre) : 1,
+        nombre:         cId && container.type === 'PLAQUE' ? 1 : nbInt,
         sexe:           sexe   || 'inconnu',
         stade:          stade         || null,
         parite:         parite        || null,
         repasSang:      repasSang === true || repasSang === 'true',
         organePreleve:  organePreleve || null,
         solutionId:     solutionId    ? parseInt(solutionId) : null,
-        contenant:      contenant     || null,
-        positionPlaque: positionPlaque|| null,
+        containerId:    cId,
+        position:       position || null,
         dateCollecte:   dateCollecte  ? new Date(dateCollecte) : null,
         notes:          notes         || null,
       },
@@ -116,7 +184,7 @@ const createMoustique = async (req, res) => {
     return res.status(201).json({ message: 'Moustique enregistré', moustique });
   } catch (err) {
     console.error('Erreur createMoustique :', err.message);
-    return res.status(500).json({ error: 'Erreur serveur' });
+    return res.status(500).json({ error: err.message || 'Erreur serveur' });
   }
 };
 
@@ -124,12 +192,21 @@ const createMoustique = async (req, res) => {
 const updateMoustique = async (req, res) => {
   const id = parseInt(req.params.id);
   const {
-    taxonomieId, nombre, sexe, stade, parite,
-    repasSang, organePreleve, solutionId, contenant,
-    positionPlaque, dateCollecte, notes,
+    taxonomieId, idTerrain, nombre, sexe, stade, parite,
+    repasSang, organePreleve, solutionId,
+    containerId, position, dateCollecte, notes,
   } = req.body;
 
   const data = {};
+  if (idTerrain !== undefined) {
+    if (idTerrain) {
+      const ok = await isIdTerrainUnique(idTerrain.trim(), 'moustique', id);
+      if (!ok) return res.status(409).json({ error: `L'ID "${idTerrain}" est déjà utilisé` });
+      data.idTerrain = idTerrain.trim();
+    } else {
+      data.idTerrain = null;
+    }
+  }
   if (taxonomieId    !== undefined) data.taxonomieId    = parseInt(taxonomieId);
   if (nombre         !== undefined) data.nombre         = parseInt(nombre);
   if (sexe           !== undefined) data.sexe           = sexe;
@@ -138,8 +215,8 @@ const updateMoustique = async (req, res) => {
   if (repasSang      !== undefined) data.repasSang      = repasSang === true || repasSang === 'true';
   if (organePreleve  !== undefined) data.organePreleve  = organePreleve;
   if (solutionId     !== undefined) data.solutionId     = solutionId ? parseInt(solutionId) : null;
-  if (contenant      !== undefined) data.contenant      = contenant;
-  if (positionPlaque !== undefined) data.positionPlaque = positionPlaque;
+  if (containerId    !== undefined) data.containerId    = containerId ? parseInt(containerId) : null;
+  if (position       !== undefined) data.position       = position;
   if (dateCollecte   !== undefined) data.dateCollecte   = dateCollecte ? new Date(dateCollecte) : null;
   if (notes          !== undefined) data.notes          = notes;
 
@@ -210,10 +287,8 @@ const importExcel = async (req, res) => {
       const parite        = row.getCell(6).value?.toString().trim() || null;
       const repasSang     = row.getCell(7).value?.toString().toLowerCase() === 'oui';
       const organePreleve = row.getCell(8).value?.toString().trim() || null;
-      const contenant     = row.getCell(9).value?.toString().trim() || null;
-      const positionPlaque= row.getCell(10).value?.toString().trim() || null;
-      const dateRaw       = row.getCell(11).value;
-      const notes         = row.getCell(12).value?.toString().trim() || null;
+      const dateRaw       = row.getCell(9).value;
+      const notes         = row.getCell(10).value?.toString().trim() || null;
 
       let dateCollecte = null;
       if (dateRaw) {
@@ -227,11 +302,14 @@ const importExcel = async (req, res) => {
         nombre:      parseInt(row.getCell(3).value) || 1,
         sexe:        ['M', 'F', 'inconnu'].includes(sexe) ? sexe : 'inconnu',
         stade, parite, repasSang, organePreleve,
-        contenant, positionPlaque, dateCollecte, notes,
+        dateCollecte, notes,
       });
     }
 
     if (dataRows.length > 0) {
+      // Génération en série des idTerrain (un par ligne)
+      const idsTerrain = await generateMany(parseInt(methodeId), dataRows.length);
+      dataRows.forEach((d, i) => { d.idTerrain = idsTerrain[i]; });
       const created = await prisma.moustique.createMany({ data: dataRows });
       results.success = created.count;
     }
@@ -273,6 +351,7 @@ const exportExcel = async (req, res) => {
         },
         taxonomie: { include: { parent: { include: { parent: true } } } },
         solution:  { select: { nom: true } },
+        container: { select: { code: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -281,6 +360,7 @@ const exportExcel = async (req, res) => {
     const worksheet = workbook.addWorksheet('Moustiques');
     worksheet.columns = [
       { header: 'ID',              key: 'id',             width: 8  },
+      { header: 'ID terrain',      key: 'idTerrain',      width: 14 },
       { header: 'Mission',         key: 'mission',        width: 15 },
       { header: 'Localité',        key: 'localite',       width: 20 },
       { header: 'Région',          key: 'region',         width: 15 },
@@ -295,8 +375,8 @@ const exportExcel = async (req, res) => {
       { header: 'Repas sang',      key: 'repasSang',      width: 12 },
       { header: 'Organe prélevé',  key: 'organePreleve',  width: 15 },
       { header: 'Solution',        key: 'solution',       width: 15 },
-      { header: 'Contenant',       key: 'contenant',      width: 15 },
-      { header: 'Position plaque', key: 'positionPlaque', width: 15 },
+      { header: 'Container',       key: 'container',      width: 18 },
+      { header: 'Position',        key: 'position',       width: 12 },
       { header: 'Date collecte',   key: 'dateCollecte',   width: 15 },
       { header: 'Notes',           key: 'notes',          width: 30 },
     ];
@@ -307,6 +387,7 @@ const exportExcel = async (req, res) => {
     moustiques.forEach((m) => {
       worksheet.addRow({
         id:             m.id,
+        idTerrain:      m.idTerrain,
         mission:        m.methode.localite.mission.ordreMission,
         localite:       m.methode.localite.nom,
         region:         m.methode.localite.region,
@@ -321,8 +402,8 @@ const exportExcel = async (req, res) => {
         repasSang:      m.repasSang ? 'Oui' : 'Non',
         organePreleve:  m.organePreleve,
         solution:       m.solution?.nom,
-        contenant:      m.contenant,
-        positionPlaque: m.positionPlaque,
+        container:      m.container?.code,
+        position:       m.position,
         dateCollecte:   m.dateCollecte ? m.dateCollecte.toISOString().split('T')[0] : null,
         notes:          m.notes,
       });

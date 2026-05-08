@@ -1,18 +1,23 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, FolderOpen, MapPin, Bug, BookOpen, Beaker, PawPrint,
+  LayoutDashboard, FolderOpen, MapPin, Bug, BookOpen, Beaker, PawPrint, Users, Search,
   Menu, X, LogOut, ChevronRight, FlaskConical,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 
 const NAV_ITEMS = [
   { path: '/dashboard',            label: 'Tableau de bord', icon: LayoutDashboard },
+  { path: '/recherche',            label: 'Explorer',        icon: Search          },
   { path: '/projets',              label: 'Projets',         icon: FolderOpen      },
   { path: '/missions',             label: 'Missions',        icon: MapPin          },
   { path: '/methodes',             label: 'Méthodes',        icon: Beaker          },
   { path: '/hotes',                label: 'Hôtes',           icon: PawPrint        },
   { path: '/dictionnaire',         label: 'Dictionnaire',    icon: BookOpen        },
+];
+
+const ADMIN_NAV = [
+  { path: '/utilisateurs',         label: 'Utilisateurs',    icon: Users           },
 ];
 
 const SPECIMEN_ITEMS = [
@@ -133,6 +138,38 @@ export default function MainLayout() {
               )}
             </NavLink>
           ))}
+
+          {/* Section Administration (admin uniquement) */}
+          {user?.role === 'admin' && (
+            <>
+              <div className="pt-4 pb-1">
+                <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  Administration
+                </p>
+              </div>
+              {ADMIN_NAV.map(({ path, label, icon: Icon }) => (
+                <NavLink
+                  key={path}
+                  to={path}
+                  onClick={closeSidebar}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-primary-600 text-white shadow-sm'
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon size={17} className={isActive ? 'text-white' : 'text-purple-500'} />
+                      {label}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </>
+          )}
         </nav>
 
         {/* Profil utilisateur */}

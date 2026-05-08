@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, Bug, Microscope, FlaskConical, FileText, PawPrint, Check, Loader2 } from 'lucide-react';
+import { ChevronLeft, Bug, Microscope, FlaskConical, FileText, PawPrint, Check, Loader2, Info } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
-import BoiteTubes from '../../components/BoiteTubes';
+import MethodeCascade from '../../components/MethodeCascade';
+import IdTerrainField from '../../components/IdTerrainField';
+import ContainerSelector from '../../components/ContainerSelector';
 
 export default function NouveauTique() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    methodeId: '', hoteId: '', taxonomieId: '',
+    methodeId: '', hoteId: '', taxonomieId: '', idTerrain: '',
     nombre: '1', sexe: 'inconnu', stade: '', gorge: false,
-    partieCorpsHote: '', solutionId: '', contenant: '',
-    positionPlaque: '', dateCollecte: '', notes: '',
+    partieCorpsHote: '', solutionId: '',
+    containerId: '', position: '', insertMode: 'single',
+    dateCollecte: '', notes: '',
   });
-
-  const [methodes,   setMethodes]   = useState([]);
+  const [missionId, setMissionId] = useState(null);
   const [hotes,      setHotes]      = useState([]);
   const [taxonomies, setTaxonomies] = useState([]);
   const [solutions,  setSolutions]  = useState([]);
@@ -24,15 +26,13 @@ export default function NouveauTique() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/methodes'),
       api.get('/hotes').catch(() => ({ data: { hotes: [] } })),
       api.get('/dictionnaire/taxonomie-specimens', { params: { type: 'tique', niveau: 'espece', actif: 'true' } }),
       api.get('/dictionnaire/solutions-conservation', { params: { actif: 'true' } }),
-    ]).then(([mRes, hRes, tRes, sRes]) => {
-      setMethodes(mRes.data.methodes || []);
-      setHotes(hRes.data.hotes        || []);
-      setTaxonomies(tRes.data.items   || []);
-      setSolutions(sRes.data.items    || []);
+    ]).then(([hRes, tRes, sRes]) => {
+      setHotes(hRes.data.hotes       || []);
+      setTaxonomies(tRes.data.items  || []);
+      setSolutions(sRes.data.items   || []);
     }).catch(console.error);
   }, []);
 
@@ -42,11 +42,30 @@ export default function NouveauTique() {
     setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
   };
 
+  // ── Cascade biologique : Stade → Sexe → Gorgée ──
+  const stadeImmature = form.stade === 'Larve' || form.stade === 'Nymphe';
+  const sexeDisabled  = stadeImmature; // larve/nymphe = sexe pas déterminable
+  const sexeForce     = stadeImmature ? 'inconnu' : form.sexe;
+  const gorgeDisabled = sexeForce === 'M'; // un mâle adulte ne se gorge pas
+
+  useEffect(() => {
+    setForm((f) => {
+      const next = { ...f };
+      if (sexeDisabled && f.sexe !== 'inconnu') next.sexe = 'inconnu';
+      if (gorgeDisabled && f.gorge)             next.gorge = false;
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.stade, form.sexe]);
+
   const validate = () => {
     const errs = {};
     if (!form.methodeId)   errs.methodeId   = 'La méthode de collecte est obligatoire';
     if (!form.taxonomieId) errs.taxonomieId = 'La taxonomie est obligatoire (référentiel)';
     if (!form.nombre || parseInt(form.nombre) < 1) errs.nombre = 'Nombre invalide';
+    if (form.containerId && !form.position && form.insertMode !== 'split') {
+      errs.position = 'Sélectionnez une position dans le container';
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -61,7 +80,9 @@ export default function NouveauTique() {
         methodeId:    parseInt(form.methodeId),
         hoteId:       form.hoteId ? parseInt(form.hoteId) : null,
         taxonomieId:  parseInt(form.taxonomieId),
-        solutionId:   form.solutionId ? parseInt(form.solutionId) : null,
+        solutionId:   form.solutionId  ? parseInt(form.solutionId)  : null,
+        containerId:  form.containerId ? parseInt(form.containerId) : null,
+        position:     form.position    || null,
         nombre:       parseInt(form.nombre),
         gorge:        form.gorge,
         dateCollecte: form.dateCollecte || null,
@@ -74,10 +95,7 @@ export default function NouveauTique() {
     }
   };
 
-  const methodeOptions   = methodes.map(m => ({
-    value: m.id, label: `${m.typeMethode?.nom || 'Méthode'} — ${m.localite?.nom || ''}`,
-  }));
-  const hoteOptions      = hotes.map(h => ({
+  const hoteOptions = hotes.map(h => ({
     value: h.id,
     label: `${h.taxonomieHote?.nom || 'Hôte'}${h.especeLocale ? ' — ' + h.especeLocale : ''}`,
   }));
@@ -111,13 +129,21 @@ export default function NouveauTique() {
             Identification du spécimen
           </h2>
           <div className="space-y-4">
-            <FormField label="Méthode de collecte" name="methodeId" type="select"
-              value={form.methodeId} onChange={handleChange}
-              options={methodeOptions} required error={errors.methodeId} />
+            <MethodeCascade
+              methodeId={form.methodeId}
+              onChange={(id) => { setErrors((e) => ({ ...e, methodeId: null })); setForm((f) => ({ ...f, methodeId: id, containerId: '', position: '' })); }}
+              onMissionChange={setMissionId}
+              error={errors.methodeId}
+            />
+            <IdTerrainField
+              methodeId={form.methodeId}
+              value={form.idTerrain}
+              onChange={(v) => setForm((f) => ({ ...f, idTerrain: v }))}
+              error={errors.idTerrain}
+            />
             <FormField label="Espèce (référentiel)" name="taxonomieId" type="select"
               value={form.taxonomieId} onChange={handleChange}
-              options={taxonomieOptions} required error={errors.taxonomieId}
-              hint="Sélection obligatoire depuis le dictionnaire" />
+              options={taxonomieOptions} required error={errors.taxonomieId} />
           </div>
         </div>
 
@@ -134,40 +160,66 @@ export default function NouveauTique() {
             </div>
             <FormField label="Partie du corps" name="partieCorpsHote" type="select"
               value={form.partieCorpsHote} onChange={handleChange} options={partieOptions} />
-            <div className="flex items-center gap-3 pt-6">
-              <input type="checkbox" id="gorge" name="gorge"
-                checked={form.gorge} onChange={handleChange}
-                className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500" />
-              <label htmlFor="gorge" className="text-sm text-gray-600 cursor-pointer">
-                Tique gorgée de sang
-              </label>
-            </div>
           </div>
         </div>
 
+        {/* Morphologie — Stade AVANT Sexe + cascade */}
         <div className="card p-6">
           <h2 className="section-title">
             <Microscope size={17} className="text-blue-500" />
             Morphologie
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+
+          {stadeImmature && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2 text-xs text-blue-700">
+              <Info size={13} className="mt-0.5 flex-shrink-0" />
+              <span>Au stade <strong>{form.stade}</strong>, le sexe ne peut pas être déterminé.</span>
+            </div>
+          )}
+          {!stadeImmature && form.sexe === 'M' && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2 text-xs text-blue-700">
+              <Info size={13} className="mt-0.5 flex-shrink-0" />
+              <span>Un mâle adulte ne se gorge pas — l'option « gorgée » est désactivée.</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <FormField label="Nombre" name="nombre" type="number" value={form.nombre} onChange={handleChange} required error={errors.nombre} />
-            <FormField label="Sexe" name="sexe" type="select" value={form.sexe} onChange={handleChange} options={sexeOptions} />
             <FormField label="Stade" name="stade" type="select" value={form.stade} onChange={handleChange} options={stadeOptions} />
+            <FormField label="Sexe" name="sexe" type="select"
+              value={sexeForce} onChange={handleChange}
+              options={sexeOptions} disabled={sexeDisabled}
+              hint={sexeDisabled ? 'Indéterminable à ce stade' : undefined} />
+            <div className="flex items-center gap-3 pt-6">
+              <input type="checkbox" id="gorge" name="gorge"
+                checked={form.gorge} onChange={handleChange}
+                disabled={gorgeDisabled}
+                className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500 disabled:opacity-40" />
+              <label htmlFor="gorge" className={`text-sm cursor-pointer ${gorgeDisabled ? 'text-gray-300' : 'text-gray-600'}`}>
+                Gorgée de sang
+              </label>
+            </div>
           </div>
         </div>
 
+        {/* Conservation */}
         <div className="card p-6">
           <h2 className="section-title">
             <FlaskConical size={17} className="text-purple-500" />
             Conservation
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
             <FormField label="Solution de conservation" name="solutionId" type="select" value={form.solutionId} onChange={handleChange} options={solutionOptions} />
-            <FormField label="Contenant" name="contenant" value={form.contenant} onChange={handleChange} placeholder="ex: Tube cryogénique 1.8ml" />
             <FormField label="Date de collecte" name="dateCollecte" type="date" value={form.dateCollecte} onChange={handleChange} />
           </div>
-          <BoiteTubes value={form.positionPlaque} onChange={(pos) => setForm({ ...form, positionPlaque: pos })} />
+          <ContainerSelector
+            missionId={missionId}
+            value={{ containerId: form.containerId, position: form.position, insertMode: form.insertMode }}
+            onChange={({ containerId, position, insertMode }) =>
+              setForm((f) => ({ ...f, containerId, position, insertMode }))}
+            nombre={parseInt(form.nombre) || 1}
+            error={errors.position}
+          />
         </div>
 
         <div className="card p-6">

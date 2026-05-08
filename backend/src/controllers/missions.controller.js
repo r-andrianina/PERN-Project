@@ -121,6 +121,9 @@ const createMission = async (req, res) => {
       error: "L'ordre de mission, le projet et la date de début sont obligatoires",
     });
   }
+  if (Array.isArray(agentIds) && agentIds.length > 5) {
+    return res.status(400).json({ error: 'Maximum 5 agents de terrain par mission' });
+  }
 
   try {
     // Vérifier unicité ordre de mission
@@ -195,6 +198,10 @@ const updateMission = async (req, res) => {
   if (dateFin !== undefined)       data.dateFin       = dateFin ? new Date(dateFin) : null;
   if (statut)                      data.statut        = statut;
   if (observations !== undefined)  data.observations  = observations;
+
+  if (Array.isArray(agentIds) && agentIds.length > 5) {
+    return res.status(400).json({ error: 'Maximum 5 agents de terrain par mission' });
+  }
 
   try {
     // Mettre à jour les agents si fournis

@@ -36,11 +36,18 @@ router.get(
 );
 
 // PATCH /api/v1/auth/users/:id/activate — Activer/désactiver + changer rôle
-router.patch(
-  '/users/:id/activate',
-  verifyToken,
-  requireRole('admin'),
-  authCtrl.activateUser
-);
+router.patch('/users/:id/activate',      verifyToken, requireRole('admin'), authCtrl.activateUser);
+
+// POST   /api/v1/auth/users        — Admin crée un compte
+router.post('/users',                    verifyToken, requireRole('admin'), authCtrl.createUser);
+
+// PUT    /api/v1/auth/users/:id    — Admin modifie nom/prenom/email/role
+router.put('/users/:id',                 verifyToken, requireRole('admin'), authCtrl.updateUser);
+
+// DELETE /api/v1/auth/users/:id    — Admin supprime un compte
+router.delete('/users/:id',              verifyToken, requireRole('admin'), authCtrl.deleteUser);
+
+// PATCH  /api/v1/auth/users/:id/reset-password — Admin réinitialise le mdp
+router.patch('/users/:id/reset-password', verifyToken, requireRole('admin'), authCtrl.resetPassword);
 
 module.exports = router;

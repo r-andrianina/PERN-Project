@@ -1,7 +1,7 @@
 import { AlertCircle } from 'lucide-react';
 
 export default function FormField({
-  label, name, type = 'text', value, onChange,
+  label, name, type = 'text', value, onChange, onBlur,
   placeholder, required, options, error, hint, disabled,
 }) {
   const baseClass = `
@@ -45,7 +45,7 @@ export default function FormField({
 
       ) : (
         <input
-          type={type} name={name} value={value} onChange={onChange}
+          type={type} name={name} value={value} onChange={onChange} onBlur={onBlur}
           placeholder={placeholder} required={required} disabled={disabled}
           className={baseClass}
         />

@@ -9,6 +9,7 @@ router.use(verifyToken);
 
 router.get('/',    ctrl.listMethodes);
 router.get('/:id', ctrl.getMethode);
+router.get('/:id/preview-id-terrain', ctrl.previewIdTerrain);
 
 // Admin + Chercheur + Terrain peuvent créer/modifier des méthodes
 router.post('/',    requireMinRole('terrain'), ctrl.createMethode);

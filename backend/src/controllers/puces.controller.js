@@ -6,6 +6,8 @@ const prisma  = require('../config/prisma');
 const ExcelJS = require('exceljs');
 const fs      = require('fs');
 const { resolveSpecimenTaxonomyId, libelleTaxonomie } = require('../utils/taxonomyResolve');
+const { generateIdTerrain, generateMany, isIdTerrainUnique } = require('../utils/idTerrain');
+const { validatePlacement, nextAvailablePositions } = require('../utils/container');
 
 const includeBase = {
   methode: {
@@ -23,6 +25,7 @@ const includeBase = {
   hote:      { include: { taxonomieHote: { select: { nom: true, niveau: true } } } },
   taxonomie: { include: { parent: { include: { parent: true } } } },
   solution:  { select: { id: true, nom: true } },
+  container: { select: { id: true, code: true, type: true } },
 };
 
 const listPuces = async (req, res) => {
@@ -58,8 +61,9 @@ const getPuce = async (req, res) => {
 
 const createPuce = async (req, res) => {
   const {
-    methodeId, hoteId, taxonomieId, nombre, sexe, stade,
-    solutionId, contenant, positionPlaque, dateCollecte, notes,
+    methodeId, hoteId, taxonomieId, idTerrain, nombre, sexe, stade,
+    solutionId, containerId, position, dateCollecte, notes,
+    insertMode,
   } = req.body;
 
   if (!methodeId)   return res.status(400).json({ error: 'methodeId obligatoire' });
@@ -75,45 +79,105 @@ const createPuce = async (req, res) => {
     if (!taxo.actif) return res.status(400).json({ error: 'Cette taxonomie est désactivée' });
     if (taxo.type && taxo.type !== 'puce') return res.status(400).json({ error: 'Taxonomie de type non-puce' });
 
+    const nbInt = Math.max(parseInt(nombre) || 1, 1);
+    const cId   = containerId ? parseInt(containerId) : null;
+
+    let container = null;
+    if (cId) {
+      container = await prisma.container.findUnique({ where: { id: cId } });
+      if (!container) return res.status(404).json({ error: 'Container introuvable' });
+    }
+
+    if (cId && container.type === 'BOITE' && insertMode === 'split' && nbInt > 1) {
+      const positions = await nextAvailablePositions(cId, nbInt);
+      const ids = await generateMany(parseInt(methodeId), nbInt);
+      const baseData = {
+        methodeId:    parseInt(methodeId),
+        hoteId:       hoteId ? parseInt(hoteId) : null,
+        taxonomieId:  parseInt(taxonomieId),
+        nombre:       1,
+        sexe:         sexe   || 'inconnu',
+        stade:        stade  || null,
+        solutionId:   solutionId ? parseInt(solutionId) : null,
+        containerId:  cId,
+        dateCollecte: dateCollecte ? new Date(dateCollecte) : null,
+        notes:        notes || null,
+      };
+      const data = positions.map((p, i) => ({ ...baseData, position: p, idTerrain: ids[i] }));
+      const created = await prisma.puce.createMany({ data });
+      return res.status(201).json({
+        message: `${created.count} puce(s) enregistrée(s) (1 individu / tube)`,
+        count:   created.count,
+        positions,
+      });
+    }
+
+    if (cId && container.type === 'PLAQUE' && nbInt > 1) {
+      return res.status(400).json({ error: 'Une plaque ne peut contenir qu\'un seul spécimen par puit' });
+    }
+
+    if (cId) {
+      const err = await validatePlacement(cId, position);
+      if (err) return res.status(400).json({ error: err });
+    }
+
+    let finalIdTerrain = idTerrain ? idTerrain.trim() : null;
+    if (finalIdTerrain) {
+      const ok = await isIdTerrainUnique(finalIdTerrain);
+      if (!ok) return res.status(409).json({ error: `L'ID "${finalIdTerrain}" est déjà utilisé` });
+    } else {
+      finalIdTerrain = await generateIdTerrain(parseInt(methodeId));
+    }
+
     const puce = await prisma.puce.create({
       data: {
+        idTerrain:      finalIdTerrain,
         methodeId:      parseInt(methodeId),
         hoteId:         hoteId ? parseInt(hoteId) : null,
         taxonomieId:    parseInt(taxonomieId),
-        nombre:         nombre ? parseInt(nombre) : 1,
+        nombre:         cId && container.type === 'PLAQUE' ? 1 : nbInt,
         sexe:           sexe   || 'inconnu',
-        stade:          stade          || null,
-        solutionId:     solutionId     ? parseInt(solutionId) : null,
-        contenant:      contenant      || null,
-        positionPlaque: positionPlaque || null,
-        dateCollecte:   dateCollecte   ? new Date(dateCollecte) : null,
-        notes:          notes          || null,
+        stade:          stade  || null,
+        solutionId:     solutionId ? parseInt(solutionId) : null,
+        containerId:    cId,
+        position:       position || null,
+        dateCollecte:   dateCollecte ? new Date(dateCollecte) : null,
+        notes:          notes || null,
       },
       include: includeBase,
     });
     return res.status(201).json({ message: 'Puce enregistrée', puce });
   } catch (err) {
     console.error('Erreur createPuce :', err.message);
-    return res.status(500).json({ error: 'Erreur serveur' });
+    return res.status(500).json({ error: err.message || 'Erreur serveur' });
   }
 };
 
 const updatePuce = async (req, res) => {
   const id = parseInt(req.params.id);
   const {
-    hoteId, taxonomieId, nombre, sexe, stade,
-    solutionId, contenant, positionPlaque, dateCollecte, notes,
+    hoteId, taxonomieId, idTerrain, nombre, sexe, stade,
+    solutionId, containerId, position, dateCollecte, notes,
   } = req.body;
 
   const data = {};
+  if (idTerrain !== undefined) {
+    if (idTerrain) {
+      const ok = await isIdTerrainUnique(idTerrain.trim(), 'puce', id);
+      if (!ok) return res.status(409).json({ error: `L'ID "${idTerrain}" est déjà utilisé` });
+      data.idTerrain = idTerrain.trim();
+    } else {
+      data.idTerrain = null;
+    }
+  }
   if (hoteId         !== undefined) data.hoteId         = hoteId ? parseInt(hoteId) : null;
   if (taxonomieId    !== undefined) data.taxonomieId    = parseInt(taxonomieId);
   if (nombre         !== undefined) data.nombre         = parseInt(nombre);
   if (sexe           !== undefined) data.sexe           = sexe;
   if (stade          !== undefined) data.stade          = stade;
   if (solutionId     !== undefined) data.solutionId     = solutionId ? parseInt(solutionId) : null;
-  if (contenant      !== undefined) data.contenant      = contenant;
-  if (positionPlaque !== undefined) data.positionPlaque = positionPlaque;
+  if (containerId    !== undefined) data.containerId    = containerId ? parseInt(containerId) : null;
+  if (position       !== undefined) data.position       = position;
   if (dateCollecte   !== undefined) data.dateCollecte   = dateCollecte ? new Date(dateCollecte) : null;
   if (notes          !== undefined) data.notes          = notes;
 
@@ -175,10 +239,8 @@ const importExcel = async (req, res) => {
 
       const sexe          = row.getCell(4).value?.toString().trim() || 'inconnu';
       const stade         = row.getCell(5).value?.toString().trim() || null;
-      const contenant     = row.getCell(6).value?.toString().trim() || null;
-      const positionPlaque= row.getCell(7).value?.toString().trim() || null;
-      const dateRaw       = row.getCell(8).value;
-      const notes         = row.getCell(9).value?.toString().trim() || null;
+      const dateRaw       = row.getCell(6).value;
+      const notes         = row.getCell(7).value?.toString().trim() || null;
 
       let dateCollecte = null;
       if (dateRaw) {
@@ -192,11 +254,13 @@ const importExcel = async (req, res) => {
         nombre:      parseInt(row.getCell(3).value) || 1,
         sexe:        ['M', 'F', 'inconnu'].includes(sexe) ? sexe : 'inconnu',
         stade,
-        contenant, positionPlaque, dateCollecte, notes,
+        dateCollecte, notes,
       });
     }
 
     if (dataRows.length > 0) {
+      const idsTerrain = await generateMany(parseInt(methodeId), dataRows.length);
+      dataRows.forEach((d, i) => { d.idTerrain = idsTerrain[i]; });
       const created = await prisma.puce.createMany({ data: dataRows });
       results.success = created.count;
     }
@@ -227,6 +291,7 @@ const exportExcel = async (req, res) => {
         hote:      { include: { taxonomieHote: { select: { nom: true } } } },
         taxonomie: { include: { parent: { include: { parent: true } } } },
         solution:  { select: { nom: true } },
+        container: { select: { code: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -235,6 +300,7 @@ const exportExcel = async (req, res) => {
     const worksheet = workbook.addWorksheet('Puces');
     worksheet.columns = [
       { header: 'ID',             key: 'id',             width: 8  },
+      { header: 'ID terrain',     key: 'idTerrain',      width: 14 },
       { header: 'Mission',        key: 'mission',        width: 15 },
       { header: 'Localité',       key: 'localite',       width: 20 },
       { header: 'Région',         key: 'region',         width: 15 },
@@ -247,8 +313,8 @@ const exportExcel = async (req, res) => {
       { header: 'Stade',          key: 'stade',          width: 10 },
       { header: 'Hôte',           key: 'hote',           width: 20 },
       { header: 'Solution',       key: 'solution',       width: 15 },
-      { header: 'Contenant',      key: 'contenant',      width: 15 },
-      { header: 'Position plaque',key: 'positionPlaque', width: 15 },
+      { header: 'Container',      key: 'container',      width: 18 },
+      { header: 'Position',       key: 'position',       width: 12 },
       { header: 'Date collecte',  key: 'dateCollecte',   width: 15 },
       { header: 'Notes',          key: 'notes',          width: 30 },
     ];
@@ -259,6 +325,7 @@ const exportExcel = async (req, res) => {
     puces.forEach((p) => {
       worksheet.addRow({
         id:             p.id,
+        idTerrain:      p.idTerrain,
         mission:        p.methode.localite.mission.ordreMission,
         localite:       p.methode.localite.nom,
         region:         p.methode.localite.region,
@@ -271,8 +338,8 @@ const exportExcel = async (req, res) => {
         stade:          p.stade,
         hote:           p.hote?.taxonomieHote?.nom,
         solution:       p.solution?.nom,
-        contenant:      p.contenant,
-        positionPlaque: p.positionPlaque,
+        container:      p.container?.code,
+        position:       p.position,
         dateCollecte:   p.dateCollecte ? p.dateCollecte.toISOString().split('T')[0] : null,
         notes:          p.notes,
       });

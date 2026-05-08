@@ -93,7 +93,7 @@ export default function MoustiquesPage() {
             <table className="w-full text-sm min-w-[700px]">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['#ID', 'Espèce', 'Nb', 'Sexe', 'Stade', 'Parité', 'Repas sang', 'Localité', 'Date collecte'].map(h => (
+                  {['ID terrain', '#ID', 'Espèce', 'Nb', 'Sexe', 'Stade', 'Parité', 'Repas sang', 'Localité', 'Date collecte'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -107,6 +107,11 @@ export default function MoustiquesPage() {
                     className="hover:bg-primary-50/40 transition-colors cursor-pointer group"
                     onClick={() => navigate(`/specimens/moustiques/${m.id}`)}
                   >
+                    <td className="px-4 py-3">
+                      {m.idTerrain
+                        ? <span className="font-mono text-xs font-bold bg-primary-50 text-primary-700 border border-primary-200 px-2 py-0.5 rounded">{m.idTerrain}</span>
+                        : <span className="text-gray-300 text-xs">—</span>}
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-400">#{m.id}</td>
                     <td className="px-4 py-3 font-semibold text-gray-700 italic">
                       {taxoLabel(m.taxonomie) || <span className="text-gray-300">—</span>}

@@ -3,6 +3,7 @@
 // Tous les champs scientifiques structurants pointent vers des référentiels.
 
 const prisma = require('../config/prisma');
+const { generateIdTerrain, getLocaliteByMethode } = require('../utils/idTerrain');
 
 const includeRefs = {
   localite: {
@@ -179,4 +180,26 @@ const deleteMethode = async (req, res) => {
   }
 };
 
-module.exports = { listMethodes, getMethode, createMethode, updateMethode, deleteMethode };
+// GET /api/v1/methodes/:id/preview-id-terrain
+// Renvoie l'idTerrain qui sera généré pour un nouveau spécimen sur cette méthode
+const previewIdTerrain = async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    const localite = await getLocaliteByMethode(id);
+    if (!localite) return res.status(404).json({ error: 'Méthode introuvable' });
+    if (!localite.code) {
+      return res.json({
+        idTerrain: null,
+        warning:   'Cette localité n\'a pas de code attribué — l\'ID terrain ne pourra pas être généré.',
+        localite:  { id: localite.id, nom: localite.nom },
+      });
+    }
+    const idTerrain = await generateIdTerrain(id);
+    return res.json({ idTerrain, localite: { id: localite.id, code: localite.code, nom: localite.nom } });
+  } catch (err) {
+    console.error('Erreur previewIdTerrain :', err.message);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
+
+module.exports = { listMethodes, getMethode, createMethode, updateMethode, deleteMethode, previewIdTerrain };

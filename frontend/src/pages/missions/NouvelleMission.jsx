@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, MapPin, ClipboardList, Plus, Trash2, Check, Loader2 } from 'lucide-react';
+import { ChevronLeft, MapPin, ClipboardList, Plus, Trash2, Check, Loader2, Tag } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import MapPicker from '../../components/MapPicker';
+import AgentMultiSelect from '../../components/AgentMultiSelect';
 
 const defaultLocalite = () => ({
   nom: '', toponyme: '', pays: 'Madagascar',
@@ -17,6 +18,7 @@ export default function NouvelleMission() {
   const [mission, setMission] = useState({
     ordreMission: '', projetId: '', chefMissionId: '',
     dateDebut: '', dateFin: '', statut: 'planifiee', observations: '',
+    agentIds: [],
   });
   const [localites, setLocalites]   = useState([defaultLocalite()]);
   const [projets, setProjets]       = useState([]);
@@ -24,6 +26,8 @@ export default function NouvelleMission() {
   const [isLoading, setIsLoading]   = useState(false);
   const [errors, setErrors]         = useState({});
   const [activeLocalite, setActiveLocalite] = useState(0);
+  // état auto-fill par localité : { 0: 'loading'|'match'|'nearest'|null }
+  const [autoFill,  setAutoFill]    = useState({});
 
   useEffect(() => {
     Promise.all([api.get('/projets'), api.get('/auth/users')])
@@ -44,10 +48,42 @@ export default function NouvelleMission() {
     setLocalites(updated);
   };
 
+  // Lookup PostGIS fokontany à partir des coordonnées
+  const lookupFokontany = async (index, lat, lng) => {
+    if (!lat || !lng) return;
+    setAutoFill((s) => ({ ...s, [index]: 'loading' }));
+    try {
+      const r = await api.get('/localites/lookup-fokontany', { params: { lat, lng } });
+      const d = r.data;
+      const filled = d.match ? d : d.nearest;
+      if (filled) {
+        const updated = [...localites];
+        updated[index] = {
+          ...updated[index],
+          region:    filled.region    || updated[index].region,
+          district:  filled.district  || updated[index].district,
+          commune:   filled.commune   || updated[index].commune,
+          fokontany: filled.fokontany || updated[index].fokontany,
+        };
+        setLocalites(updated);
+        setAutoFill((s) => ({ ...s, [index]: d.match ? 'match' : 'nearest' }));
+      } else {
+        setAutoFill((s) => ({ ...s, [index]: 'none' }));
+      }
+    } catch {
+      setAutoFill((s) => ({ ...s, [index]: 'none' }));
+    }
+  };
+
   const handleMapChange = (index, coords) => {
     const updated = [...localites];
     updated[index] = { ...updated[index], ...coords };
     setLocalites(updated);
+    if (coords.latitude && coords.longitude) {
+      lookupFokontany(index, coords.latitude, coords.longitude);
+    } else {
+      setAutoFill((s) => ({ ...s, [index]: null }));
+    }
   };
 
   const addLocalite = () => {
@@ -68,7 +104,11 @@ export default function NouvelleMission() {
     if (!mission.projetId)     errs.projetId     = 'Projet obligatoire';
     if (!mission.dateDebut)    errs.dateDebut    = 'Date de début obligatoire';
     localites.forEach((l, i) => {
-      if (!l.nom) errs[`localite_${i}_nom`] = 'Nom de localité obligatoire';
+      if (!l.nom)       errs[`localite_${i}_nom`]       = 'Nom obligatoire';
+      if (!l.region)    errs[`localite_${i}_region`]    = 'Région obligatoire';
+      if (!l.district)  errs[`localite_${i}_district`]  = 'District obligatoire';
+      if (!l.commune)   errs[`localite_${i}_commune`]   = 'Commune obligatoire';
+      if (!l.fokontany) errs[`localite_${i}_fokontany`] = 'Fokontany obligatoire';
     });
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -83,6 +123,7 @@ export default function NouvelleMission() {
         ...mission,
         projetId:      parseInt(mission.projetId),
         chefMissionId: mission.chefMissionId ? parseInt(mission.chefMissionId) : null,
+        agentIds:      mission.agentIds.map((id) => parseInt(id)),
       });
       const missionId = missionRes.data.mission.id;
       await Promise.all(
@@ -171,6 +212,16 @@ export default function NouvelleMission() {
               value={mission.dateFin} onChange={handleMissionChange}
             />
             <div className="md:col-span-2">
+              <AgentMultiSelect
+                label="Agents de terrain"
+                value={mission.agentIds}
+                onChange={(ids) => setMission((m) => ({ ...m, agentIds: ids }))}
+                users={users}
+                max={5}
+                hint="Maximum 5 agents — sélection parmi les utilisateurs actifs"
+              />
+            </div>
+            <div className="md:col-span-2">
               <FormField
                 label="Observations" name="observations" type="textarea"
                 value={mission.observations} onChange={handleMissionChange}
@@ -233,8 +284,8 @@ export default function NouvelleMission() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+                <div className="space-y-4 flex flex-col">
                   <FormField
                     label="Nom de la localité" name="nom"
                     value={loc.nom} onChange={(e) => handleLocaliteChange(index, e)}
@@ -246,37 +297,62 @@ export default function NouvelleMission() {
                     value={loc.toponyme} onChange={(e) => handleLocaliteChange(index, e)}
                     placeholder="Nom local / alternatif"
                   />
+
+                  {/* Bandeau auto-fill */}
+                  {autoFill[index] === 'loading' && (
+                    <div className="p-2.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-2 text-xs text-blue-700">
+                      <Loader2 size={12} className="animate-spin" /> Recherche du fokontany à ces coordonnées…
+                    </div>
+                  )}
+                  {autoFill[index] === 'match' && (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-2 text-xs text-emerald-700">
+                      <Check size={12} /> Région / district / commune / fokontany pré-remplis depuis la base PostGIS — modifiables si besoin
+                    </div>
+                  )}
+                  {autoFill[index] === 'nearest' && (
+                    <div className="p-2.5 bg-amber-50 border border-amber-100 rounded-xl flex items-center gap-2 text-xs text-amber-700">
+                      <Tag size={12} /> Point hors polygones — fokontany le plus proche utilisé
+                    </div>
+                  )}
+
                   <FormField
-                    label="Région" name="region" type="select"
+                    label="Région" name="region"
                     value={loc.region} onChange={(e) => handleLocaliteChange(index, e)}
-                    options={regions}
+                    placeholder="ex: Analamanga" required
+                    error={errors[`localite_${index}_region`]}
+                    hint="Pré-rempli au clic sur la carte"
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <FormField
                       label="District" name="district"
                       value={loc.district} onChange={(e) => handleLocaliteChange(index, e)}
-                      placeholder="District"
+                      placeholder="ex: Ankazobe" required
+                      error={errors[`localite_${index}_district`]}
                     />
                     <FormField
                       label="Commune" name="commune"
                       value={loc.commune} onChange={(e) => handleLocaliteChange(index, e)}
-                      placeholder="Commune"
+                      placeholder="Commune" required
+                      error={errors[`localite_${index}_commune`]}
                     />
                   </div>
                   <FormField
                     label="Fokontany" name="fokontany"
                     value={loc.fokontany} onChange={(e) => handleLocaliteChange(index, e)}
-                    placeholder="Fokontany"
+                    placeholder="Fokontany" required
+                    error={errors[`localite_${index}_fokontany`]}
                   />
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-3 mt-auto">
                     <FormField
                       label="Latitude" name="latitude"
                       value={loc.latitude} onChange={(e) => handleLocaliteChange(index, e)}
+                      onBlur={() => lookupFokontany(index, loc.latitude, loc.longitude)}
                       placeholder="-18.9137" hint="Cliquez sur la carte"
                     />
                     <FormField
                       label="Longitude" name="longitude"
                       value={loc.longitude} onChange={(e) => handleLocaliteChange(index, e)}
+                      onBlur={() => lookupFokontany(index, loc.latitude, loc.longitude)}
                       placeholder="47.5361"
                     />
                     <FormField
@@ -287,16 +363,19 @@ export default function NouvelleMission() {
                   </div>
                 </div>
 
-                <div>
+                {/* Colonne carte — alignée verticalement avec la colonne gauche */}
+                <div className="flex flex-col">
                   <p className="text-xs font-semibold text-gray-600 tracking-wide mb-1.5">
-                    Carte — cliquez pour placer le point GPS
+                    Carte — cliquez pour placer le point GPS et auto-remplir
                   </p>
-                  <MapPicker
-                    latitude={loc.latitude}
-                    longitude={loc.longitude}
-                    onChange={(coords) => handleMapChange(index, coords)}
-                    height="350px"
-                  />
+                  <div className="flex-1 min-h-[480px]">
+                    <MapPicker
+                      latitude={loc.latitude}
+                      longitude={loc.longitude}
+                      onChange={(coords) => handleMapChange(index, coords)}
+                      height="100%"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

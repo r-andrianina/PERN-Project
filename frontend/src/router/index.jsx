@@ -32,10 +32,19 @@ import SolutionsConservationPage from '../pages/dictionnaire/SolutionsConservati
 import TypesEnvironnementPage   from '../pages/dictionnaire/TypesEnvironnementPage';
 import TypesHabitatPage         from '../pages/dictionnaire/TypesHabitatPage';
 import AuditLogsPage            from '../pages/dictionnaire/AuditLogsPage';
+import UtilisateursPage         from '../pages/utilisateurs/UtilisateursPage';
+import RecherchePage            from '../pages/recherche/RecherchePage';
 
 const ProtectedRoute = ({ children }) => {
   const token = useAuthStore((s) => s.token);
   if (!token) return <Navigate to="/login" replace />;
+  return children;
+};
+
+const AdminRoute = ({ children }) => {
+  const { token, user } = useAuthStore();
+  if (!token) return <Navigate to="/login" replace />;
+  if (user?.role !== 'admin') return <Navigate to="/dashboard" replace />;
   return children;
 };
 
@@ -73,6 +82,9 @@ const router = createBrowserRouter([
       { path: 'hotes',                        element: <HotesPage /> },
       { path: 'hotes/nouveau',                element: <NouvelHote /> },
 
+      // Recherche / explorer
+      { path: 'recherche',                    element: <RecherchePage /> },
+
       // Spécimens
       { path: 'specimens/moustiques',         element: <MoustiquesPage /> },
       { path: 'specimens/moustiques/nouveau', element: <NouveauMoustique /> },
@@ -80,6 +92,9 @@ const router = createBrowserRouter([
       { path: 'specimens/tiques/nouveau',     element: <NouveauTique /> },
       { path: 'specimens/puces',              element: <PucesPage /> },
       { path: 'specimens/puces/nouveau',      element: <NouveauPuce /> },
+
+      // Utilisateurs (admin)
+      { path: 'utilisateurs',                          element: <AdminRoute><UtilisateursPage /></AdminRoute> },
 
       // Dictionnaire de données
       { path: 'dictionnaire',                          element: <DictionnairePage /> },

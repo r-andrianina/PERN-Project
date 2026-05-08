@@ -101,7 +101,7 @@ const getProjet = async (req, res) => {
 // =============================================================
 
 const createProjet = async (req, res) => {
-  const { code, nom, description, responsableId, dateDebut, dateFin, statut } = req.body;
+  const { code, nom, description, porteur, responsableId, dateDebut, dateFin, statut } = req.body;
 
   // Validation
   if (!code || !nom) {
@@ -126,6 +126,7 @@ const createProjet = async (req, res) => {
         code:          code.toUpperCase().trim(),
         nom:           nom.trim(),
         description:   description || null,
+        porteur:       porteur ? porteur.trim() : null,
         responsableId: responsableId ? parseInt(responsableId) : null,
         dateDebut:     dateDebut ? new Date(dateDebut) : null,
         dateFin:       dateFin   ? new Date(dateFin)   : null,
@@ -157,12 +158,13 @@ const createProjet = async (req, res) => {
 
 const updateProjet = async (req, res) => {
   const id = parseInt(req.params.id);
-  const { nom, description, responsableId, dateDebut, dateFin, statut } = req.body;
+  const { nom, description, porteur, responsableId, dateDebut, dateFin, statut } = req.body;
 
   // Construire les données à mettre à jour (uniquement ce qui est fourni)
   const data = {};
   if (nom)                          data.nom           = nom.trim();
   if (description !== undefined)    data.description   = description;
+  if (porteur       !== undefined)  data.porteur       = porteur ? porteur.trim() : null;
   if (responsableId !== undefined)  data.responsableId = responsableId ? parseInt(responsableId) : null;
   if (dateDebut)                    data.dateDebut     = new Date(dateDebut);
   if (dateFin !== undefined)        data.dateFin       = dateFin ? new Date(dateFin) : null;

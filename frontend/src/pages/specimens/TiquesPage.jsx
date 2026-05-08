@@ -91,7 +91,7 @@ export default function TiquesPage() {
             <table className="w-full text-sm min-w-[750px]">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['#ID', 'Espèce', 'Nb', 'Sexe', 'Stade', 'Gorgée', 'Hôte', 'Position', 'Localité', 'Date collecte'].map(h => (
+                  {['ID terrain', '#ID', 'Espèce', 'Nb', 'Sexe', 'Stade', 'Gorgée', 'Hôte', 'Position', 'Localité', 'Date collecte'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -105,6 +105,11 @@ export default function TiquesPage() {
                     className="hover:bg-rose-50/30 transition-colors cursor-pointer group"
                     onClick={() => navigate(`/specimens/tiques/${t.id}`)}
                   >
+                    <td className="px-4 py-3">
+                      {t.idTerrain
+                        ? <span className="font-mono text-xs font-bold bg-primary-50 text-primary-700 border border-primary-200 px-2 py-0.5 rounded">{t.idTerrain}</span>
+                        : <span className="text-gray-300 text-xs">—</span>}
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-400">#{t.id}</td>
                     <td className="px-4 py-3 font-semibold text-gray-700 italic">{taxoLabel(t.taxonomie) || <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3 text-gray-600 font-medium">{t.nombre}</td>
@@ -125,8 +130,10 @@ export default function TiquesPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{t.hote?.taxonomieHote?.nom || <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3">
-                      {t.positionPlaque
-                        ? <span className="font-mono text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-lg">{t.positionPlaque}</span>
+                      {t.position
+                        ? <span className="font-mono text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-lg">
+                            {t.container?.code ? `${t.container.code} ${t.position}` : t.position}
+                          </span>
                         : <span className="text-gray-300">—</span>
                       }
                     </td>

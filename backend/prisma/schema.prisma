@@ -66,6 +66,11 @@ enum AuditAction {
   DEACTIVATE
 }
 
+enum ContainerType {
+  PLAQUE  // 96 puits — 1 spécimen par puit
+  BOITE   // 81 tubes — 1 ou plusieurs spécimens par tube
+}
+
 // =============================================================
 //  UTILISATEURS
 // =============================================================
@@ -99,6 +104,7 @@ model Projet {
   code          String       @unique @db.VarChar(50)
   nom           String       @db.VarChar(200)
   description   String?      @db.Text
+  porteur       String?      @db.VarChar(200)
   responsableId Int?         @map("responsable_id")
   dateDebut     DateTime?    @map("date_debut") @db.Date
   dateFin       DateTime?    @map("date_fin") @db.Date
@@ -132,6 +138,7 @@ model Mission {
   chefMission User?          @relation("ChefMission", fields: [chefMissionId], references: [id])
   agents      MissionAgent[]
   localites   Localite[]
+  containers  Container[]
 
   @@map("missions")
 }
@@ -154,6 +161,7 @@ model MissionAgent {
 model Localite {
   id        Int      @id @default(autoincrement())
   missionId Int      @map("mission_id")
+  code      String?  @unique @db.VarChar(10)
   nom       String   @db.VarChar(200)
   toponyme  String?  @db.VarChar(200)
   pays      String   @default("Madagascar") @db.VarChar(100)
@@ -364,6 +372,7 @@ model Hote {
 
 model Moustique {
   id             Int       @id @default(autoincrement())
+  idTerrain      String?   @unique @map("id_terrain") @db.VarChar(50)
   methodeId      Int       @map("methode_id")
   taxonomieId    Int       @map("taxonomie_id")
   nombre         Int       @default(1)
@@ -373,8 +382,8 @@ model Moustique {
   repasSang      Boolean   @default(false) @map("repas_sang")
   organePreleve  String?   @map("organe_preleve") @db.VarChar(100)
   solutionId     Int?      @map("solution_id")
-  contenant      String?   @db.VarChar(100)
-  positionPlaque String?   @map("position_plaque") @db.VarChar(10)
+  containerId    Int?      @map("container_id")
+  position       String?   @db.VarChar(10)
   dateCollecte   DateTime? @map("date_collecte") @db.Date
   notes          String?   @db.Text
   createdAt      DateTime  @default(now()) @map("created_at")
@@ -383,7 +392,9 @@ model Moustique {
   methode   MethodeCollecte       @relation(fields: [methodeId], references: [id], onDelete: Cascade)
   taxonomie TaxonomieSpecimen     @relation(fields: [taxonomieId], references: [id])
   solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
+  container Container?            @relation(fields: [containerId], references: [id])
 
+  @@index([containerId])
   @@map("moustiques")
 }
 
@@ -393,6 +404,7 @@ model Moustique {
 
 model Tique {
   id              Int       @id @default(autoincrement())
+  idTerrain       String?   @unique @map("id_terrain") @db.VarChar(50)
   methodeId       Int       @map("methode_id")
   hoteId          Int?      @map("hote_id")
   taxonomieId     Int       @map("taxonomie_id")
@@ -402,8 +414,8 @@ model Tique {
   gorge           Boolean   @default(false)
   partieCorpsHote String?   @map("partie_corps_hote") @db.VarChar(100)
   solutionId      Int?      @map("solution_id")
-  contenant       String?   @db.VarChar(100)
-  positionPlaque  String?   @map("position_plaque") @db.VarChar(10)
+  containerId     Int?      @map("container_id")
+  position        String?   @db.VarChar(10)
   dateCollecte    DateTime? @map("date_collecte") @db.Date
   notes           String?   @db.Text
   createdAt       DateTime  @default(now()) @map("created_at")
@@ -413,7 +425,9 @@ model Tique {
   hote      Hote?                 @relation(fields: [hoteId], references: [id])
   taxonomie TaxonomieSpecimen     @relation(fields: [taxonomieId], references: [id])
   solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
+  container Container?            @relation(fields: [containerId], references: [id])
 
+  @@index([containerId])
   @@map("tiques")
 }
 
@@ -423,6 +437,7 @@ model Tique {
 
 model Puce {
   id             Int       @id @default(autoincrement())
+  idTerrain      String?   @unique @map("id_terrain") @db.VarChar(50)
   methodeId      Int       @map("methode_id")
   hoteId         Int?      @map("hote_id")
   taxonomieId    Int       @map("taxonomie_id")
@@ -430,8 +445,8 @@ model Puce {
   sexe           Sexe      @default(inconnu)
   stade          String?   @db.VarChar(50)
   solutionId     Int?      @map("solution_id")
-  contenant      String?   @db.VarChar(100)
-  positionPlaque String?   @map("position_plaque") @db.VarChar(10)
+  containerId    Int?      @map("container_id")
+  position       String?   @db.VarChar(10)
   dateCollecte   DateTime? @map("date_collecte") @db.Date
   notes          String?   @db.Text
   createdAt      DateTime  @default(now()) @map("created_at")
@@ -441,8 +456,35 @@ model Puce {
   hote      Hote?                 @relation(fields: [hoteId], references: [id])
   taxonomie TaxonomieSpecimen     @relation(fields: [taxonomieId], references: [id])
   solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
+  container Container?            @relation(fields: [containerId], references: [id])
 
+  @@index([containerId])
   @@map("puces")
+}
+
+// =============================================================
+//  CONTAINERS — plaques 96 puits / boîtes 81 tubes
+// =============================================================
+
+model Container {
+  id          Int           @id @default(autoincrement())
+  code        String        @unique @db.VarChar(50)
+  type        ContainerType
+  capacity    Int
+  missionId   Int           @map("mission_id")
+  notes       String?       @db.Text
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  createdById Int?          @map("created_by")
+
+  mission    Mission     @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  moustiques Moustique[]
+  tiques     Tique[]
+  puces      Puce[]
+
+  @@index([type])
+  @@index([missionId])
+  @@map("containers")
 }
 
 // =============================================================

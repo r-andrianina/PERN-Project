@@ -192,4 +192,125 @@ const listUsers = async (req, res) => {
   }
 };
 
-module.exports = { register, login, me, activateUser, listUsers };
+// =============================================================
+//  CREATE USER — Admin crée un compte directement
+//  POST /api/v1/auth/users
+// =============================================================
+
+const createUser = async (req, res) => {
+  const { nom, prenom, email, password, role, actif } = req.body;
+
+  if (!nom || !prenom || !email || !password) {
+    return res.status(400).json({ error: 'nom, prenom, email et password sont obligatoires' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères' });
+  }
+  const rolesValides = ['admin', 'chercheur', 'terrain', 'lecteur'];
+  if (role && !rolesValides.includes(role)) {
+    return res.status(400).json({ error: 'Rôle invalide' });
+  }
+
+  try {
+    const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: {
+        nom: nom.trim(), prenom: prenom.trim(),
+        email: email.toLowerCase(),
+        passwordHash,
+        role:  role  || 'lecteur',
+        actif: actif !== undefined ? Boolean(actif) : true,
+      },
+      select: { id: true, nom: true, prenom: true, email: true, role: true, actif: true, createdAt: true },
+    });
+    return res.status(201).json({ message: 'Utilisateur créé avec succès', user });
+  } catch (err) {
+    console.error('Erreur createUser :', err.message);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
+
+// =============================================================
+//  UPDATE USER — Admin modifie nom/prenom/email/role
+//  PUT /api/v1/auth/users/:id
+// =============================================================
+
+const updateUser = async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { nom, prenom, email, role } = req.body;
+
+  const rolesValides = ['admin', 'chercheur', 'terrain', 'lecteur'];
+  const data = {};
+  if (nom)    data.nom    = nom.trim();
+  if (prenom) data.prenom = prenom.trim();
+  if (email)  data.email  = email.toLowerCase();
+  if (role && rolesValides.includes(role)) data.role = role;
+
+  if (Object.keys(data).length === 0) {
+    return res.status(400).json({ error: 'Aucune modification fournie' });
+  }
+
+  try {
+    if (data.email) {
+      const conflict = await prisma.user.findFirst({ where: { email: data.email, NOT: { id } } });
+      if (conflict) return res.status(409).json({ error: 'Email déjà utilisé par un autre compte' });
+    }
+    const user = await prisma.user.update({
+      where: { id },
+      data,
+      select: { id: true, nom: true, prenom: true, email: true, role: true, actif: true },
+    });
+    return res.json({ message: 'Utilisateur mis à jour', user });
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Utilisateur introuvable' });
+    console.error('Erreur updateUser :', err.message);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
+
+// =============================================================
+//  DELETE USER — Admin supprime (pas soi-même)
+//  DELETE /api/v1/auth/users/:id
+// =============================================================
+
+const deleteUser = async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (id === req.user.id) {
+    return res.status(400).json({ error: 'Vous ne pouvez pas supprimer votre propre compte' });
+  }
+  try {
+    await prisma.user.delete({ where: { id } });
+    return res.json({ message: 'Utilisateur supprimé' });
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Utilisateur introuvable' });
+    console.error('Erreur deleteUser :', err.message);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
+
+// =============================================================
+//  RESET PASSWORD — Admin définit un nouveau mot de passe
+//  PATCH /api/v1/auth/users/:id/reset-password
+// =============================================================
+
+const resetPassword = async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { password } = req.body;
+  if (!password || password.length < 8) {
+    return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères' });
+  }
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    await prisma.user.update({ where: { id }, data: { passwordHash } });
+    return res.json({ message: 'Mot de passe réinitialisé' });
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Utilisateur introuvable' });
+    console.error('Erreur resetPassword :', err.message);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
+
+module.exports = { register, login, me, activateUser, listUsers, createUser, updateUser, deleteUser, resetPassword };

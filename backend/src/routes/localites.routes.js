@@ -8,9 +8,10 @@ const { verifyToken, requireRole, requireMinRole } = require('../middlewares/aut
 router.use(verifyToken);
 
 // Lecture — tous les rôles
-router.get('/carte', ctrl.getCarteLocalites);  // ← avant /:id pour ne pas être intercepté
-router.get('/',      ctrl.listLocalites);
-router.get('/:id',   ctrl.getLocalite);
+router.get('/carte',             ctrl.getCarteLocalites);
+router.get('/lookup-fokontany',  ctrl.lookupFokontany);   // ← avant /:id
+router.get('/',                  ctrl.listLocalites);
+router.get('/:id',               ctrl.getLocalite);
 
 // Écriture — Admin + Chercheur
 router.post('/',    requireMinRole('chercheur'), ctrl.createLocalite);
