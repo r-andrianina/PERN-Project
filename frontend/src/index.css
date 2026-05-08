@@ -2,7 +2,79 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * ─────────────────────────────────────────────────────────────
+ *  DESIGN TOKENS — couches sémantiques mappées sur tailwind.config.js
+ *  Toutes les valeurs sont au format "R G B" (espace-séparé) pour
+ *  que rgb(var(--token) / <alpha>) fonctionne partout.
+ * ─────────────────────────────────────────────────────────────
+ */
 @layer base {
+
+  /* ── LIGHT (par défaut) ── */
+  :root {
+    /* Brand */
+    --primary:      29 158 117;     /* #1D9E75 — vert IPM */
+    --primary-fg:   255 255 255;
+    --fg-on-primary: 255 255 255;
+
+    /* Surfaces */
+    --bg:           248 250 252;    /* slate-50 */
+    --surface:      255 255 255;    /* cards */
+    --surface-2:    249 250 251;    /* gray-50 — surfaces imbriquées */
+    --surface-3:    243 244 246;    /* gray-100 — hover/zones */
+    --border:       243 244 246;    /* gray-100 — bordures fines */
+    --border-strong:229 231 235;    /* gray-200 — bordures marquées */
+
+    /* Texte */
+    --fg:           31 41 55;       /* gray-800 */
+    --fg-muted:     107 114 128;    /* gray-500 */
+    --fg-subtle:    156 163 175;    /* gray-400 */
+
+    /* États */
+    --success:      16 185 129;     /* emerald-500 */
+    --success-bg:   209 250 229;    /* emerald-100 */
+    --warning:      217 119 6;      /* amber-600 */
+    --warning-bg:   254 243 199;    /* amber-100 */
+    --danger:       220 38 38;      /* red-600 */
+    --danger-bg:    254 226 226;    /* red-100 */
+    --info:         37 99 235;      /* blue-600 */
+    --info-bg:      219 234 254;    /* blue-100 */
+  }
+
+  /* ── DARK ── */
+  .dark {
+    --primary:      46 194 133;     /* primary-400 — un cran plus clair en sombre */
+    --primary-fg:   8 60 40;
+    --fg-on-primary: 255 255 255;
+
+    --bg:           15 23 42;       /* slate-900 */
+    --surface:      30 41 59;       /* slate-800 */
+    --surface-2:    51 65 85;       /* slate-700 */
+    --surface-3:    71 85 105;      /* slate-600 */
+    --border:       51 65 85;       /* slate-700 */
+    --border-strong:71 85 105;      /* slate-600 */
+
+    --fg:           241 245 249;    /* slate-100 */
+    --fg-muted:     148 163 184;    /* slate-400 */
+    --fg-subtle:    100 116 139;    /* slate-500 */
+
+    --success:      52 211 153;     /* emerald-400 */
+    --success-bg:   6 78 59;        /* emerald-900 */
+    --warning:      251 191 36;     /* amber-400 */
+    --warning-bg:   120 53 15;      /* amber-900 */
+    --danger:       248 113 113;    /* red-400 */
+    --danger-bg:    127 29 29;      /* red-900 */
+    --info:         96 165 250;     /* blue-400 */
+    --info-bg:      30 58 138;      /* blue-900 */
+  }
+
+  /* Application des tokens au body — assure que tout fond et texte par défaut suit le thème */
+  html, body {
+    background-color: rgb(var(--bg));
+    color: rgb(var(--fg));
+  }
+
   body {
     font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -10,20 +82,86 @@
   }
 }
 
+/*
+ * ─────────────────────────────────────────────────────────────
+ *  COMPOSANTS UTILITAIRES — réutilisés via @apply.
+ *  Adaptés au mode sombre via les tokens.
+ * ─────────────────────────────────────────────────────────────
+ */
 @layer components {
+
+  /* ── Boutons ── */
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed;
+    @apply inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed;
+    background-color: rgb(var(--primary));
+    color: rgb(var(--fg-on-primary));
   }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors;
+    @apply inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors;
+    background-color: rgb(var(--surface));
+    color: rgb(var(--fg-muted));
+    border: 1px solid rgb(var(--border-strong));
   }
+  .btn-secondary:hover {
+    background-color: rgb(var(--surface-2));
+    color: rgb(var(--fg));
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl transition-colors;
+    color: rgb(var(--fg-muted));
+  }
+  .btn-ghost:hover {
+    background-color: rgb(var(--surface-2));
+    color: rgb(var(--fg));
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors;
+    background-color: rgb(var(--danger));
+    color: rgb(var(--fg-on-primary));
+  }
+  .btn-danger:hover { filter: brightness(1.08); }
+
+  /* ── Card ── */
   .card {
-    @apply bg-white rounded-2xl border border-gray-100 shadow-card;
+    @apply rounded-2xl shadow-card transition-colors;
+    background-color: rgb(var(--surface));
+    border: 1px solid rgb(var(--border));
   }
+
+  /* ── Section title ── */
   .section-title {
-    @apply flex items-center gap-2.5 text-sm font-semibold text-gray-700 pb-4 mb-5 border-b border-gray-100;
+    @apply flex items-center gap-2.5 text-sm font-semibold pb-4 mb-5;
+    color: rgb(var(--fg));
+    border-bottom: 1px solid rgb(var(--border));
   }
+
+  /* ── Badge générique (utilisé via Badge.jsx, mais aussi disponible en classe) ── */
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  /* ── Inputs : assure le dark mode sur les <input> et <select> non passés par FormField ── */
+  input[type="text"],
+  input[type="email"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  input[type="password"],
+  input[type="search"],
+  textarea,
+  select {
+    @apply transition-colors;
+    background-color: rgb(var(--surface));
+    color: rgb(var(--fg));
+    border-color: rgb(var(--border-strong));
+  }
+  input::placeholder, textarea::placeholder {
+    color: rgb(var(--fg-subtle));
   }
 }
