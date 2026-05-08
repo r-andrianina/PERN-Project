@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FlaskConical, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { FlaskConical, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
+import { Button, Spinner } from '../../components/ui';
+
+const inputCls = 'w-full px-3.5 py-2.5 text-sm border border-border-strong rounded-xl bg-surface text-fg hover:border-border-strong focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors';
 
 export default function LoginPage() {
   const [form, setForm]         = useState({ email: '', password: '' });
@@ -22,10 +25,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-800 via-primary-700 to-primary-500 flex items-center justify-center p-4">
-
       <div className="w-full max-w-sm">
 
-        {/* Header */}
+        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 bg-white/15 rounded-2xl mb-4 ring-1 ring-white/20">
             <FlaskConical size={28} className="text-white" />
@@ -35,66 +37,45 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-7">
-          <h2 className="text-base font-semibold text-gray-800 mb-5">Connexion</h2>
+        <div className="bg-surface rounded-2xl shadow-2xl p-7">
+          <h2 className="text-base font-semibold text-fg mb-5">Connexion</h2>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5">
-              <AlertCircle size={15} className="text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="mb-4 p-3 bg-danger/10 border border-danger/20 rounded-xl flex items-start gap-2.5">
+              <AlertCircle size={15} className="text-danger flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-danger">{error}</p>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-gray-600 tracking-wide">
-                Adresse email
-              </label>
-              <input
-                type="email" name="email" value={form.email}
-                onChange={handleChange} placeholder="vous@pasteur.mg"
-                required autoComplete="email"
-                className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-colors"
-              />
+              <label className="block text-xs font-semibold text-fg-muted tracking-wide">Adresse email</label>
+              <input type="email" name="email" value={form.email} onChange={handleChange}
+                placeholder="vous@pasteur.mg" required autoComplete="email" className={inputCls} />
             </div>
-
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-gray-600 tracking-wide">
-                Mot de passe
-              </label>
+              <label className="block text-xs font-semibold text-fg-muted tracking-wide">Mot de passe</label>
               <div className="relative">
                 <input
                   type={showPass ? 'text' : 'password'}
-                  name="password" value={form.password}
-                  onChange={handleChange} placeholder="••••••••"
-                  required autoComplete="current-password"
-                  className="w-full px-3.5 py-2.5 pr-10 text-sm border border-gray-200 rounded-xl hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-colors"
+                  name="password" value={form.password} onChange={handleChange}
+                  placeholder="••••••••" required autoComplete="current-password"
+                  className={`${inputCls} pr-10`}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
+                <button type="button" onClick={() => setShowPass(!showPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg-muted transition-colors">
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
-
-            <button
-              type="submit" disabled={isLoading}
-              className="btn-primary w-full justify-center mt-2"
-            >
-              {isLoading
-                ? <><Loader2 size={15} className="animate-spin" /> Connexion...</>
-                : 'Se connecter'
-              }
+            <button type="submit" disabled={isLoading} className="btn-primary w-full justify-center mt-2">
+              {isLoading ? <><Spinner size={15} /> Connexion…</> : 'Se connecter'}
             </button>
           </form>
 
-          <p className="text-center text-xs text-gray-400 mt-5">
+          <p className="text-center text-xs text-fg-subtle mt-5">
             Pas encore de compte ?{' '}
-            <Link to="/register" className="text-primary-600 hover:text-primary-700 font-semibold">
+            <Link to="/register" className="text-primary hover:brightness-110 font-semibold">
               Demander un accès
             </Link>
           </p>
