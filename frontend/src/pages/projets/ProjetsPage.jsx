@@ -1,22 +1,17 @@
-import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FolderOpen, Plus, ChevronRight, Tag, Users } from 'lucide-react';
-import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner } from '../../components/ui';
+import { useApiQuery } from '../../hooks';
 
 const STATUT_TONE  = { actif: 'success', termine: 'default', suspendu: 'warning' };
 const STATUT_LABEL = { actif: 'Actif', termine: 'Terminé', suspendu: 'Suspendu' };
 
 export default function ProjetsPage() {
-  const [projets, setProjets]   = useState([]);
-  const [isLoading, setLoading] = useState(true);
   const { user } = useAuthStore();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    api.get('/projets').then(r => setProjets(r.data.projets)).finally(() => setLoading(false));
-  }, []);
+  const { data, loading: isLoading } = useApiQuery('/projets', { select: (r) => r.projets ?? [] });
+  const projets = data ?? [];
 
   return (
     <div className="max-w-4xl space-y-6">

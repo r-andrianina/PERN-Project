@@ -1,23 +1,18 @@
-import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, Plus, ChevronRight, Calendar, User } from 'lucide-react';
-import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner } from '../../components/ui';
+import { useApiQuery } from '../../hooks';
 
 const STATUT_TONE  = { planifiee: 'info', en_cours: 'success', terminee: 'default', annulee: 'danger' };
 const STATUT_LABEL = { planifiee: 'Planifiée', en_cours: 'En cours', terminee: 'Terminée', annulee: 'Annulée' };
 
 export default function MissionsPage() {
-  const [missions, setMissions] = useState([]);
-  const [isLoading, setLoading] = useState(true);
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const canCreate = ['admin', 'chercheur'].includes(user?.role);
-
-  useEffect(() => {
-    api.get('/missions').then(r => setMissions(r.data.missions)).finally(() => setLoading(false));
-  }, []);
+  const { data, loading: isLoading } = useApiQuery('/missions', { select: (r) => r.missions ?? [] });
+  const missions = data ?? [];
 
   return (
     <div className="max-w-5xl space-y-6">

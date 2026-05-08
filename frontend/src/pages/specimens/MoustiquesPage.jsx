@@ -1,23 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bug, Plus, Download, Search, X } from 'lucide-react';
-import api from '../../api/axios';
 import { Card, Button, Badge, EmptyState, PageHeader, Spinner } from '../../components/ui';
+import { useApiQuery } from '../../hooks';
 
 const SEXE_TONE = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
 
 export default function MoustiquesPage() {
-  const [moustiques, setMoustiques] = useState([]);
-  const [isLoading, setIsLoading]   = useState(true);
-  const [search, setSearch]         = useState('');
+  const [search, setSearch] = useState('');
   const navigate = useNavigate();
-
-  useEffect(() => {
-    api.get('/moustiques')
-      .then(r => setMoustiques(r.data.moustiques || []))
-      .finally(() => setIsLoading(false));
-  }, []);
+  const { data, loading: isLoading } = useApiQuery('/moustiques', { select: (r) => r.moustiques ?? [] });
+  const moustiques = data ?? [];
 
   const taxoLabel = (t) => t ? `${t.parent?.nom ? t.parent.nom + ' ' : ''}${t.nom}` : '';
 

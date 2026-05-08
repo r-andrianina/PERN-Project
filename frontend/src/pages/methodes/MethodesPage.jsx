@@ -1,18 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Beaker, Plus, Search, X, MapPin } from 'lucide-react';
-import api from '../../api/axios';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner } from '../../components/ui';
+import { useApiQuery } from '../../hooks';
 
 export default function MethodesPage() {
-  const [methodes, setMethodes] = useState([]);
-  const [isLoading, setLoading] = useState(true);
-  const [search, setSearch]     = useState('');
+  const [search, setSearch] = useState('');
   const navigate = useNavigate();
-
-  useEffect(() => {
-    api.get('/methodes').then((r) => setMethodes(r.data.methodes || [])).finally(() => setLoading(false));
-  }, []);
+  const { data, loading: isLoading } = useApiQuery('/methodes', { select: (r) => r.methodes ?? [] });
+  const methodes = data ?? [];
 
   const filtered = methodes.filter((m) => {
     if (!search) return true;

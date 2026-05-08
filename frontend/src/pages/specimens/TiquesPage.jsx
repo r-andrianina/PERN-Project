@@ -1,21 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bug, Plus, Download, Search, X } from 'lucide-react';
-import api from '../../api/axios';
 import { Card, Button, Badge, EmptyState, PageHeader, Spinner } from '../../components/ui';
+import { useApiQuery } from '../../hooks';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
 
 export default function TiquesPage() {
-  const [tiques, setTiques]     = useState([]);
-  const [isLoading, setLoading] = useState(true);
-  const [search, setSearch]     = useState('');
+  const [search, setSearch] = useState('');
   const navigate = useNavigate();
-
-  useEffect(() => {
-    api.get('/tiques').then(r => setTiques(r.data.tiques || [])).finally(() => setLoading(false));
-  }, []);
+  const { data, loading: isLoading } = useApiQuery('/tiques', { select: (r) => r.tiques ?? [] });
+  const tiques = data ?? [];
 
   const taxoLabel = (t) => t ? `${t.parent?.nom ? t.parent.nom + ' ' : ''}${t.nom}` : '';
   const filtered = tiques.filter(t =>

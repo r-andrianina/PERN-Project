@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PawPrint, Plus, Search, X, MapPin, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner } from '../../components/ui';
+import { useApiQuery } from '../../hooks';
 
 const ROLES = { admin: 4, chercheur: 3, terrain: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
@@ -15,15 +16,9 @@ export default function HotesPage() {
   const { user } = useAuthStore();
   const canDelete = isMin(user?.role, 'chercheur');
 
-  const [hotes, setHotes]       = useState([]);
-  const [isLoading, setLoading] = useState(true);
-  const [search, setSearch]     = useState('');
-
-  const refresh = () => {
-    setLoading(true);
-    api.get('/hotes').then((r) => setHotes(r.data.hotes || [])).finally(() => setLoading(false));
-  };
-  useEffect(() => { refresh(); }, []);
+  const [search, setSearch] = useState('');
+  const { data, loading: isLoading, refetch: refresh } = useApiQuery('/hotes', { select: (r) => r.hotes ?? [] });
+  const hotes = data ?? [];
 
   const taxoLabel = (t) => t ? `${t.parent?.nom ? t.parent.nom + ' ' : ''}${t.nom}` : '';
   const filtered = hotes.filter((h) => {
