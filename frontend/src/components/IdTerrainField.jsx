@@ -42,23 +42,23 @@ export default function IdTerrainField({ methodeId, value, onChange, error }) {
     w-full px-3.5 py-2.5 text-sm rounded-xl border transition-colors
     focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400
     font-mono
-    ${error ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white'}
-    ${auto ? 'text-primary-700' : 'text-gray-700'}
+    ${error ? 'border-red-300 bg-danger/10' : 'border-border-strong bg-surface'}
+    ${auto ? 'text-primary-700' : 'text-fg'}
   `;
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="block text-xs font-semibold text-gray-600 tracking-wide flex items-center gap-1.5">
-          <Tag size={12} className="text-primary-500" />
+        <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
+          <Tag size={12} className="text-primary" />
           ID terrain
-          {auto && <span className="text-[10px] text-primary-500 normal-case font-normal">(auto)</span>}
+          {auto && <span className="text-[10px] text-primary normal-case font-normal">(auto)</span>}
         </label>
         {!auto && (
           <button
             type="button"
             onClick={resetToAuto}
-            className="text-[10px] text-gray-400 hover:text-primary-600 inline-flex items-center gap-1"
+            className="text-[10px] text-fg-subtle hover:text-primary inline-flex items-center gap-1"
           >
             <RefreshCw size={10} /> Régénérer
           </button>
@@ -75,12 +75,12 @@ export default function IdTerrainField({ methodeId, value, onChange, error }) {
           className={inputCls}
         />
         {loading && (
-          <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
+          <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle animate-spin" />
         )}
       </div>
 
       {warning && (
-        <p className="flex items-start gap-1.5 text-xs text-amber-600">
+        <p className="flex items-start gap-1.5 text-xs text-warning">
           <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
           <span>{warning}</span>
         </p>
@@ -89,7 +89,7 @@ export default function IdTerrainField({ methodeId, value, onChange, error }) {
         <p className="text-xs text-red-500">{error}</p>
       )}
       {!error && !warning && methodeId && (
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-fg-subtle">
           Format : <span className="font-mono">{'<CODE>'}_{'<n>'}</span> — modifiable si besoin
         </p>
       )}

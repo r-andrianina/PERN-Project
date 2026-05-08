@@ -9,10 +9,10 @@ import MapPicker from '../../components/MapPicker';
 import useAuthStore from '../../store/authStore';
 
 const STATUT = {
-  planifiee: { label: 'Planifiée', cls: 'bg-blue-50 text-blue-700 border border-blue-100'        },
-  en_cours:  { label: 'En cours',  cls: 'bg-emerald-50 text-emerald-700 border border-emerald-100' },
-  terminee:  { label: 'Terminée',  cls: 'bg-gray-100 text-gray-500 border border-gray-200'       },
-  annulee:   { label: 'Annulée',   cls: 'bg-red-50 text-red-600 border border-red-100'          },
+  planifiee: { label: 'Planifiée', cls: 'bg-info/10 text-info border border-info/20'        },
+  en_cours:  { label: 'En cours',  cls: 'bg-success/10 text-success border border-success/20' },
+  terminee:  { label: 'Terminée',  cls: 'bg-surface-3 text-fg-muted border border-border-strong'       },
+  annulee:   { label: 'Annulée',   cls: 'bg-danger/10 text-danger border border-danger/20'          },
 };
 
 const ROLES = { admin: 4, chercheur: 3, terrain: 2, lecteur: 1 };
@@ -87,28 +87,28 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <form onSubmit={submit} className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-8">
+      <form onSubmit={submit} className="bg-surface rounded-2xl shadow-2xl w-full max-w-5xl my-8">
         <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
               <Navigation size={16} className="text-white" />
             </div>
             <div>
               <h2 className="text-base font-bold text-white">
                 {isEdit ? 'Modifier la localité' : 'Nouvelle localité'}
               </h2>
-              <p className="text-xs text-primary-100">
+              <p className="text-xs text-primary-200">
                 {isEdit ? localite.nom : 'Cliquez sur la carte pour pré-remplir région / district / commune / fokontany'}
               </p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-white/20 rounded-lg">
+          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
             <X size={18} />
           </button>
         </div>
 
         <div className="p-6">
-          {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{error}</div>}
+          {error && <div className="mb-4 p-3 bg-danger/10 border border-red-200 rounded-xl text-sm text-danger">{error}</div>}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -139,19 +139,19 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
 
               {/* Auto-fill banner */}
               {autoFilling && (
-                <div className="p-2.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-2 text-xs text-blue-700">
+                <div className="p-2.5 bg-info/10 border border-info/20 rounded-xl flex items-center gap-2 text-xs text-info">
                   <Loader2 size={12} className="animate-spin" />
                   Recherche du fokontany à ces coordonnées…
                 </div>
               )}
               {autoMatch === 'match' && !autoFilling && (
-                <div className="p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-2 text-xs text-emerald-700">
+                <div className="p-2.5 bg-success/10 border border-success/20 rounded-xl flex items-center gap-2 text-xs text-success">
                   <Check size={12} />
                   Fokontany trouvé — champs pré-remplis (modifiables)
                 </div>
               )}
               {autoMatch === 'nearest' && !autoFilling && (
-                <div className="p-2.5 bg-amber-50 border border-amber-100 rounded-xl flex items-center gap-2 text-xs text-amber-700">
+                <div className="p-2.5 bg-warning/10 border border-warning/20 rounded-xl flex items-center gap-2 text-xs text-warning">
                   <Tag size={12} />
                   Point hors polygone — fokontany le plus proche utilisé
                 </div>
@@ -183,7 +183,7 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
 
             {/* ─── Colonne droite : carte alignée verticalement ─── */}
             <div className="flex flex-col">
-              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-2">
+              <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-2">
                 Carte — cliquez pour placer le point GPS
               </label>
               <div className="flex-1 min-h-[480px]">
@@ -197,7 +197,7 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-5 mt-5 border-t border-gray-100">
+          <div className="flex justify-end gap-2 pt-5 mt-5 border-t border-border">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
             <button type="submit" disabled={loading} className="btn-primary">
               {loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
@@ -227,7 +227,7 @@ export default function MissionDetail() {
   if (!mission) {
     return (
       <div className="flex items-center justify-center h-40">
-        <div className="flex items-center gap-2 text-gray-400 text-sm">
+        <div className="flex items-center gap-2 text-fg-subtle text-sm">
           <Loader2 size={18} className="animate-spin" /> Chargement...
         </div>
       </div>
@@ -238,7 +238,7 @@ export default function MissionDetail() {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <Link to="/missions" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
+      <Link to="/missions" className="inline-flex items-center gap-1.5 text-sm text-fg-subtle hover:text-fg transition-colors">
         <ChevronLeft size={16} /> Missions
       </Link>
 
@@ -246,18 +246,18 @@ export default function MissionDetail() {
       <div className="card p-6">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-start gap-4">
-            <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-              <MapPin size={20} className="text-blue-600" />
+            <div className="w-11 h-11 rounded-xl bg-info/10 flex items-center justify-center flex-shrink-0">
+              <MapPin size={20} className="text-info" />
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="inline-flex items-center gap-1 text-xs font-mono bg-gray-100 text-gray-500 px-2 py-0.5 rounded-lg border border-gray-200">
+                <span className="inline-flex items-center gap-1 text-xs font-mono bg-surface-3 text-fg-muted px-2 py-0.5 rounded-lg border border-border-strong">
                   <Hash size={10} /> {mission.ordreMission}
                 </span>
                 <span className={`badge ${s.cls}`}>{s.label}</span>
               </div>
-              <h1 className="text-xl font-bold text-gray-800">{mission.ordreMission}</h1>
-              <p className="text-sm text-gray-400 mt-0.5">{mission.projet?.nom}</p>
+              <h1 className="text-xl font-bold text-fg">{mission.ordreMission}</h1>
+              <p className="text-sm text-fg-subtle mt-0.5">{mission.projet?.nom}</p>
             </div>
           </div>
         </div>
@@ -265,14 +265,14 @@ export default function MissionDetail() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {mission.chefMission && (
             <div className="text-xs">
-              <p className="text-gray-400 font-medium mb-0.5">Chef de mission</p>
-              <p className="text-gray-700">{mission.chefMission.prenom} {mission.chefMission.nom}</p>
+              <p className="text-fg-subtle font-medium mb-0.5">Chef de mission</p>
+              <p className="text-fg">{mission.chefMission.prenom} {mission.chefMission.nom}</p>
             </div>
           )}
           {mission.dateDebut && (
             <div className="text-xs">
-              <p className="text-gray-400 font-medium mb-0.5">Période</p>
-              <p className="text-gray-700">
+              <p className="text-fg-subtle font-medium mb-0.5">Période</p>
+              <p className="text-fg">
                 {new Date(mission.dateDebut).toLocaleDateString('fr-FR')}
                 {mission.dateFin && ` → ${new Date(mission.dateFin).toLocaleDateString('fr-FR')}`}
               </p>
@@ -280,34 +280,34 @@ export default function MissionDetail() {
           )}
           {mission.agents?.length > 0 && (
             <div className="text-xs">
-              <p className="text-gray-400 font-medium mb-0.5">Agents terrain</p>
-              <p className="text-gray-700">{mission.agents.length} agent(s)</p>
+              <p className="text-fg-subtle font-medium mb-0.5">Agents terrain</p>
+              <p className="text-fg">{mission.agents.length} agent(s)</p>
             </div>
           )}
         </div>
 
         {mission.observations && (
-          <div className="mt-4 p-3.5 bg-amber-50 border border-amber-100 rounded-xl">
-            <p className="text-xs font-semibold text-amber-700 mb-1">Observations</p>
-            <p className="text-sm text-amber-800">{mission.observations}</p>
+          <div className="mt-4 p-3.5 bg-warning/10 border border-warning/20 rounded-xl">
+            <p className="text-xs font-semibold text-warning mb-1">Observations</p>
+            <p className="text-sm text-warning">{mission.observations}</p>
           </div>
         )}
       </div>
 
       {/* Localités */}
       <div className="card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <Navigation size={16} className="text-primary-500" />
-            <h2 className="text-sm font-semibold text-gray-700">
+            <Navigation size={16} className="text-primary" />
+            <h2 className="text-sm font-semibold text-fg">
               Localités
-              <span className="ml-2 text-xs font-normal text-gray-400">({mission.localites?.length ?? 0})</span>
+              <span className="ml-2 text-xs font-normal text-fg-subtle">({mission.localites?.length ?? 0})</span>
             </h2>
           </div>
           {canEdit && (
             <button
               onClick={() => setModal({ type: 'create' })}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors"
             >
               <Plus size={13} /> Ajouter
             </button>
@@ -316,8 +316,8 @@ export default function MissionDetail() {
 
         {mission.localites?.length === 0 ? (
           <div className="py-10 text-center">
-            <Navigation size={28} className="text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">Aucune localité enregistrée</p>
+            <Navigation size={28} className="text-fg-subtle mx-auto mb-2" />
+            <p className="text-sm text-fg-subtle">Aucune localité enregistrée</p>
             {canEdit && (
               <button
                 onClick={() => setModal({ type: 'create' })}
@@ -330,38 +330,38 @@ export default function MissionDetail() {
         ) : (
           <div className="divide-y divide-gray-50">
             {mission.localites?.map((l) => (
-              <div key={l.id} className="px-5 py-4 group hover:bg-gray-50/40 transition-colors">
+              <div key={l.id} className="px-5 py-4 group hover:bg-surface-2/40 transition-colors">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     {l.code ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-mono font-bold bg-primary-50 text-primary-700 border border-primary-200 px-2 py-1 rounded-lg flex-shrink-0">
+                      <span className="inline-flex items-center gap-1 text-xs font-mono font-bold bg-primary/10 text-primary-700 border border-primary-200 px-2 py-1 rounded-lg flex-shrink-0">
                         <Tag size={10} /> {l.code}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-lg flex-shrink-0">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium bg-warning/10 text-warning border border-amber-200 px-2 py-1 rounded-lg flex-shrink-0">
                         Code manquant
                       </span>
                     )}
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-700">{l.nom}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-sm font-semibold text-fg">{l.nom}</p>
+                      <p className="text-xs text-fg-subtle mt-0.5">
                         {[l.fokontany, l.commune, l.district, l.region].filter(Boolean).join(', ') || '—'}
                       </p>
                       {(l.latitude && l.longitude) && (
-                        <p className="text-xs font-mono text-gray-400 mt-1">
+                        <p className="text-xs font-mono text-fg-subtle mt-1">
                           {parseFloat(l.latitude).toFixed(4)}, {parseFloat(l.longitude).toFixed(4)}
                         </p>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-2 py-1">
+                    <span className="text-xs text-fg-subtle bg-surface-2 border border-border rounded-lg px-2 py-1">
                       {l.methodes?.length ?? 0} méthode(s)
                     </span>
                     {canEdit && (
                       <button
                         onClick={() => setModal({ type: 'edit', localite: l })}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg"
                       >
                         <Edit2 size={13} />
                       </button>

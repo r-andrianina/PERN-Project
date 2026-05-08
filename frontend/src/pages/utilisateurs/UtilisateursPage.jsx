@@ -9,10 +9,10 @@ import useAuthStore from '../../store/authStore';
 
 // ── Constantes ────────────────────────────────────────────────
 const ROLES = [
-  { value: 'admin',     label: 'Admin',     color: 'bg-purple-100 text-purple-700 border-purple-200' },
-  { value: 'chercheur', label: 'Chercheur', color: 'bg-blue-100 text-blue-700 border-blue-200'       },
-  { value: 'terrain',   label: 'Terrain',   color: 'bg-amber-100 text-amber-700 border-amber-200'    },
-  { value: 'lecteur',   label: 'Lecteur',   color: 'bg-gray-100 text-gray-600 border-gray-200'       },
+  { value: 'admin',     label: 'Admin',     color: 'bg-role-admin/10 text-role-admin border-role-admin/20' },
+  { value: 'chercheur', label: 'Chercheur', color: 'bg-role-chercheur/10 text-role-chercheur border-role-chercheur/20'       },
+  { value: 'terrain',   label: 'Terrain',   color: 'bg-role-terrain/10 text-role-terrain border-role-terrain/20'    },
+  { value: 'lecteur',   label: 'Lecteur',   color: 'bg-surface-3 text-fg-muted border-border-strong'       },
 ];
 const roleInfo = Object.fromEntries(ROLES.map((r) => [r.value, r]));
 
@@ -21,14 +21,14 @@ const initials = (u) => `${u?.prenom?.[0] ?? ''}${u?.nom?.[0] ?? ''}`.toUpperCas
 
 const AvatarCircle = ({ user, size = 'md' }) => {
   const colors = {
-    admin:     'bg-purple-100 text-purple-700',
-    chercheur: 'bg-blue-100 text-blue-700',
-    terrain:   'bg-amber-100 text-amber-700',
-    lecteur:   'bg-gray-100 text-gray-600',
+    admin:     'bg-role-admin/10 text-role-admin',
+    chercheur: 'bg-role-chercheur/10 text-role-chercheur',
+    terrain:   'bg-role-terrain/10 text-role-terrain',
+    lecteur:   'bg-surface-3 text-fg-muted',
   };
   const sz = size === 'lg' ? 'w-12 h-12 text-base' : 'w-9 h-9 text-xs';
   return (
-    <div className={`${sz} rounded-xl flex items-center justify-center font-bold flex-shrink-0 ${colors[user.role] ?? 'bg-gray-100 text-gray-600'}`}>
+    <div className={`${sz} rounded-xl flex items-center justify-center font-bold flex-shrink-0 ${colors[user.role] ?? 'bg-surface-3 text-fg-muted'}`}>
       {initials(user)}
     </div>
   );
@@ -83,15 +83,15 @@ function UserModal({ user, onClose, onSaved, currentUserId }) {
     }
   };
 
-  const inputCls = 'w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-colors';
+  const inputCls = 'w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-colors';
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
               {isEdit ? <Edit2 size={16} className="text-white" /> : <UserPlus size={16} className="text-white" />}
             </div>
             <div>
@@ -103,14 +103,14 @@ function UserModal({ user, onClose, onSaved, currentUserId }) {
               )}
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-white/20 rounded-lg transition-colors">
+          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg transition-colors">
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={submit} className="p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{error}</div>
+            <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">{error}</div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
@@ -140,7 +140,7 @@ function UserModal({ user, onClose, onSaved, currentUserId }) {
                   className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-all text-left flex items-center gap-2 ${
                     form.role === r.value
                       ? `${r.color} border-2`
-                      : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                      : 'border-border-strong text-fg-muted hover:bg-surface-2'
                   }`}
                 >
                   {form.role === r.value && <Check size={13} />}
@@ -148,7 +148,7 @@ function UserModal({ user, onClose, onSaved, currentUserId }) {
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-fg-subtle">
               {{
                 admin:     'Accès total — gestion des utilisateurs, référentiels, données',
                 chercheur: 'Création et modification de toutes les données scientifiques',
@@ -170,23 +170,23 @@ function UserModal({ user, onClose, onSaved, currentUserId }) {
                     className={`${inputCls} pr-10`}
                     placeholder="8 caractères minimum"
                   />
-                  <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-gray-600">
                     {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+              <div className="flex items-center gap-3 p-3 bg-surface-2 rounded-xl">
                 <button
                   type="button"
                   onClick={() => set('actif', !form.actif)}
                   className={`relative w-10 h-5 rounded-full transition-colors ${form.actif ? 'bg-primary-500' : 'bg-gray-300'}`}
                 >
-                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.actif ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  <span className={`absolute top-0.5 w-4 h-4 bg-surface rounded-full shadow transition-transform ${form.actif ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Compte actif immédiatement</p>
-                  <p className="text-xs text-gray-400">{form.actif ? 'L\'utilisateur peut se connecter dès maintenant' : 'Le compte nécessitera une activation manuelle'}</p>
+                  <p className="text-sm font-medium text-fg">Compte actif immédiatement</p>
+                  <p className="text-xs text-fg-subtle">{form.actif ? 'L\'utilisateur peut se connecter dès maintenant' : 'Le compte nécessitera une activation manuelle'}</p>
                 </div>
               </div>
             </>
@@ -229,10 +229,10 @@ function ResetPasswordModal({ user, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
         <div className="bg-gradient-to-r from-amber-500 to-amber-400 px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
               <KeyRound size={16} className="text-white" />
             </div>
             <div>
@@ -240,7 +240,7 @@ function ResetPasswordModal({ user, onClose }) {
               <p className="text-xs text-amber-100">{user.prenom} {user.nom}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-white/20 rounded-lg">
+          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
             <X size={18} />
           </button>
         </div>
@@ -248,16 +248,16 @@ function ResetPasswordModal({ user, onClose }) {
         <div className="p-6">
           {done ? (
             <div className="text-center py-4 space-y-3">
-              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-                <Check size={20} className="text-emerald-600" />
+              <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center mx-auto">
+                <Check size={20} className="text-success" />
               </div>
-              <p className="text-sm font-medium text-gray-800">Mot de passe réinitialisé</p>
-              <p className="text-xs text-gray-500">Communiquez le nouveau mot de passe à l'utilisateur de manière sécurisée.</p>
+              <p className="text-sm font-medium text-fg">Mot de passe réinitialisé</p>
+              <p className="text-xs text-fg-muted">Communiquez le nouveau mot de passe à l'utilisateur de manière sécurisée.</p>
               <button onClick={onClose} className="btn-primary mx-auto mt-2">Fermer</button>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
-              {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{error}</div>}
+              {error && <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">{error}</div>}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-600">Nouveau mot de passe <span className="text-red-400">*</span></label>
                 <div className="relative">
@@ -265,17 +265,17 @@ function ResetPasswordModal({ user, onClose }) {
                     type={showPwd ? 'text' : 'password'}
                     value={password} onChange={(e) => setPassword(e.target.value)}
                     required minLength={8}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 pr-10"
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 pr-10"
                     placeholder="8 caractères minimum"
                   />
-                  <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-gray-600">
                     {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
-                <button type="submit" disabled={loading} className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl flex items-center gap-2 transition-colors">
+                <button type="submit" disabled={loading} className="px-4 py-2 bg-warning/100 hover:bg-amber-600 text-white text-sm font-medium rounded-xl flex items-center gap-2 transition-colors">
                   {loading ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
                   Réinitialiser
                 </button>
@@ -360,10 +360,10 @@ export default function UtilisateursPage() {
       {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-fg flex items-center gap-2">
             <Users size={20} className="text-primary-600" /> Gestion des utilisateurs
           </h1>
-          <p className="text-xs text-gray-400 mt-0.5">Administration des accès à SpécimenManager</p>
+          <p className="text-xs text-fg-subtle mt-0.5">Administration des accès à SpécimenManager</p>
         </div>
         <button onClick={() => setModal({ type: 'create' })} className="btn-primary">
           <UserPlus size={16} /> Nouvel utilisateur
@@ -373,17 +373,17 @@ export default function UtilisateursPage() {
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
-          { label: 'Total',      value: stats.total,      icon: Users,      bg: 'bg-gray-50',    text: 'text-gray-600'   },
-          { label: 'Actifs',     value: stats.actifs,     icon: UserCheck,  bg: 'bg-emerald-50', text: 'text-emerald-700' },
-          { label: 'En attente', value: stats.enAttente,  icon: Clock,      bg: 'bg-amber-50',   text: 'text-amber-700'  },
-          { label: 'Admins',     value: stats.admins,     icon: ShieldCheck,bg: 'bg-purple-50',  text: 'text-purple-700' },
-          { label: 'Chercheurs', value: stats.chercheurs, icon: Users,      bg: 'bg-blue-50',    text: 'text-blue-700'   },
+          { label: 'Total',      value: stats.total,      icon: Users,      bg: 'bg-surface-2',    text: 'text-gray-600'   },
+          { label: 'Actifs',     value: stats.actifs,     icon: UserCheck,  bg: 'bg-success/10', text: 'text-success' },
+          { label: 'En attente', value: stats.enAttente,  icon: Clock,      bg: 'bg-warning/10',   text: 'text-warning'  },
+          { label: 'Admins',     value: stats.admins,     icon: ShieldCheck,bg: 'bg-role-admin/10',  text: 'text-role-admin' },
+          { label: 'Chercheurs', value: stats.chercheurs, icon: Users,      bg: 'bg-role-chercheur/10',    text: 'text-role-chercheur'   },
         ].map(({ label, value, icon: Icon, bg, text }) => (
           <div key={label} className={`card p-4 flex items-center gap-3 ${bg}`}>
             <Icon size={20} className={text} />
             <div>
               <p className={`text-xl font-bold ${text}`}>{value}</p>
-              <p className="text-xs text-gray-500">{label}</p>
+              <p className="text-xs text-fg-muted">{label}</p>
             </div>
           </div>
         ))}
@@ -392,7 +392,7 @@ export default function UtilisateursPage() {
       {/* Section "En attente de validation" */}
       {pending.length > 0 && (
         <div className="card border-l-4 border-amber-400 overflow-hidden">
-          <div className="px-5 py-3 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
+          <div className="px-5 py-3 bg-warning/10 border-b border-amber-100 flex items-center gap-2">
             <Clock size={15} className="text-amber-600" />
             <h2 className="text-sm font-semibold text-amber-800">
               {pending.length} compte{pending.length > 1 ? 's' : ''} en attente de validation
@@ -403,29 +403,29 @@ export default function UtilisateursPage() {
               <div key={u.id} className="px-5 py-3.5 flex items-center gap-4">
                 <AvatarCircle user={u} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-800">{u.prenom} {u.nom}</p>
-                  <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                  <p className="text-sm font-semibold text-fg">{u.prenom} {u.nom}</p>
+                  <p className="text-xs text-fg-subtle truncate">{u.email}</p>
                 </div>
-                <p className="text-xs text-gray-400 hidden sm:block">
+                <p className="text-xs text-fg-subtle hidden sm:block">
                   {new Date(u.createdAt).toLocaleDateString('fr-FR')}
                 </p>
                 <div className="flex items-center gap-2">
                   <select
                     defaultValue={u.role}
                     onChange={(e) => changeRole(u, e.target.value)}
-                    className="text-xs px-2 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                    className="text-xs px-2 py-1.5 rounded-lg border border-border-strong focus:outline-none focus:ring-2 focus:ring-primary-300"
                   >
                     {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                   </select>
                   <button
                     onClick={() => toggleActif(u)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-success hover:brightness-110 text-white text-xs font-semibold rounded-lg transition-colors"
                   >
                     <Check size={12} /> Activer
                   </button>
                   <button
                     onClick={() => remove(u)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -439,68 +439,68 @@ export default function UtilisateursPage() {
       {/* Barre de filtres */}
       <div className="card p-3 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-subtle" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher un utilisateur…"
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-border-strong focus:outline-none focus:ring-2 focus:ring-primary-500/30"
           />
-          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"><X size={13} /></button>}
+          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle"><X size={13} /></button>}
         </div>
 
         <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}
-          className="text-sm px-3 py-2 rounded-xl border border-gray-200 focus:outline-none">
+          className="text-sm px-3 py-2 rounded-xl border border-border-strong focus:outline-none">
           <option value="">Tous les rôles</option>
           {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
         </select>
 
         <select value={filterActif} onChange={(e) => setFilterActif(e.target.value)}
-          className="text-sm px-3 py-2 rounded-xl border border-gray-200 focus:outline-none">
+          className="text-sm px-3 py-2 rounded-xl border border-border-strong focus:outline-none">
           <option value="">Tous les statuts</option>
           <option value="actifs">Actifs uniquement</option>
           <option value="attente">En attente</option>
         </select>
 
-        <span className="text-xs text-gray-400 ml-auto">{filtered.length} utilisateur(s)</span>
+        <span className="text-xs text-fg-subtle ml-auto">{filtered.length} utilisateur(s)</span>
       </div>
 
       {/* Table principale */}
       {loading ? (
-        <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
+        <div className="flex items-center justify-center h-40 text-fg-subtle text-sm">
           <Loader2 size={18} className="animate-spin mr-2" /> Chargement…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="card p-16 text-center text-gray-400 text-sm">Aucun utilisateur trouvé</div>
+        <div className="card p-16 text-center text-fg-subtle text-sm">Aucun utilisateur trouvé</div>
       ) : (
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="bg-surface-2 border-b border-border">
               <tr>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 tracking-wide">Utilisateur</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 tracking-wide">Email</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 tracking-wide">Rôle</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 tracking-wide">Statut</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 tracking-wide">Inscrit le</th>
-                <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 tracking-wide">Actions</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Utilisateur</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Email</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Rôle</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Statut</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Inscrit le</th>
+                <th className="px-5 py-3 text-right text-xs font-semibold text-fg-muted tracking-wide">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((u) => {
                 const isMe = u.id === me?.id;
                 return (
-                  <tr key={u.id} className={`hover:bg-gray-50/60 transition-colors ${!u.actif ? 'opacity-60' : ''}`}>
+                  <tr key={u.id} className={`hover:bg-surface-2/60 transition-colors ${!u.actif ? 'opacity-60' : ''}`}>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <AvatarCircle user={u} />
                         <div>
-                          <p className="font-semibold text-gray-800 text-sm">
+                          <p className="font-semibold text-fg text-sm">
                             {u.prenom} {u.nom}
                             {isMe && <span className="ml-2 text-[10px] bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded-full font-medium">Vous</span>}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-gray-500 text-xs">{u.email}</td>
+                    <td className="px-5 py-3.5 text-fg-muted text-xs">{u.email}</td>
                     <td className="px-5 py-3.5">
                       {/* Dropdown rôle inline */}
                       <div className="relative inline-block">
@@ -508,7 +508,7 @@ export default function UtilisateursPage() {
                           value={u.role}
                           onChange={(e) => changeRole(u, e.target.value)}
                           disabled={isMe}
-                          className={`text-xs font-semibold pl-2.5 pr-6 py-1.5 rounded-full border appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-300 ${roleInfo[u.role]?.color || 'bg-gray-100 text-gray-600 border-gray-200'} disabled:cursor-not-allowed`}
+                          className={`text-xs font-semibold pl-2.5 pr-6 py-1.5 rounded-full border appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-300 ${roleInfo[u.role]?.color || 'bg-surface-3 text-fg-muted border-border-strong'} disabled:cursor-not-allowed`}
                         >
                           {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                         </select>
@@ -517,16 +517,16 @@ export default function UtilisateursPage() {
                     </td>
                     <td className="px-5 py-3.5">
                       {u.actif ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Actif
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success bg-success/10 border border-success/20 px-2.5 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-success/100" /> Actif
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-warning bg-warning/10 border border-role-terrain/20 px-2.5 py-0.5 rounded-full">
                           <Clock size={10} /> En attente
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-3.5 text-gray-400 text-xs">
+                    <td className="px-5 py-3.5 text-fg-subtle text-xs">
                       {new Date(u.createdAt).toLocaleDateString('fr-FR')}
                     </td>
                     <td className="px-5 py-3.5">
@@ -536,16 +536,16 @@ export default function UtilisateursPage() {
                           <button
                             onClick={() => toggleActif(u)}
                             title={u.actif ? 'Désactiver' : 'Activer'}
-                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                            className="p-1.5 text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                           >
-                            {u.actif ? <ToggleRight size={16} className="text-emerald-600" /> : <ToggleLeft size={16} />}
+                            {u.actif ? <ToggleRight size={16} className="text-success" /> : <ToggleLeft size={16} />}
                           </button>
                         )}
                         {/* Modifier */}
                         <button
                           onClick={() => setModal({ type: 'edit', user: u })}
                           title="Modifier"
-                          className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          className="p-1.5 text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                         >
                           <Edit2 size={14} />
                         </button>
@@ -553,7 +553,7 @@ export default function UtilisateursPage() {
                         <button
                           onClick={() => setModal({ type: 'reset', user: u })}
                           title="Réinitialiser le mot de passe"
-                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                          className="p-1.5 text-fg-subtle hover:text-amber-600 hover:bg-warning/10 rounded-lg transition-colors"
                         >
                           <KeyRound size={14} />
                         </button>
@@ -562,7 +562,7 @@ export default function UtilisateursPage() {
                           <button
                             onClick={() => remove(u)}
                             title="Supprimer"
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                           >
                             <Trash2 size={14} />
                           </button>

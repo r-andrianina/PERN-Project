@@ -114,13 +114,13 @@ export default function NouveauTique() {
 
   return (
     <div className="max-w-4xl space-y-5">
-      <Link to="/specimens/tiques" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
+      <Link to="/specimens/tiques" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
         <ChevronLeft size={16} /> Tiques
       </Link>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {errors.submit && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-600">{errors.submit}</div>
+          <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl text-sm text-danger">{errors.submit}</div>
         )}
 
         <div className="card p-6">
@@ -171,13 +171,13 @@ export default function NouveauTique() {
           </h2>
 
           {stadeImmature && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2 text-xs text-blue-700">
+            <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-xl flex items-start gap-2 text-xs text-info">
               <Info size={13} className="mt-0.5 flex-shrink-0" />
               <span>Au stade <strong>{form.stade}</strong>, le sexe ne peut pas être déterminé.</span>
             </div>
           )}
           {!stadeImmature && form.sexe === 'M' && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2 text-xs text-blue-700">
+            <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-xl flex items-start gap-2 text-xs text-info">
               <Info size={13} className="mt-0.5 flex-shrink-0" />
               <span>Un mâle adulte ne se gorge pas — l'option « gorgée » est désactivée.</span>
             </div>

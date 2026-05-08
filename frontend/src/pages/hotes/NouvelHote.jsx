@@ -92,18 +92,18 @@ export default function NouvelHote() {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <Link to="/hotes" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
+      <Link to="/hotes" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
         <ChevronLeft size={16} /> Hôtes
       </Link>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {errors.submit && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-600">{errors.submit}</div>
+          <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl text-sm text-danger">{errors.submit}</div>
         )}
 
         <div className="card p-6">
           <h2 className="section-title">
-            <PawPrint size={17} className="text-amber-600" /> Identification
+            <PawPrint size={17} className="text-warning" /> Identification
           </h2>
           <div className="space-y-4">
             <FormField

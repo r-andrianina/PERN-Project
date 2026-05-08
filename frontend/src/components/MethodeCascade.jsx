@@ -23,13 +23,13 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
   const baseClass = `
     w-full px-3.5 py-2.5 text-sm rounded-xl border transition-colors
     focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400
-    disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed
-    border-gray-200 bg-white hover:border-gray-300
+    disabled:bg-surface-2 disabled:text-fg-subtle disabled:cursor-not-allowed
+    border-border-strong bg-surface hover:border-gray-300
   `;
   const errClass = `
     w-full px-3.5 py-2.5 text-sm rounded-xl border transition-colors
     focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400
-    border-red-300 bg-red-50
+    border-red-300 bg-danger/10
   `;
 
   // Charger toutes les missions au montage
@@ -68,18 +68,18 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
   return (
     <div className="space-y-3">
       {/* Ligne de breadcrumb visuel */}
-      <div className="flex items-center gap-1.5 text-xs text-gray-400">
-        <span className={missionId  ? 'text-primary-600 font-medium' : ''}>Mission</span>
+      <div className="flex items-center gap-1.5 text-xs text-fg-subtle">
+        <span className={missionId  ? 'text-primary font-medium' : ''}>Mission</span>
         <ChevronRight size={12} />
-        <span className={localiteId ? 'text-primary-600 font-medium' : ''}>Localité</span>
+        <span className={localiteId ? 'text-primary font-medium' : ''}>Localité</span>
         <ChevronRight size={12} />
-        <span className={methodeId  ? 'text-primary-600 font-medium' : ''}>Méthode de collecte</span>
+        <span className={methodeId  ? 'text-primary font-medium' : ''}>Méthode de collecte</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* 1. Ordre de mission */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-gray-600 tracking-wide">
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide">
             Ordre de mission <span className="text-red-400">*</span>
           </label>
           <select value={missionId} onChange={handleMissionChange} className={baseClass}>
@@ -95,7 +95,7 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
 
         {/* 2. Localité */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-gray-600 tracking-wide">
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide">
             Localité <span className="text-red-400">*</span>
           </label>
           <select
@@ -118,7 +118,7 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
 
         {/* 3. Méthode de collecte */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-gray-600 tracking-wide">
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide">
             Méthode de collecte <span className="text-red-400">*</span>
           </label>
           <select

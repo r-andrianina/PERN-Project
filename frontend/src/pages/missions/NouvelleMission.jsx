@@ -162,14 +162,14 @@ export default function NouvelleMission() {
   return (
     <div className="max-w-5xl space-y-5">
 
-      <Link to="/missions" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
+      <Link to="/missions" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
         <ChevronLeft size={16} /> Missions
       </Link>
 
       <form onSubmit={handleSubmit} className="space-y-5">
 
         {errors.submit && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-600">
+          <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl text-sm text-danger">
             {errors.submit}
           </div>
         )}

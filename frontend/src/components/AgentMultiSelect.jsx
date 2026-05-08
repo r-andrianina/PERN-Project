@@ -10,8 +10,8 @@ import { X, UserPlus, Search } from 'lucide-react';
 const ROLE_COLOR = {
   admin:     'bg-purple-100 text-purple-700 border-purple-200',
   chercheur: 'bg-blue-100 text-blue-700 border-blue-200',
-  terrain:   'bg-amber-100 text-amber-700 border-amber-200',
-  lecteur:   'bg-gray-100 text-gray-600 border-gray-200',
+  terrain:   'bg-amber-100 text-amber-700 border-warning/20',
+  lecteur:   'bg-surface-3 text-fg-muted border-border-strong',
 };
 
 export default function AgentMultiSelect({ value = [], onChange, users = [], max = 5, label = 'Agents de terrain', hint }) {
@@ -38,27 +38,27 @@ export default function AgentMultiSelect({ value = [], onChange, users = [], max
   return (
     <div className="space-y-1.5 relative">
       <div className="flex items-center justify-between">
-        <label className="block text-xs font-semibold text-gray-600 tracking-wide">{label}</label>
-        <span className={`text-[10px] font-medium ${isMax ? 'text-amber-600' : 'text-gray-400'}`}>
+        <label className="block text-xs font-semibold text-fg-muted tracking-wide">{label}</label>
+        <span className={`text-[10px] font-medium ${isMax ? 'text-warning' : 'text-fg-subtle'}`}>
           {value.length} / {max}
         </span>
       </div>
 
       {/* Chips des sélectionnés */}
-      <div className="min-h-[44px] px-3 py-2 rounded-xl border border-gray-200 bg-white flex flex-wrap items-center gap-2">
+      <div className="min-h-[44px] px-3 py-2 rounded-xl border border-border-strong bg-surface flex flex-wrap items-center gap-2">
         {selectedUsers.map((u) => (
           <span
             key={u.id}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${ROLE_COLOR[u.role] || 'bg-gray-100 text-gray-600 border-gray-200'}`}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted border-border-strong'}`}
           >
-            <span className="w-4 h-4 rounded-full bg-white/70 flex items-center justify-center text-[9px] font-bold">
+            <span className="w-4 h-4 rounded-full bg-surface/70 flex items-center justify-center text-[9px] font-bold">
               {u.prenom?.[0]}{u.nom?.[0]}
             </span>
             {u.prenom} {u.nom}
             <button
               type="button"
               onClick={() => remove(u.id)}
-              className="ml-0.5 -mr-0.5 hover:bg-white/50 rounded-full p-0.5"
+              className="ml-0.5 -mr-0.5 hover:bg-surface/50 rounded-full p-0.5"
             >
               <X size={10} />
             </button>
@@ -69,20 +69,20 @@ export default function AgentMultiSelect({ value = [], onChange, users = [], max
           <button
             type="button"
             onClick={() => setShowDropdown(!showDropdown)}
-            className="inline-flex items-center gap-1.5 text-xs text-primary-600 hover:bg-primary-50 px-2 py-1 rounded-lg"
+            className="inline-flex items-center gap-1.5 text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg"
           >
             <UserPlus size={12} /> Ajouter un agent
           </button>
         )}
       </div>
 
-      {hint && <p className="text-xs text-gray-400">{hint}</p>}
+      {hint && <p className="text-xs text-fg-subtle">{hint}</p>}
 
       {/* Dropdown */}
       {showDropdown && !isMax && (
-        <div className="absolute z-20 w-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
-          <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2">
-            <Search size={13} className="text-gray-400" />
+        <div className="absolute z-20 w-full mt-1 bg-surface rounded-xl shadow-xl border border-border-strong overflow-hidden">
+          <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+            <Search size={13} className="text-fg-subtle" />
             <input
               type="text"
               autoFocus
@@ -94,23 +94,23 @@ export default function AgentMultiSelect({ value = [], onChange, users = [], max
           </div>
           <div className="max-h-64 overflow-y-auto">
             {filtered.length === 0 ? (
-              <p className="px-3 py-4 text-xs text-gray-400 text-center">Aucun utilisateur disponible</p>
+              <p className="px-3 py-4 text-xs text-fg-subtle text-center">Aucun utilisateur disponible</p>
             ) : (
               filtered.map((u) => (
                 <button
                   key={u.id}
                   type="button"
                   onClick={() => add(u.id)}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-primary-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-primary/10 transition-colors"
                 >
-                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${ROLE_COLOR[u.role] || 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted'}`}>
                     {u.prenom?.[0]}{u.nom?.[0]}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-gray-800 truncate">{u.prenom} {u.nom}</p>
-                    <p className="text-[10px] text-gray-400 truncate">{u.email}</p>
+                    <p className="text-sm text-fg truncate">{u.prenom} {u.nom}</p>
+                    <p className="text-[10px] text-fg-subtle truncate">{u.email}</p>
                   </div>
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${ROLE_COLOR[u.role] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted border-border-strong'}`}>
                     {u.role}
                   </span>
                 </button>

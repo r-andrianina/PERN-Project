@@ -42,9 +42,9 @@ const TYPES = [
 ];
 
 const TYPE_COLOR = {
-  moustique: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-  tique:     'bg-rose-50 text-rose-700 border-rose-100',
-  puce:      'bg-amber-50 text-amber-700 border-amber-100',
+  moustique: 'bg-specimen-moustique/10 text-specimen-moustique border-emerald-100',
+  tique:     'bg-specimen-tique/10 text-specimen-tique border-rose-100',
+  puce:      'bg-specimen-puce/10 text-specimen-puce border-amber-100',
 };
 
 // ----- noeud d'arbre récursif
@@ -62,57 +62,57 @@ function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, can
   return (
     <div>
       <div
-        className={`group flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-gray-50 ${!node.actif ? 'opacity-50' : ''}`}
+        className={`group flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-surface-2 ${!node.actif ? 'opacity-50' : ''}`}
         style={{ paddingLeft: `${8 + depth * 20}px` }}
       >
-        <button onClick={toggle} className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700">
+        <button onClick={toggle} className="w-5 h-5 flex items-center justify-center text-fg-subtle hover:text-fg">
           {hasChildren ? (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : null}
         </button>
 
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 w-20 flex-shrink-0">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle w-20 flex-shrink-0">
           {NIVEAU_LABEL[node.niveau]}
         </span>
 
-        <span className={`text-sm text-gray-800 font-medium ${node.niveau === 'genre' || node.niveau === 'espece' ? 'italic' : ''}`}>
+        <span className={`text-sm text-fg font-medium ${node.niveau === 'genre' || node.niveau === 'espece' ? 'italic' : ''}`}>
           {node.nom}
         </span>
 
         {node.auteur && (
-          <span className="text-xs text-gray-400">{node.auteur}{node.annee ? `, ${node.annee}` : ''}</span>
+          <span className="text-xs text-fg-subtle">{node.auteur}{node.annee ? `, ${node.annee}` : ''}</span>
         )}
 
         {node.type && depth === 0 && (
-          <span className={`badge text-[10px] border ${TYPE_COLOR[node.type] || 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+          <span className={`badge text-[10px] border ${TYPE_COLOR[node.type] || 'bg-surface-2 text-fg-muted border-border-strong'}`}>
             {node.type}
           </span>
         )}
 
         {!node.actif && (
-          <span className="badge bg-gray-100 text-gray-500 border border-gray-200">Inactif</span>
+          <span className="badge bg-surface-3 text-fg-muted border border-border-strong">Inactif</span>
         )}
 
         <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
           {canEdit && enfantsAutorises.length > 0 && (
             <button onClick={() => onAddChild(node)} title="Ajouter un enfant"
-              className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg">
+              className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
               <Plus size={13} />
             </button>
           )}
           {canEdit && (
             <>
               <button onClick={() => onToggle(node)} title={node.actif ? 'Désactiver' : 'Activer'}
-                className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg">
+                className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
                 {node.actif ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
               </button>
               <button onClick={() => onEdit(node)} title="Modifier"
-                className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg">
+                className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
                 <Edit2 size={12} />
               </button>
             </>
           )}
           {canDelete && (
             <button onClick={() => onDelete(node)} title="Supprimer"
-              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+              className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg">
               <Trash2 size={12} />
             </button>
           )}
@@ -233,16 +233,16 @@ export default function TaxonomieSpecimensPage() {
 
   return (
     <div className="max-w-5xl space-y-5">
-      <button onClick={() => navigate('/dictionnaire')} className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700">
+      <button onClick={() => navigate('/dictionnaire')} className="inline-flex items-center gap-1.5 text-sm text-fg-subtle hover:text-fg">
         <ChevronLeft size={16} /> Dictionnaire
       </button>
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <Bug size={20} className="text-emerald-600" /> Taxonomie spécimens
+          <h1 className="text-xl font-bold text-fg flex items-center gap-2">
+            <Bug size={20} className="text-specimen-moustique" /> Taxonomie spécimens
           </h1>
-          <p className="text-xs text-gray-400 mt-0.5">Hiérarchie scientifique — ordre → … → sous-espèce</p>
+          <p className="text-xs text-fg-subtle mt-0.5">Hiérarchie scientifique — ordre → … → sous-espèce</p>
         </div>
         {canEdit && (
           <button onClick={openCreateRoot} className="btn-primary">
@@ -252,15 +252,15 @@ export default function TaxonomieSpecimensPage() {
       </div>
 
       <div className="card p-3 flex items-center gap-2">
-        <span className="text-xs text-gray-500">Filtrer par type :</span>
+        <span className="text-xs text-fg-muted">Filtrer par type :</span>
         {[{ value: '', label: 'Tous' }, ...TYPES].map((t) => (
           <button
             key={t.value}
             onClick={() => setFilter(t.value)}
             className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
               filterType === t.value
-                ? 'bg-primary-600 text-white border-primary-600'
-                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                ? 'bg-primary text-white border-primary-600'
+                : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'
             }`}
           >
             {t.label}
@@ -269,11 +269,11 @@ export default function TaxonomieSpecimensPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
+        <div className="flex items-center justify-center h-32 text-fg-subtle text-sm">
           <Loader2 size={18} className="animate-spin mr-2" /> Chargement…
         </div>
       ) : tree.length === 0 ? (
-        <div className="card p-12 text-center text-gray-400 text-sm">Aucune taxonomie</div>
+        <div className="card p-12 text-center text-fg-subtle text-sm">Aucune taxonomie</div>
       ) : (
         <div className="card p-2">
           {tree.map((n) => (
@@ -290,23 +290,23 @@ export default function TaxonomieSpecimensPage() {
 
       {editing && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <form onSubmit={submit} className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4">
+          <form onSubmit={submit} className="bg-surface rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-gray-800">
+              <h2 className="text-base font-bold text-fg">
                 {editing.id ? 'Modifier la taxonomie' : 'Nouvelle taxonomie'}
               </h2>
-              <button type="button" onClick={() => setEditing(null)} className="p-1 text-gray-400 hover:text-gray-700">
+              <button type="button" onClick={() => setEditing(null)} className="p-1 text-fg-subtle hover:text-fg">
                 <X size={18} />
               </button>
             </div>
 
             {submitErr && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600">{submitErr}</div>
+              <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-xs text-danger">{submitErr}</div>
             )}
 
             {editing.parentLabel && (
-              <div className="text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
-                Parent : <span className="font-medium text-gray-700">{editing.parentLabel}</span>
+              <div className="text-xs text-fg-muted bg-surface-2 px-3 py-2 rounded-lg">
+                Parent : <span className="font-medium text-fg">{editing.parentLabel}</span>
               </div>
             )}
 

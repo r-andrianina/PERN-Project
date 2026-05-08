@@ -51,10 +51,10 @@ function CreateContainerModal({ missionId, type, onCreated, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <form onSubmit={submit} className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      <form onSubmit={submit} className="bg-surface rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className={`px-6 py-5 flex items-center justify-between bg-gradient-to-r ${type === 'PLAQUE' ? 'from-emerald-600 to-emerald-500' : 'from-amber-600 to-amber-500'}`}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
               {type === 'PLAQUE' ? <Layers size={16} className="text-white" /> : <Box size={16} className="text-white" />}
             </div>
             <div>
@@ -64,25 +64,25 @@ function CreateContainerModal({ missionId, type, onCreated, onClose }) {
               <p className="text-xs text-white/80">Code généré automatiquement</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-white/20 rounded-lg">
+          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
             <X size={18} />
           </button>
         </div>
 
         <div className="p-6 space-y-4">
-          {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{error}</div>}
+          {error && <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">{error}</div>}
 
-          <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500">
-            Le code sera de la forme <code className="font-mono font-semibold text-gray-700">{type === 'PLAQUE' ? 'P' : 'B'}_AAAAMM_n</code>
+          <div className="bg-surface-2 rounded-xl p-3 text-xs text-fg-muted">
+            Le code sera de la forme <code className="font-mono font-semibold text-fg">{type === 'PLAQUE' ? 'P' : 'B'}_AAAAMM_n</code>
             {' '}où AAAAMM correspond au mois de début de la mission, et n est un compteur propre à cette mission.
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-gray-600">Notes (optionnel)</label>
+            <label className="text-xs font-semibold text-fg-muted">Notes (optionnel)</label>
             <textarea
               value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
               placeholder="ex: Plaque dédiée aux Anopheles femelles…"
-              className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 resize-none"
+              className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 resize-none"
             />
           </div>
 
@@ -112,12 +112,12 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
   const isAuto     = (pos) => autoPositions.includes(pos);
 
   return (
-    <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-200 p-4 overflow-x-auto">
+    <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-border-strong p-4 overflow-x-auto">
       <div className="inline-block">
         {/* En-tête colonnes */}
         <div className="flex items-center gap-1 ml-7 mb-1">
           {Array.from({ length: cols }, (_, i) => (
-            <div key={i} className={`${cellSize} flex items-center justify-center text-[10px] font-semibold text-gray-400`}>
+            <div key={i} className={`${cellSize} flex items-center justify-center text-[10px] font-semibold text-fg-subtle`}>
               {i + 1}
             </div>
           ))}
@@ -126,7 +126,7 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
         {/* Lignes */}
         {rows.map((r) => (
           <div key={r} className="flex items-center gap-1 mb-1">
-            <div className="w-6 text-[10px] font-semibold text-gray-400 text-right pr-1">{r}</div>
+            <div className="w-6 text-[10px] font-semibold text-fg-subtle text-right pr-1">{r}</div>
             {Array.from({ length: cols }, (_, i) => {
               const pos = isPlaque ? `${r}${i + 1}` : `${r}-${i + 1}`;
               const occ = isOccupied(pos);
@@ -141,12 +141,12 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
                   title={occ ? `${pos} : ${occupied.get(pos).map((s) => s.idTerrain || `#${s.id}`).join(', ')}` : pos}
                   className={`${cellSize} rounded-md text-[9px] font-mono transition-all border
                     ${occ
-                      ? 'bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed'
+                      ? 'bg-gray-300 text-fg-muted border-gray-400 cursor-not-allowed'
                       : sel
                       ? 'bg-primary-600 text-white border-primary-700 ring-2 ring-primary-300 scale-110 z-10'
                       : auto
                       ? 'bg-emerald-200 text-emerald-800 border-emerald-400 ring-1 ring-emerald-300'
-                      : 'bg-white text-gray-400 border-gray-200 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700'}
+                      : 'bg-surface text-fg-subtle border-border-strong hover:bg-primary/10 hover:border-primary-300 hover:text-primary'}
                   `}
                 >
                   {sel ? '●' : occ ? '×' : auto ? '+' : ''}
@@ -157,9 +157,9 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
         ))}
 
         {/* Légende */}
-        <div className="flex items-center gap-4 mt-3 text-[10px] text-gray-400">
+        <div className="flex items-center gap-4 mt-3 text-[10px] text-fg-subtle">
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-sm bg-white border border-gray-200" /> Libre
+            <span className="w-3 h-3 rounded-sm bg-surface border border-border-strong" /> Libre
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-sm bg-primary-600 border border-primary-700" /> Sélectionné
@@ -256,14 +256,14 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
     <div className="space-y-4">
 
       {/* Switch type */}
-      <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+      <div className="flex items-center gap-2 p-1 bg-surface-3 rounded-xl w-fit">
         <button
           type="button"
           onClick={() => handleSwitchType('PLAQUE')}
           className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
             type === 'PLAQUE'
-              ? 'bg-white text-emerald-700 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-emerald-700 shadow-sm'
+              : 'text-fg-muted hover:text-fg'
           }`}
         >
           <Layers size={14} /> Plaque (96 puits)
@@ -273,8 +273,8 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
           onClick={() => handleSwitchType('BOITE')}
           className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
             type === 'BOITE'
-              ? 'bg-white text-amber-700 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-amber-700 shadow-sm'
+              : 'text-fg-muted hover:text-fg'
           }`}
         >
           <Box size={14} /> Boîte (81 tubes)
@@ -284,14 +284,14 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
       {/* Sélecteur container + bouton créer */}
       <div className="flex items-end gap-2">
         <div className="flex-1 space-y-1.5">
-          <label className="text-xs font-semibold text-gray-600 tracking-wide">
+          <label className="text-xs font-semibold text-fg-muted tracking-wide">
             {isPlaque ? 'Plaque' : 'Boîte'} de conservation
           </label>
           <select
             value={containerId || ''}
             onChange={handleSelectContainer}
             disabled={!missionId || loading}
-            className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
+            className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
           >
             <option value="">— Sélectionner —</option>
             {containers.map((c) => (
@@ -310,7 +310,7 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
           className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors ${
             isPlaque
               ? 'bg-emerald-50 border border-emerald-200 text-emerald-600 hover:bg-emerald-100'
-              : 'bg-amber-50 border border-amber-200 text-amber-600 hover:bg-amber-100'
+              : 'bg-warning/10 border border-warning/20 text-warning hover:bg-amber-100'
           } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <Plus size={18} />
@@ -318,14 +318,14 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
       </div>
 
       {!missionId && (
-        <p className="text-xs text-amber-600 flex items-center gap-1.5">
+        <p className="text-xs text-warning flex items-center gap-1.5">
           <AlertTriangle size={12} /> Sélectionnez d'abord une mission via la cascade ci-dessus.
         </p>
       )}
 
       {/* Mode d'insertion (boîte + nombre>1) */}
       {containerData?.container?.type === 'BOITE' && nombre > 1 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+        <div className="bg-warning/10 border border-warning/20 rounded-xl p-4 space-y-2">
           <p className="text-xs font-semibold text-amber-800 mb-2">Mode d'insertion</p>
           <label className="flex items-start gap-2.5 cursor-pointer">
             <input
@@ -335,8 +335,8 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
               className="mt-0.5"
             />
             <div className="text-xs">
-              <p className="font-semibold text-gray-800">1 enregistrement ({nombre} individus dans le même tube)</p>
-              <p className="text-gray-500">Vous choisissez la position du tube, les {nombre} individus partagent ce tube.</p>
+              <p className="font-semibold text-fg">1 enregistrement ({nombre} individus dans le même tube)</p>
+              <p className="text-fg-muted">Vous choisissez la position du tube, les {nombre} individus partagent ce tube.</p>
             </div>
           </label>
           <label className="flex items-start gap-2.5 cursor-pointer">
@@ -347,8 +347,8 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
               className="mt-0.5"
             />
             <div className="text-xs">
-              <p className="font-semibold text-gray-800">{nombre} enregistrements (1 individu / tube)</p>
-              <p className="text-gray-500">Le système assigne automatiquement les {nombre} prochaines positions libres.</p>
+              <p className="font-semibold text-fg">{nombre} enregistrements (1 individu / tube)</p>
+              <p className="text-fg-muted">Le système assigne automatiquement les {nombre} prochaines positions libres.</p>
             </div>
           </label>
         </div>
@@ -356,7 +356,7 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
 
       {/* Plaque + nombre>1 → message */}
       {containerData?.container?.type === 'PLAQUE' && nombre > 1 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5 text-xs text-amber-800">
+        <div className="bg-warning/10 border border-warning/20 rounded-xl p-3 flex items-start gap-2.5 text-xs text-amber-800">
           <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
           <span>Une plaque accepte 1 spécimen par puit. Le nombre sera forcé à 1 — utilisez plusieurs enregistrements pour saisir plusieurs spécimens, ou choisissez une boîte.</span>
         </div>
