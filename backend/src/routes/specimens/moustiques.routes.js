@@ -1,44 +1,37 @@
 // backend/src/routes/specimens/moustiques.routes.js
 
-const express = require('express');
-const router  = express.Router();
-const multer  = require('multer');
-const ctrl    = require('../../controllers/moustiques.controller');
+const express      = require('express');
+const router       = express.Router();
+const multer       = require('multer');
+const ctrl         = require('../../controllers/moustiques.controller');
 const { verifyToken, requireRole, requireMinRole } = require('../../middlewares/auth.middleware');
+const { validate } = require('../../middlewares/validate');
+const asyncHandler = require('../../middlewares/asyncHandler');
+const schema       = require('../../schemas/specimens.schema');
 
-// Multer — stockage en mémoire (pas sur disque)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits:  { fileSize: 10 * 1024 * 1024 }, // max 10 MB
+  limits:  { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-      'application/vnd.ms-excel',                                           // .xls
-      'text/csv',                                                            // .csv
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'text/csv',
     ];
-    if (allowed.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Format non accepté — utilisez .xlsx, .xls ou .csv'), false);
-    }
+    cb(allowed.includes(file.mimetype) ? null : new Error('Format non accepté — utilisez .xlsx ou .xls'), allowed.includes(file.mimetype));
   },
 });
 
 router.use(verifyToken);
 
-// Lecture
-router.get('/export', ctrl.exportExcel);   // ← avant /:id
-router.get('/',       ctrl.listMoustiques);
-router.get('/:id',    ctrl.getMoustique);
+router.get('/export',  asyncHandler(ctrl.exportExcel));
+router.get('/',        asyncHandler(ctrl.listMoustiques));
+router.get('/:id',     asyncHandler(ctrl.getMoustique));
 
-// Saisie manuelle — Admin, Chercheur, Terrain
-router.post('/',      requireMinRole('terrain'), ctrl.createMoustique);
-router.put('/:id',    requireMinRole('terrain'), ctrl.updateMoustique);
+router.post('/',   requireMinRole('terrain'), validate(schema.createMoustique), asyncHandler(ctrl.createMoustique));
+router.put('/:id', requireMinRole('terrain'), validate(schema.updateMoustique), asyncHandler(ctrl.updateMoustique));
 
-// Import Excel — Admin, Chercheur, Terrain
-router.post('/import', requireMinRole('terrain'), upload.single('file'), ctrl.importExcel);
-
-// Suppression — Admin uniquement
-router.delete('/:id', requireRole('admin'), ctrl.deleteMoustique);
+router.post('/import', requireMinRole('terrain'), upload.single('file'), asyncHandler(ctrl.importExcel));
+router.delete('/:id',  requireRole('admin'), asyncHandler(ctrl.deleteMoustique));
 
 module.exports = router;

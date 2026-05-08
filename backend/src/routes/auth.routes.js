@@ -1,53 +1,27 @@
 // backend/src/routes/auth.routes.js
-// Routes d'authentification et gestion des utilisateurs
 
-const express    = require('express');
-const router     = express.Router();
-const authCtrl   = require('../controllers/auth.controller');
+const express      = require('express');
+const router       = express.Router();
+const authCtrl     = require('../controllers/auth.controller');
 const { verifyToken, requireRole } = require('../middlewares/auth.middleware');
+const { validate } = require('../middlewares/validate');
+const asyncHandler = require('../middlewares/asyncHandler');
+const schema       = require('../schemas/auth.schema');
 
-// =============================================================
-//  ROUTES PUBLIQUES (sans token)
-// =============================================================
+// ── Publiques ─────────────────────────────────────────────────
+router.post('/register', validate(schema.register),  asyncHandler(authCtrl.register));
+router.post('/login',    validate(schema.login),     asyncHandler(authCtrl.login));
 
-// POST /api/v1/auth/register — Inscription (compte en attente)
-router.post('/register', authCtrl.register);
+// ── Authentifiées ─────────────────────────────────────────────
+router.get('/me', verifyToken, asyncHandler(authCtrl.me));
 
-// POST /api/v1/auth/login — Connexion → retourne un JWT
-router.post('/login', authCtrl.login);
+// ── Admin ─────────────────────────────────────────────────────
+router.get('/users',    verifyToken, requireRole('admin'), asyncHandler(authCtrl.listUsers));
+router.post('/users',   verifyToken, requireRole('admin'), validate(schema.createUser),   asyncHandler(authCtrl.createUser));
+router.put('/users/:id',verifyToken, requireRole('admin'), validate(schema.updateUser),   asyncHandler(authCtrl.updateUser));
+router.delete('/users/:id', verifyToken, requireRole('admin'), asyncHandler(authCtrl.deleteUser));
 
-// =============================================================
-//  ROUTES PROTÉGÉES (token JWT requis)
-// =============================================================
-
-// GET /api/v1/auth/me — Profil de l'utilisateur connecté
-router.get('/me', verifyToken, authCtrl.me);
-
-// =============================================================
-//  ROUTES ADMIN UNIQUEMENT
-// =============================================================
-
-// GET /api/v1/auth/users — Liste tous les utilisateurs
-router.get(
-  '/users',
-  verifyToken,
-  requireRole('admin'),
-  authCtrl.listUsers
-);
-
-// PATCH /api/v1/auth/users/:id/activate — Activer/désactiver + changer rôle
-router.patch('/users/:id/activate',      verifyToken, requireRole('admin'), authCtrl.activateUser);
-
-// POST   /api/v1/auth/users        — Admin crée un compte
-router.post('/users',                    verifyToken, requireRole('admin'), authCtrl.createUser);
-
-// PUT    /api/v1/auth/users/:id    — Admin modifie nom/prenom/email/role
-router.put('/users/:id',                 verifyToken, requireRole('admin'), authCtrl.updateUser);
-
-// DELETE /api/v1/auth/users/:id    — Admin supprime un compte
-router.delete('/users/:id',              verifyToken, requireRole('admin'), authCtrl.deleteUser);
-
-// PATCH  /api/v1/auth/users/:id/reset-password — Admin réinitialise le mdp
-router.patch('/users/:id/reset-password', verifyToken, requireRole('admin'), authCtrl.resetPassword);
+router.patch('/users/:id/activate',       verifyToken, requireRole('admin'), validate(schema.activateUser), asyncHandler(authCtrl.activateUser));
+router.patch('/users/:id/reset-password', verifyToken, requireRole('admin'), validate(schema.resetPassword), asyncHandler(authCtrl.resetPassword));
 
 module.exports = router;
