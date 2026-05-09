@@ -40,6 +40,7 @@ app.use('/api/v1/dictionnaire/types-habitat',          require('./routes/diction
 app.use('/api/v1/dictionnaire/audit-logs',             require('./routes/dictionnaire/auditLogs.routes'));
 
 app.use('/api/v1/recherche',  require('./routes/recherche.routes'));
+app.use('/api/v1/import',     require('./routes/import.routes'));
 
 // ── 404 ───────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ error: 'Route introuvable' }));

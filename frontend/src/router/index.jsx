@@ -34,6 +34,7 @@ import TypesHabitatPage         from '../pages/dictionnaire/TypesHabitatPage';
 import AuditLogsPage            from '../pages/dictionnaire/AuditLogsPage';
 import UtilisateursPage         from '../pages/utilisateurs/UtilisateursPage';
 import RecherchePage            from '../pages/recherche/RecherchePage';
+import ImportPage               from '../pages/import/ImportPage';
 
 const ProtectedRoute = ({ children }) => {
   const token = useAuthStore((s) => s.token);
@@ -84,6 +85,7 @@ const router = createBrowserRouter([
 
       // Recherche / explorer
       { path: 'recherche',                    element: <RecherchePage /> },
+      { path: 'import',                       element: <ImportPage /> },
 
       // Spécimens
       { path: 'specimens/moustiques',         element: <MoustiquesPage /> },

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, FolderOpen, MapPin, BookOpen, Beaker, PawPrint, Users, Search,
+  LayoutDashboard, FolderOpen, MapPin, BookOpen, Beaker, PawPrint, Users, Search, Upload,
   Menu, X, LogOut, FlaskConical,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { path: '/methodes',      label: 'Méthodes',        icon: Beaker          },
   { path: '/hotes',         label: 'Hôtes',           icon: PawPrint        },
   { path: '/dictionnaire',  label: 'Dictionnaire',    icon: BookOpen        },
+  { path: '/import',        label: 'Import Excel',    icon: Upload          },
 ];
 
 const ADMIN_NAV = [
