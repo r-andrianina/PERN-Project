@@ -37,7 +37,7 @@ export default function TiquesPage() {
       />
 
       {isLoading ? <Spinner.Block /> : tiques.length === 0 ? (
-        <EmptyState icon={Bug} title="Aucune tique enregistrée"
+        <EmptyState icon={() => <SpecimenIcon type="tique" size={40} />} title="Aucune tique enregistrée"
           action={{ label: 'Ajouter le premier spécimen', icon: Plus, onClick: () => navigate('/specimens/tiques/nouveau') }} />
       ) : (
         <Card padding="none" className="overflow-hidden">

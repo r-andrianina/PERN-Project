@@ -46,7 +46,7 @@ export default function MoustiquesPage() {
         <Spinner.Block label="Chargement…" />
       ) : moustiques.length === 0 ? (
         <EmptyState
-          icon={Bug}
+          icon={() => <SpecimenIcon type="moustique" size={40} />}
           title="Aucun moustique enregistré"
           description="Commencez par enregistrer un premier spécimen."
           action={{

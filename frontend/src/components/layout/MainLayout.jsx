@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, FolderOpen, MapPin, Bug, BookOpen, Beaker, PawPrint, Users, Search,
+  LayoutDashboard, FolderOpen, MapPin, BookOpen, Beaker, PawPrint, Users, Search,
   Menu, X, LogOut, FlaskConical,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import ThemeToggle from '../ThemeToggle';
 import { Badge } from '../ui';
+import SpecimenIcon from '../SpecimenIcon';
 
 const NAV_ITEMS = [
   { path: '/dashboard',     label: 'Tableau de bord', icon: LayoutDashboard },
@@ -23,9 +24,9 @@ const ADMIN_NAV = [
 ];
 
 const SPECIMEN_ITEMS = [
-  { path: '/specimens/moustiques', label: 'Moustiques', color: 'text-specimen-moustique' },
-  { path: '/specimens/tiques',     label: 'Tiques',     color: 'text-specimen-tique'     },
-  { path: '/specimens/puces',      label: 'Puces',      color: 'text-specimen-puce'      },
+  { path: '/specimens/moustiques', label: 'Moustiques', type: 'moustique' },
+  { path: '/specimens/tiques',     label: 'Tiques',     type: 'tique'     },
+  { path: '/specimens/puces',      label: 'Puces',      type: 'puce'      },
 ];
 
 const ROLE_TONE = {
@@ -119,8 +120,24 @@ export default function MainLayout() {
           ))}
 
           <NavSection>Spécimens</NavSection>
-          {SPECIMEN_ITEMS.map(({ path, label, color }) => (
-            <NavItem key={path} to={path} label={label} icon={Bug} iconColorIdle={color} onClick={closeSidebar} />
+          {SPECIMEN_ITEMS.map(({ path, label, type }) => (
+            <NavLink
+              key={path} to={path} onClick={closeSidebar}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  isActive
+                    ? 'bg-primary text-fg-on-primary shadow-card'
+                    : 'text-fg-muted hover:bg-surface-2 hover:text-fg'
+                }`
+              }
+            >
+              {() => (
+                <>
+                  <SpecimenIcon type={type} size={17} className="flex-shrink-0" />
+                  {label}
+                </>
+              )}
+            </NavLink>
           ))}
 
           {user?.role === 'admin' && (

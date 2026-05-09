@@ -37,7 +37,7 @@ export default function PucesPage() {
       />
 
       {isLoading ? <Spinner.Block /> : puces.length === 0 ? (
-        <EmptyState icon={Bug} title="Aucune puce enregistrée"
+        <EmptyState icon={() => <SpecimenIcon type="puce" size={40} />} title="Aucune puce enregistrée"
           action={{ label: 'Ajouter le premier spécimen', icon: Plus, onClick: () => navigate('/specimens/puces/nouveau') }} />
       ) : (
         <Card padding="none" className="overflow-hidden">
