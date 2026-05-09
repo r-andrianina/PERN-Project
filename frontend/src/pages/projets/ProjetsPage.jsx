@@ -14,7 +14,7 @@ export default function ProjetsPage() {
   const projets = data ?? [];
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         icon={FolderOpen} iconTone="primary"
         title="Projets" subtitle={`${projets.length} projet(s) enregistré(s)`}

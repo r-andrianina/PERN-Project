@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bug, Plus, Download, Search, X } from 'lucide-react';
+import { Plus, Download, Search, X } from 'lucide-react';
 import { Card, Button, Badge, EmptyState, PageHeader, Spinner } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
+import SpecimenIcon from '../../components/SpecimenIcon';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
@@ -24,7 +25,7 @@ export default function PucesPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        icon={Bug} iconTone="specimen-puce"
+        icon={() => <SpecimenIcon type="puce" size={18} />} iconTone="specimen-puce"
         title="Puces" subtitle={`${puces.length} spécimen(s) au total`}
         actions={
           <>

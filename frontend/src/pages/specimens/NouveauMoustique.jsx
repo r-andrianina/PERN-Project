@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Bug, Microscope, FlaskConical, FileText, Check, Loader2, Info } from 'lucide-react';
+import { ChevronLeft, Microscope, FlaskConical, FileText, Check, Loader2, Info, Tag } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import MethodeCascade from '../../components/MethodeCascade';
 import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
+import { Card } from '../../components/ui';
+import SpecimenIcon from '../../components/SpecimenIcon';
 
 export default function NouveauMoustique() {
   const navigate = useNavigate();
@@ -126,23 +128,29 @@ export default function NouveauMoustique() {
   const pariteOptions  = [{ value:'Nulle', label:'Nulle' }, { value:'Paucie', label:'Paucie' }, { value:'Multi', label:'Multi' }];
   const organeOptions  = [{ value:'Tête', label:'Tête' }, { value:'Thorax', label:'Thorax' }, { value:'Abdomen', label:'Abdomen' }, { value:'Entier', label:'Entier' }];
 
+  const selectedTaxo = taxonomies.find((t) => t.id === parseInt(form.taxonomieId));
+
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="space-y-5">
       <Link to="/specimens/moustiques" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
         <ChevronLeft size={16} /> Moustiques
       </Link>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {errors.submit && (
-          <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl text-sm text-danger">
-            {errors.submit}
-          </div>
-        )}
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr,280px] gap-5 items-start">
+
+          {/* ═══ Formulaire ═══ */}
+          <div className="space-y-5">
+            {errors.submit && (
+              <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl text-sm text-danger">
+                {errors.submit}
+              </div>
+            )}
 
         {/* Identification */}
         <div className="card p-6">
           <h2 className="section-title">
-            <Bug size={17} className="text-emerald-600" />
+            <SpecimenIcon type="moustique" size={18} />
             Identification du spécimen
           </h2>
           <div className="space-y-4">
@@ -262,11 +270,94 @@ export default function NouveauMoustique() {
           <Link to="/specimens/moustiques" className="btn-secondary">Annuler</Link>
           <button type="submit" disabled={isLoading} className="btn-primary">
             {isLoading
-              ? <><Loader2 size={15} className="animate-spin" /> Enregistrement...</>
+              ? <><Loader2 size={15} className="animate-spin" /> Enregistrement…</>
               : <><Check size={15} /> Enregistrer le spécimen</>
             }
           </button>
         </div>
+
+          </div>{/* fin formulaire */}
+
+          {/* ═══ Sidebar ═══ */}
+          <aside className="space-y-4 xl:sticky xl:top-4 self-start">
+
+            {/* Aperçu du spécimen */}
+            <Card padding="sm" tone="primary">
+              <div className="flex items-center gap-2 mb-3">
+                <SpecimenIcon type="moustique" size={22} />
+                <p className="text-xs font-semibold text-fg uppercase tracking-wider">Aperçu</p>
+              </div>
+              <div className="space-y-2.5">
+                <div>
+                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Espèce</p>
+                  {selectedTaxo ? (
+                    <p className="text-sm font-semibold italic text-specimen-moustique">
+                      {selectedTaxo.parent?.nom ? `${selectedTaxo.parent.nom} ` : ''}{selectedTaxo.nom}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-fg-subtle italic">— à sélectionner —</p>
+                  )}
+                </div>
+                {form.idTerrain && (
+                  <div>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                      <Tag size={9} /> ID terrain
+                    </p>
+                    <p className="text-sm font-mono font-bold text-primary">{form.idTerrain}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <p className="text-fg-subtle mb-0.5">Nombre</p>
+                    <p className="font-semibold text-fg">{form.nombre || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-fg-subtle mb-0.5">Sexe</p>
+                    <p className="font-semibold text-fg capitalize">{sexeForce === 'inconnu' ? '—' : sexeForce === 'M' ? 'Mâle' : 'Femelle'}</p>
+                  </div>
+                  {form.stade && (
+                    <div>
+                      <p className="text-fg-subtle mb-0.5">Stade</p>
+                      <p className="font-semibold text-fg">{form.stade}</p>
+                    </div>
+                  )}
+                  {form.parite && (
+                    <div>
+                      <p className="text-fg-subtle mb-0.5">Parité</p>
+                      <p className="font-semibold text-fg">{form.parite}</p>
+                    </div>
+                  )}
+                </div>
+                {form.repasSang && (
+                  <p className="text-xs text-danger font-medium">Repas de sang : Oui</p>
+                )}
+              </div>
+            </Card>
+
+            {/* Conservation */}
+            {(form.solutionId || form.containerId || form.dateCollecte) && (
+              <Card padding="sm">
+                <p className="text-xs font-semibold text-fg uppercase tracking-wider mb-2">Conservation</p>
+                {form.dateCollecte && <p className="text-xs text-fg-muted">Date : {new Date(form.dateCollecte).toLocaleDateString('fr-FR')}</p>}
+                {form.containerId && <p className="text-xs text-fg-muted mt-1">
+                  Container {form.position ? `— position ${form.position}` : '(position à choisir)'}
+                </p>}
+              </Card>
+            )}
+
+            {/* Aide */}
+            <Card padding="sm">
+              <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
+                <span className="block font-semibold text-fg mb-1">Conseils</span>
+                <span className="block">• La <strong>taxonomie</strong> est obligatoire — choisissez au niveau espèce.</span>
+                <span className="block">• Le <strong>stade</strong> détermine le sexe : une larve est toujours « inconnu ».</span>
+                <span className="block">• Un <strong>mâle</strong> n'effectue pas de repas sang.</span>
+                <span className="block">• L'ID terrain (<code className="font-mono text-[10px]">AKZ_n</code>) est généré automatiquement.</span>
+              </p>
+            </Card>
+          </aside>
+
+        </div>{/* fin grid */}
       </form>
     </div>
   );

@@ -15,7 +15,7 @@ export default function MissionsPage() {
   const missions = data ?? [];
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         icon={MapPin} iconTone="info"
         title="Missions" subtitle={`${missions.length} mission(s) enregistrée(s)`}

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, Bug, Microscope, FlaskConical, FileText, PawPrint, Check, Loader2, Info } from 'lucide-react';
+import { ChevronLeft, Microscope, FlaskConical, FileText, PawPrint, Check, Loader2, Info, Tag } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import MethodeCascade from '../../components/MethodeCascade';
 import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
+import { Card } from '../../components/ui';
+import SpecimenIcon from '../../components/SpecimenIcon';
 
 export default function NouveauTique() {
   const navigate = useNavigate();
@@ -112,20 +114,25 @@ export default function NouveauTique() {
     { value:'Queue', label:'Queue' }, { value:'Autre', label:'Autre' },
   ];
 
+  const selectedTaxo = taxonomies.find((t) => t.id === parseInt(form.taxonomieId));
+  const selectedHote = hotes.find((h) => h.id === parseInt(form.hoteId));
+
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="space-y-5">
       <Link to="/specimens/tiques" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
         <ChevronLeft size={16} /> Tiques
       </Link>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {errors.submit && (
-          <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl text-sm text-danger">{errors.submit}</div>
-        )}
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr,280px] gap-5 items-start">
+          <div className="space-y-5">
+            {errors.submit && (
+              <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl text-sm text-danger">{errors.submit}</div>
+            )}
 
         <div className="card p-6">
           <h2 className="section-title">
-            <Bug size={17} className="text-rose-600" />
+            <SpecimenIcon type="tique" size={18} />
             Identification du spécimen
           </h2>
           <div className="space-y-4">
@@ -234,11 +241,59 @@ export default function NouveauTique() {
         <div className="flex items-center justify-end gap-3">
           <Link to="/specimens/tiques" className="btn-secondary">Annuler</Link>
           <button type="submit" disabled={isLoading} className="btn-primary">
-            {isLoading
-              ? <><Loader2 size={15} className="animate-spin" /> Enregistrement...</>
-              : <><Check size={15} /> Enregistrer la tique</>
-            }
+            {isLoading ? <><Loader2 size={15} className="animate-spin" /> Enregistrement…</> : <><Check size={15} /> Enregistrer la tique</>}
           </button>
+        </div>
+
+          </div>{/* fin formulaire */}
+
+          {/* ═══ Sidebar ═══ */}
+          <aside className="space-y-4 xl:sticky xl:top-4 self-start">
+            <Card padding="sm" tone="primary">
+              <div className="flex items-center gap-2 mb-3">
+                <SpecimenIcon type="tique" size={22} />
+                <p className="text-xs font-semibold text-fg uppercase tracking-wider">Aperçu</p>
+              </div>
+              <div className="space-y-2.5">
+                <div>
+                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Espèce</p>
+                  {selectedTaxo ? (
+                    <p className="text-sm font-semibold italic text-specimen-tique">
+                      {selectedTaxo.parent?.nom ? `${selectedTaxo.parent.nom} ` : ''}{selectedTaxo.nom}
+                    </p>
+                  ) : <p className="text-xs text-fg-subtle italic">— à sélectionner —</p>}
+                </div>
+                {form.idTerrain && (
+                  <div>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Tag size={9} /> ID terrain</p>
+                    <p className="text-sm font-mono font-bold text-primary">{form.idTerrain}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><p className="text-fg-subtle mb-0.5">Nombre</p><p className="font-semibold text-fg">{form.nombre || '—'}</p></div>
+                  <div><p className="text-fg-subtle mb-0.5">Sexe</p><p className="font-semibold text-fg capitalize">{sexeForce === 'inconnu' ? '—' : sexeForce === 'M' ? 'Mâle' : 'Femelle'}</p></div>
+                  {form.stade && <div><p className="text-fg-subtle mb-0.5">Stade</p><p className="font-semibold text-fg">{form.stade}</p></div>}
+                </div>
+                {form.gorge && <p className="text-xs text-danger font-medium">Gorgée de sang : Oui</p>}
+                {selectedHote && (
+                  <div>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Hôte</p>
+                    <p className="text-xs font-medium text-fg italic">{selectedHote.taxonomieHote?.nom}</p>
+                    {form.partieCorpsHote && <p className="text-[10px] text-fg-subtle">{form.partieCorpsHote}</p>}
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            <Card padding="sm">
+              <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
+                <span className="block font-semibold text-fg mb-1">Conseils</span>
+                <span className="block">• La <strong>taxonomie</strong> est obligatoire.</span>
+                <span className="block">• Un <strong>mâle adulte</strong> ne se gorge pas.</span>
+                <span className="block">• Le <strong>partie du corps hôte</strong> précise le site de fixation.</span>
+              </p>
+            </Card>
+          </aside>
         </div>
       </form>
     </div>
