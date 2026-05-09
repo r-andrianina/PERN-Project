@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, MapPin, ClipboardList, Plus, Trash2, Check, Loader2, Tag } from 'lucide-react';
+import { ChevronLeft, MapPin, ClipboardList, Plus, Trash2, Check, Loader2, Tag, Calendar, User, Navigation } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import MapPicker from '../../components/MapPicker';
@@ -159,14 +159,22 @@ export default function NouvelleMission() {
     'Menabe','Diana','Sava',
   ].map(r => ({ value: r, label: r }));
 
+  const selectedProjet = projets.find((p) => p.id === parseInt(mission.projetId));
+  const selectedChef   = users.find((u) => u.id === parseInt(mission.chefMissionId));
+  const selectedAgents = users.filter((u) => mission.agentIds.includes(u.id));
+
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="space-y-5">
 
       <Link to="/missions" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
         <ChevronLeft size={16} /> Missions
       </Link>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr,300px] gap-5 items-start">
+
+          {/* ═══ Colonne principale ═══ */}
+          <div className="space-y-5">
 
         {errors.submit && (
           <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl text-sm text-danger">
@@ -382,15 +390,97 @@ export default function NouvelleMission() {
           ))}
         </div>
 
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-3 pt-2">
           <Link to="/missions" className="btn-secondary">Annuler</Link>
           <button type="submit" disabled={isLoading} className="btn-primary">
             {isLoading
-              ? <><Loader2 size={15} className="animate-spin" /> Création...</>
+              ? <><Loader2 size={15} className="animate-spin" /> Création…</>
               : <><Check size={15} /> Créer la mission</>
             }
           </button>
         </div>
+
+        </div>{/* fin colonne principale */}
+
+          {/* ═══ Sidebar récap ═══ */}
+          <aside className="space-y-4 xl:sticky xl:top-4 self-start">
+
+            {/* Récap mission */}
+            <div className="card p-4 bg-primary/5 border-primary/10">
+              <p className="text-xs font-semibold text-fg uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <ClipboardList size={13} className="text-primary" /> Récapitulatif
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Ordre de mission</p>
+                  <p className="text-sm font-mono font-bold text-primary">
+                    {mission.ordreMission || <span className="text-fg-subtle font-normal italic">— à définir —</span>}
+                  </p>
+                </div>
+                {selectedProjet && (
+                  <div>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Projet</p>
+                    <p className="text-xs font-medium text-fg">{selectedProjet.code} — {selectedProjet.nom}</p>
+                  </div>
+                )}
+                {(mission.dateDebut || mission.dateFin) && (
+                  <div>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Calendar size={9} /> Période</p>
+                    <p className="text-xs text-fg">
+                      {mission.dateDebut ? new Date(mission.dateDebut).toLocaleDateString('fr-FR') : '?'}
+                      {' → '}
+                      {mission.dateFin ? new Date(mission.dateFin).toLocaleDateString('fr-FR') : '?'}
+                    </p>
+                  </div>
+                )}
+                {selectedChef && (
+                  <div>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><User size={9} /> Chef</p>
+                    <p className="text-xs text-fg">{selectedChef.prenom} {selectedChef.nom}</p>
+                  </div>
+                )}
+                {selectedAgents.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-1.5">Agents ({selectedAgents.length}/5)</p>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedAgents.map((u) => (
+                        <span key={u.id} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                          {u.prenom} {u.nom?.[0]}.
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Localités résumé */}
+            <div className="card p-4">
+              <p className="text-xs font-semibold text-fg uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Navigation size={13} className="text-primary" /> Localités ({localites.length})
+              </p>
+              <div className="space-y-1.5">
+                {localites.map((l, i) => (
+                  <div key={i} className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg ${i === activeLocalite ? 'bg-primary/10 text-primary' : 'text-fg-muted'}`}>
+                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0">{i + 1}</span>
+                    <span className="truncate">{l.nom || <span className="italic text-fg-subtle">Sans nom</span>}</span>
+                    {l.code && <span className="font-mono text-[10px] ml-auto">{l.code}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Aide */}
+            <div className="card p-4">
+              <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
+                <span className="block">• L'<strong>ordre de mission</strong> doit être unique.</span>
+                <span className="block">• Chaque localité a un <strong>code à 3 lettres</strong> (ex: AKZ) qui préfixe les ID terrain des spécimens.</span>
+                <span className="block">• Cliquez sur la carte pour <strong>auto-remplir</strong> région / district / commune / fokontany.</span>
+              </p>
+            </div>
+          </aside>
+
+        </div>{/* fin grid 2-col */}
       </form>
     </div>
   );

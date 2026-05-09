@@ -27,8 +27,14 @@ export function useApiQuery(url, { params, deps = [], immediate = true, select }
   const [loading, setLoading] = useState(immediate);
   const [error, setError]     = useState(null);
 
-  const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  // Strict Mode React 19 monte le composant deux fois (cleanup + remount).
+  // On initialise à false et on le met à true DANS l'effet pour garantir
+  // qu'il est correctement réinitialisé à chaque (re)mount.
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const fetch = useCallback(async (overrideOpts = {}) => {
     setLoading(true);
