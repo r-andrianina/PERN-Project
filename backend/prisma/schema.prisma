@@ -19,7 +19,7 @@ datasource db {
 enum Role {
   admin
   chercheur
-  terrain
+  technicien
   lecteur
 }
 
@@ -81,10 +81,11 @@ model User {
   prenom       String    @db.VarChar(100)
   email        String    @unique @db.VarChar(150)
   passwordHash String    @map("password_hash")
-  role         Role      @default(lecteur)
-  actif        Boolean   @default(false)
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  role               Role               @default(lecteur)
+  specimensAutorises TypeSpecimenTaxon[] @default(dbgenerated("ARRAY['moustique','tique','puce']::\"TypeSpecimenTaxon\"[]")) @map("specimens_autorises")
+  actif              Boolean            @default(false)
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
 
   // Relations
   projetsResponsable Projet[]        @relation("ResponsableProjet")

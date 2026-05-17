@@ -11,8 +11,8 @@ router.use(verifyToken);
 router.get('/',    asyncHandler(ctrl.list));
 router.get('/:id', asyncHandler(ctrl.getOne));
 
-router.post('/',    requireMinRole('terrain'),   validate(schema.createHote), asyncHandler(ctrl.create));
-router.put('/:id',  requireMinRole('terrain'),   validate(schema.updateHote), asyncHandler(ctrl.update));
+router.post('/',    requireMinRole('technicien'),   validate(schema.createHote), asyncHandler(ctrl.create));
+router.put('/:id',  requireMinRole('technicien'),   validate(schema.updateHote), asyncHandler(ctrl.update));
 router.delete('/:id', requireMinRole('chercheur'), asyncHandler(ctrl.remove));
 
 module.exports = router;

@@ -9,7 +9,7 @@ router.use(verifyToken);
 router.get('/',    asyncHandler(ctrl.list));
 router.get('/:id', asyncHandler(ctrl.getOne));
 
-router.post('/',    requireMinRole('terrain'),   asyncHandler(ctrl.create));
+router.post('/',    requireMinRole('technicien'),   asyncHandler(ctrl.create));
 router.put('/:id',  requireMinRole('chercheur'), asyncHandler(ctrl.update));
 router.delete('/:id', requireMinRole('admin'),   asyncHandler(ctrl.remove));
 

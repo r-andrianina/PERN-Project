@@ -2,7 +2,7 @@ const express      = require('express');
 const router       = express.Router();
 const multer       = require('multer');
 const ctrl         = require('../../controllers/tiques.controller');
-const { verifyToken, requireRole, requireMinRole } = require('../../middlewares/auth.middleware');
+const { verifyToken, requireRole, requireMinRole, checkSpecimenAccess } = require('../../middlewares/auth.middleware');
 const { validate } = require('../../middlewares/validate');
 const asyncHandler = require('../../middlewares/asyncHandler');
 const schema       = require('../../schemas/specimens.schema');
@@ -17,14 +17,15 @@ const upload = multer({
 });
 
 router.use(verifyToken);
+router.use(checkSpecimenAccess('tique'));
 
 router.get('/export', asyncHandler(ctrl.exportExcel));
 router.get('/',       asyncHandler(ctrl.listTiques));
 router.get('/:id',    asyncHandler(ctrl.getTique));
 
-router.post('/',   requireMinRole('terrain'), validate(schema.createTique), asyncHandler(ctrl.createTique));
-router.put('/:id', requireMinRole('terrain'), validate(schema.updateTique), asyncHandler(ctrl.updateTique));
-router.post('/import', requireMinRole('terrain'), upload.single('file'), asyncHandler(ctrl.importExcel));
+router.post('/',   requireMinRole('technicien'), validate(schema.createTique), asyncHandler(ctrl.createTique));
+router.put('/:id', requireMinRole('technicien'), validate(schema.updateTique), asyncHandler(ctrl.updateTique));
+router.post('/import', requireMinRole('technicien'), upload.single('file'), asyncHandler(ctrl.importExcel));
 router.delete('/:id',  requireRole('admin'), asyncHandler(ctrl.deleteTique));
 
 module.exports = router;

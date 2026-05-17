@@ -95,12 +95,19 @@ function computeStats(items) {
   return stats;
 }
 
+// Retourne les types effectivement accessibles à l'utilisateur connecté
+function resolveAllowedTypes(requestedTypes, user) {
+  if (user?.role === 'admin') return requestedTypes;
+  const autorises = user?.specimensAutorises || [];
+  return requestedTypes.filter(t => autorises.includes(t));
+}
+
 // ============================================================
 //  GET /api/v1/recherche/specimens
 // ============================================================
 const search = async (req, res) => {
   try {
-    const types  = parseTypes(req.query.types);
+    const types  = resolveAllowedTypes(parseTypes(req.query.types), req.user);
     const limit  = Math.min(parseInt(req.query.limit)  || 200, 1000);
     const offset = parseInt(req.query.offset) || 0;
 
@@ -153,7 +160,7 @@ const search = async (req, res) => {
 // ============================================================
 const exportExcel = async (req, res) => {
   try {
-    const types = parseTypes(req.query.types);
+    const types = resolveAllowedTypes(parseTypes(req.query.types), req.user);
     const items = await fetchAllSpecimens(req.query, types);
 
     items.sort((a, b) => {

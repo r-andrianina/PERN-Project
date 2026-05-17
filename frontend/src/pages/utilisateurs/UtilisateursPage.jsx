@@ -9,12 +9,18 @@ import useAuthStore from '../../store/authStore';
 
 // ── Constantes ────────────────────────────────────────────────
 const ROLES = [
-  { value: 'admin',     label: 'Admin',     color: 'bg-role-admin/10 text-role-admin border-role-admin/20' },
-  { value: 'chercheur', label: 'Chercheur', color: 'bg-role-chercheur/10 text-role-chercheur border-role-chercheur/20'       },
-  { value: 'terrain',   label: 'Terrain',   color: 'bg-role-terrain/10 text-role-terrain border-role-terrain/20'    },
-  { value: 'lecteur',   label: 'Lecteur',   color: 'bg-surface-3 text-fg-muted border-border-strong'       },
+  { value: 'admin',      label: 'Admin',      color: 'bg-role-admin/10 text-role-admin border-role-admin/20'         },
+  { value: 'chercheur',  label: 'Chercheur',  color: 'bg-role-chercheur/10 text-role-chercheur border-role-chercheur/20' },
+  { value: 'technicien', label: 'Technicien', color: 'bg-role-terrain/10 text-role-terrain border-role-terrain/20'   },
+  { value: 'lecteur',    label: 'Lecteur',    color: 'bg-surface-3 text-fg-muted border-border-strong'               },
 ];
 const roleInfo = Object.fromEntries(ROLES.map((r) => [r.value, r]));
+
+const SPECIMENS = [
+  { value: 'moustique', label: 'Moustique', color: 'bg-specimen-moustique/10 text-specimen-moustique border-specimen-moustique/20' },
+  { value: 'tique',     label: 'Tique',     color: 'bg-specimen-tique/10 text-specimen-tique border-specimen-tique/20'             },
+  { value: 'puce',      label: 'Puce',      color: 'bg-specimen-puce/10 text-specimen-puce border-specimen-puce/20'                },
+];
 
 // ── Helpers ───────────────────────────────────────────────────
 const initials = (u) => `${u?.prenom?.[0] ?? ''}${u?.nom?.[0] ?? ''}`.toUpperCase();
@@ -44,6 +50,77 @@ const RoleBadge = ({ role }) => {
     </span>
   );
 };
+
+// ── Modal permissions spécimens ───────────────────────────────
+function SpecimenAccessModal({ user, onClose, onSaved }) {
+  const [selected, setSelected] = useState(user.specimensAutorises || []);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState(null);
+
+  const toggle = (type) => setSelected(s =>
+    s.includes(type) ? s.filter(t => t !== type) : [...s, type]
+  );
+
+  const submit = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await api.patch(`/auth/users/${user.id}/specimens`, { specimensAutorises: selected });
+      onSaved();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Erreur');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-white">Accès spécimens</h2>
+            <p className="text-xs text-primary-100">{user.prenom} {user.nom}</p>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          {error && <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">{error}</div>}
+          <p className="text-xs text-fg-muted">Sélectionnez les types de spécimens que cet utilisateur peut consulter et saisir.</p>
+          <div className="space-y-2">
+            {SPECIMENS.map(s => (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => toggle(s.value)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                  selected.includes(s.value) ? s.color + ' border-current' : 'border-border text-fg-muted hover:bg-surface-2'
+                }`}
+              >
+                <span>{s.label}</span>
+                {selected.includes(s.value) && <Check size={15} />}
+              </button>
+            ))}
+          </div>
+          {selected.length === 0 && (
+            <p className="text-xs text-warning bg-warning/10 border border-warning/20 rounded-xl px-3 py-2">
+              Aucun spécimen sélectionné — l'utilisateur n'aura accès à aucun spécimen.
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="button" disabled={loading} onClick={submit} className="btn-primary">
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+              Enregistrer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Modal création / édition ──────────────────────────────────
 function UserModal({ user, onClose, onSaved, currentUserId }) {
@@ -150,10 +227,10 @@ function UserModal({ user, onClose, onSaved, currentUserId }) {
             </div>
             <p className="text-xs text-fg-subtle">
               {{
-                admin:     'Accès total — gestion des utilisateurs, référentiels, données',
-                chercheur: 'Création et modification de toutes les données scientifiques',
-                terrain:   'Saisie de spécimens et méthodes de collecte uniquement',
-                lecteur:   'Consultation uniquement — aucune modification possible',
+                admin:      'Accès total — gestion des utilisateurs, référentiels, données',
+                chercheur:  'Création et modification de toutes les données scientifiques',
+                technicien: 'Saisie de spécimens et méthodes de collecte',
+                lecteur:    'Consultation uniquement — aucune modification possible',
               }[form.role]}
             </p>
           </div>
@@ -297,7 +374,7 @@ export default function UtilisateursPage() {
   const [search,    setSearch]    = useState('');
   const [filterRole, setFilterRole] = useState('');
   const [filterActif, setFilterActif] = useState('');
-  const [modal,     setModal]     = useState(null); // { type: 'create'|'edit'|'reset', user? }
+  const [modal,     setModal]     = useState(null); // { type: 'create'|'edit'|'reset'|'specimens', user? }
 
   const refresh = async () => {
     setLoading(true);
@@ -479,6 +556,7 @@ export default function UtilisateursPage() {
                 <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Utilisateur</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Email</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Rôle</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Spécimens</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Statut</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Inscrit le</th>
                 <th className="px-5 py-3 text-right text-xs font-semibold text-fg-muted tracking-wide">Actions</th>
@@ -515,6 +593,22 @@ export default function UtilisateursPage() {
                         {!isMe && <ChevronDown size={11} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-current opacity-70" />}
                       </div>
                     </td>
+                    {/* Spécimens autorisés */}
+                    <td className="px-5 py-3.5">
+                      <div className="flex gap-1 flex-wrap">
+                        {u.role === 'admin' ? (
+                          <span className="text-xs text-fg-subtle italic">Tous</span>
+                        ) : (u.specimensAutorises || []).length === 0 ? (
+                          <span className="text-xs text-danger">Aucun</span>
+                        ) : (
+                          (u.specimensAutorises || []).map(s => (
+                            <span key={s} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${SPECIMENS.find(x => x.value === s)?.color || ''}`}>
+                              {s.charAt(0).toUpperCase() + s.slice(1)}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </td>
                     <td className="px-5 py-3.5">
                       {u.actif ? (
                         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success bg-success/10 border border-success/20 px-2.5 py-0.5 rounded-full">
@@ -549,6 +643,16 @@ export default function UtilisateursPage() {
                         >
                           <Edit2 size={14} />
                         </button>
+                        {/* Permissions spécimens */}
+                        {u.role !== 'admin' && (
+                          <button
+                            onClick={() => setModal({ type: 'specimens', user: u })}
+                            title="Gérer les accès spécimens"
+                            className="p-1.5 text-fg-subtle hover:text-specimen-moustique hover:bg-specimen-moustique/10 rounded-lg transition-colors"
+                          >
+                            <ShieldCheck size={14} />
+                          </button>
+                        )}
                         {/* Reset mdp */}
                         <button
                           onClick={() => setModal({ type: 'reset', user: u })}
@@ -586,6 +690,9 @@ export default function UtilisateursPage() {
       )}
       {modal?.type === 'reset' && (
         <ResetPasswordModal user={modal.user} onClose={closeModal} />
+      )}
+      {modal?.type === 'specimens' && (
+        <SpecimenAccessModal user={modal.user} onClose={closeModal} onSaved={onSaved} />
       )}
     </div>
   );

@@ -12,8 +12,8 @@ router.get('/',                        asyncHandler(ctrl.listMethodes));
 router.get('/:id/preview-id-terrain',  asyncHandler(ctrl.previewIdTerrain));
 router.get('/:id',                     asyncHandler(ctrl.getMethode));
 
-router.post('/',    requireMinRole('terrain'), validate(schema.createMethode), asyncHandler(ctrl.createMethode));
-router.put('/:id',  requireMinRole('terrain'), validate(schema.updateMethode), asyncHandler(ctrl.updateMethode));
+router.post('/',    requireMinRole('technicien'), validate(schema.createMethode), asyncHandler(ctrl.createMethode));
+router.put('/:id',  requireMinRole('technicien'), validate(schema.updateMethode), asyncHandler(ctrl.updateMethode));
 
 router.delete('/:id', requireRole('admin'), asyncHandler(ctrl.deleteMethode));
 

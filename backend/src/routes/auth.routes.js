@@ -21,7 +21,8 @@ router.post('/users',   verifyToken, requireRole('admin'), validate(schema.creat
 router.put('/users/:id',verifyToken, requireRole('admin'), validate(schema.updateUser),   asyncHandler(authCtrl.updateUser));
 router.delete('/users/:id', verifyToken, requireRole('admin'), asyncHandler(authCtrl.deleteUser));
 
-router.patch('/users/:id/activate',       verifyToken, requireRole('admin'), validate(schema.activateUser), asyncHandler(authCtrl.activateUser));
-router.patch('/users/:id/reset-password', verifyToken, requireRole('admin'), validate(schema.resetPassword), asyncHandler(authCtrl.resetPassword));
+router.patch('/users/:id/activate',       verifyToken, requireRole('admin'), validate(schema.activateUser),    asyncHandler(authCtrl.activateUser));
+router.patch('/users/:id/specimens',      verifyToken, requireRole('admin'), validate(schema.updateSpecimens), asyncHandler(authCtrl.updateSpecimenAccess));
+router.patch('/users/:id/reset-password', verifyToken, requireRole('admin'), validate(schema.resetPassword),   asyncHandler(authCtrl.resetPassword));
 
 module.exports = router;

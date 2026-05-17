@@ -24,6 +24,7 @@ const useAuthStore = create((set) => ({
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
 
+      // user contient déjà specimensAutorises depuis la réponse login
       set({ token, user, isLoading: false, error: null });
       return { success: true };
 

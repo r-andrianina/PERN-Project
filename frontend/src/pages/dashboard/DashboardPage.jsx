@@ -56,6 +56,8 @@ export default function DashboardPage() {
 
   const missions = (results.missions?.missions ?? []).slice(0, 6);
 
+  const canSee = (type) => user?.role === 'admin' || (user?.specimensAutorises || []).includes(type);
+
   const hour     = new Date().getHours();
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
 
@@ -76,16 +78,22 @@ export default function DashboardPage() {
           icon={MapPin} iconColor="text-info" iconBg="bg-info/10" />
         <DashboardStat label="Spécimens total" value={totalSpecimens} to="/recherche"
           icon={Microscope} iconColor="text-role-admin" iconBg="bg-role-admin/10" />
-        <DashboardStat label="Moustiques" value={totalMoustiques} to="/specimens/moustiques"
-          iconNode={<SpecimenIcon type="moustique" size={24} />} iconBg="bg-specimen-moustique/10" />
+        {canSee('moustique') && (
+          <DashboardStat label="Moustiques" value={totalMoustiques} to="/specimens/moustiques"
+            iconNode={<SpecimenIcon type="moustique" size={24} />} iconBg="bg-specimen-moustique/10" />
+        )}
       </div>
 
       {/* Tiques + Puces + Profil */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <DashboardStat label="Tiques" value={totalTiques} to="/specimens/tiques"
-          iconNode={<SpecimenIcon type="tique" size={24} />} iconBg="bg-specimen-tique/10" />
-        <DashboardStat label="Puces" value={totalPuces} to="/specimens/puces"
-          iconNode={<SpecimenIcon type="puce" size={24} />} iconBg="bg-specimen-puce/10" />
+        {canSee('tique') && (
+          <DashboardStat label="Tiques" value={totalTiques} to="/specimens/tiques"
+            iconNode={<SpecimenIcon type="tique" size={24} />} iconBg="bg-specimen-tique/10" />
+        )}
+        {canSee('puce') && (
+          <DashboardStat label="Puces" value={totalPuces} to="/specimens/puces"
+            iconNode={<SpecimenIcon type="puce" size={24} />} iconBg="bg-specimen-puce/10" />
+        )}
 
         <Card padding="none" className="p-5 bg-gradient-to-br from-primary to-primary-700 border-0">
           <p className="text-xs text-primary-100 font-medium uppercase tracking-wider mb-1">Mon profil</p>

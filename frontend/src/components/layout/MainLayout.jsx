@@ -126,7 +126,9 @@ export default function MainLayout() {
           ))}
 
           <NavSection>Spécimens</NavSection>
-          {SPECIMEN_ITEMS.map(({ path, label, type }) => (
+          {SPECIMEN_ITEMS.filter(({ type }) =>
+            user?.role === 'admin' || (user?.specimensAutorises || []).includes(type)
+          ).map(({ path, label, type }) => (
             <NavLink
               key={path} to={path} onClick={closeSidebar}
               className={({ isActive }) =>
