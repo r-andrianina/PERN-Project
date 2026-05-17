@@ -7,10 +7,11 @@ const { verifyToken, requireRole } = require('../middlewares/auth.middleware');
 const { validate } = require('../middlewares/validate');
 const asyncHandler = require('../middlewares/asyncHandler');
 const schema       = require('../schemas/auth.schema');
+const { loginLimiter, publicLimiter } = require('../middlewares/rateLimiter');
 
 // ── Publiques ─────────────────────────────────────────────────
-router.post('/register', validate(schema.register),  asyncHandler(authCtrl.register));
-router.post('/login',    validate(schema.login),     asyncHandler(authCtrl.login));
+router.post('/register', publicLimiter, validate(schema.register), asyncHandler(authCtrl.register));
+router.post('/login',    loginLimiter,  validate(schema.login),    asyncHandler(authCtrl.login));
 
 // ── Authentifiées ─────────────────────────────────────────────
 router.get('/me', verifyToken, asyncHandler(authCtrl.me));

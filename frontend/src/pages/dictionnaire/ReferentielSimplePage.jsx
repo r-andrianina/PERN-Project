@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Search, ChevronLeft, X } from 'lucide-react';
 import api from '../../api/axios';
+import { toast } from '../../lib/toast';
 import FormField from '../../components/FormField';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner } from '../../components/ui';
@@ -54,12 +55,12 @@ export default function ReferentielSimplePage({ config }) {
   };
   const toggleActif = async (item) => {
     try { await api.patch(`/dictionnaire/${endpoint}/${item.id}/${item.actif ? 'desactiver' : 'activer'}`); refresh(); }
-    catch (err) { alert(err.response?.data?.error || 'Erreur'); }
+    catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   };
   const remove = async (item) => {
     if (!confirm(`Supprimer "${item.nom}" ?`)) return;
     try { await api.delete(`/dictionnaire/${endpoint}/${item.id}`); refresh(); }
-    catch (err) { alert(err.response?.data?.error || 'Erreur'); }
+    catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   };
 
   return (

@@ -10,6 +10,7 @@ import {
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import useAuthStore from '../../store/authStore';
+import { toast } from '../../lib/toast';
 
 const ROLES = { admin: 4, chercheur: 3, terrain: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
@@ -214,14 +215,14 @@ export default function TaxonomieSpecimensPage() {
     try {
       await api.patch(`/dictionnaire/taxonomie-specimens/${node.id}/${action}`);
       refresh();
-    } catch (err) { alert(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   };
   const remove = async (node) => {
     if (!confirm(`Supprimer "${node.nom}" ?`)) return;
     try {
       await api.delete(`/dictionnaire/taxonomie-specimens/${node.id}`);
       refresh();
-    } catch (err) { alert(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   };
 
   const niveauxAutorises = useMemo(() => {

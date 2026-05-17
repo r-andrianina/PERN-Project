@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
+import { toast } from '../../lib/toast';
 
 // ── Constantes ────────────────────────────────────────────────
 const ROLES = [
@@ -411,14 +412,14 @@ export default function UtilisateursPage() {
     try {
       await api.patch(`/auth/users/${u.id}/activate`, { actif: !u.actif });
       refresh();
-    } catch (err) { alert(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   };
 
   const changeRole = async (u, role) => {
     try {
       await api.patch(`/auth/users/${u.id}/activate`, { role });
       refresh();
-    } catch (err) { alert(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   };
 
   const remove = async (u) => {
@@ -426,7 +427,7 @@ export default function UtilisateursPage() {
     try {
       await api.delete(`/auth/users/${u.id}`);
       refresh();
-    } catch (err) { alert(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   };
 
   const closeModal = () => setModal(null);

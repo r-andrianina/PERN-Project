@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Leaflet — blindage img dans les divIcon ── */
+.leaflet-marker-icon img,
+.leaflet-div-icon img {
+  max-width: none !important;
+  width: auto !important;
+  height: auto !important;
+}
+/* Popup Leaflet — style intégré */
+.leaflet-popup-content-wrapper {
+  border-radius: 14px !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+.leaflet-popup-content {
+  margin: 0 !important;
+}
+.specimen-popup .leaflet-popup-content-wrapper {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+}
+
 /*
  * ─────────────────────────────────────────────────────────────
  *  DESIGN TOKENS — couches sémantiques mappées sur tailwind.config.js

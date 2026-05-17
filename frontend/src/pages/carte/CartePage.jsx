@@ -34,37 +34,43 @@ const LAYERS = {
 };
 const LABELS_URL = 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png';
 
-// ── Construction HTML du marqueur ─────────────────────────────
+// ── Construction HTML du marqueur (pin style, sans PNG) ───────
+// Les PNG Leaflet ignorent width/height HTML → on utilise des pastilles CSS.
 function buildMarkerHtml(point, visibleTypes) {
   const types = Object.keys(point.specimens).filter(t => visibleTypes.has(t));
   const total = types.reduce((s, t) => s + (point.specimens[t]?.total || 0), 0);
 
-  // Couleur dominante = type avec le plus de spécimens
-  const dominant = types.reduce((best, t) => (
-    (point.specimens[t]?.total || 0) > (point.specimens[best]?.total || 0) ? t : best
-  ), types[0]);
-  const borderColor = TYPE_CFG[dominant]?.color || '#6b7280';
+  const dominant = types.reduce((best, t) =>
+    (point.specimens[t]?.total || 0) > (point.specimens[best]?.total || 0) ? t : best,
+    types[0]
+  );
+  const color = TYPE_CFG[dominant]?.color || '#6b7280';
 
-  const iconsHtml = types.map(t =>
-    `<img src="${TYPE_CFG[t].icon}" width="15" height="15" style="object-fit:contain;flex-shrink:0;" alt="${t}" />`
+  // Pastilles colorées — une par type présent (pas d'image PNG dans le marqueur)
+  const dots = types.map(t =>
+    `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${TYPE_CFG[t].color};flex-shrink:0;"></span>`
   ).join('');
 
   return `
-    <div style="
-      background:white;
-      border:2.5px solid ${borderColor};
-      border-radius:20px;
-      padding:4px 8px;
-      display:flex;
-      align-items:center;
-      gap:4px;
-      box-shadow:0 3px 12px rgba(0,0,0,0.2);
-      white-space:nowrap;
-      font-family:system-ui,sans-serif;
-      cursor:pointer;
-    ">
-      ${iconsHtml}
-      <span style="font-size:11px;font-weight:700;color:#374151;">${total}</span>
+    <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;font-family:system-ui,sans-serif;">
+      <div style="
+        background:white;
+        border:2px solid ${color};
+        border-radius:6px;
+        padding:2px 6px;
+        display:flex;
+        align-items:center;
+        gap:3px;
+        box-shadow:0 2px 8px rgba(0,0,0,0.25);
+        white-space:nowrap;
+        min-height:20px;
+        min-width:20px;
+        justify-content:center;
+      ">
+        ${dots}
+        <span style="font-size:10px;font-weight:800;color:${color};margin-left:${types.length > 0 ? '2px' : '0'};">${total}</span>
+      </div>
+      <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid ${color};margin-top:-1px;"></div>
     </div>
   `;
 }
@@ -84,7 +90,7 @@ function buildPopupHtml(point, visibleTypes) {
       ).join(' ');
       return `
         <div style="display:flex;align-items:flex-start;gap:6px;padding:5px 0;border-bottom:1px solid #f3f4f6;">
-          <img src="${cfg.icon}" width="16" height="16" style="object-fit:contain;flex-shrink:0;margin-top:1px;" />
+          <img src="${cfg.icon}" style="width:16px;height:16px;max-width:16px;max-height:16px;display:block;object-fit:contain;flex-shrink:0;margin-top:1px;" />
           <div>
             <span style="font-size:11px;font-weight:700;color:${cfg.color};">${data.total} ${cfg.label}${data.total > 1 ? 's' : ''}</span>
             <div style="margin-top:2px;">${exemples}</div>
@@ -204,11 +210,11 @@ export default function CartePage() {
       // Icône HTML
       const html  = buildMarkerHtml(point, visibleTypes);
       const icon  = L.divIcon({
-        className: '',
+        className: 'specimen-pin',
         html,
-        iconSize:   [90, 32],
-        iconAnchor: [45, 16],
-        popupAnchor:[0, -20],
+        iconSize:   [48, 28],  // badge + flèche
+        iconAnchor: [24, 28],  // pointe de la flèche = coordonnée GPS exacte
+        popupAnchor:[0, -30],
       });
 
       const marker = L.marker(latlng, { icon })

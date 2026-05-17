@@ -18,7 +18,9 @@ const verifyToken = (req, res, next) => {
     req.user = decoded; // { id, email, role, nom, prenom, specimensAutorises }
     next();
   } catch {
-    return res.status(403).json({ error: 'Token invalide ou expiré' });
+    // 401 = non authentifié (token absent/expiré/invalide)
+    // L'intercepteur Axios redirige automatiquement vers /login sur 401
+    return res.status(401).json({ error: 'Session expirée — veuillez vous reconnecter.' });
   }
 };
 

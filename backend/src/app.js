@@ -42,6 +42,7 @@ app.use('/api/v1/dictionnaire/audit-logs',             require('./routes/diction
 app.use('/api/v1/recherche',  require('./routes/recherche.routes'));
 app.use('/api/v1/import',     require('./routes/import.routes'));
 app.use('/api/v1/carte',      require('./routes/carte.routes'));
+app.use('/api/v1/dashboard',  require('./routes/dashboard.routes'));
 
 // ── 404 ───────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ error: 'Route introuvable' }));

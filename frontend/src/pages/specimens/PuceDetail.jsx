@@ -8,6 +8,7 @@ import api from '../../api/axios';
 import { Card, CardHeader, CardTitle, Badge, Button, PageHeader, Spinner } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import useAuthStore from '../../store/authStore';
+import { toast } from '../../lib/toast';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
@@ -98,8 +99,9 @@ export default function PuceDetail() {
       });
       setSpecimen(r.data.puce);
       setEditing(false);
+      toast.success('Puce mise à jour avec succès.');
     } catch (err) {
-      alert(err.response?.data?.error || 'Erreur lors de la sauvegarde');
+      toast.error(err.response?.data?.error || 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }
@@ -110,9 +112,10 @@ export default function PuceDetail() {
     setDeleting(true);
     try {
       await api.delete(`/puces/${id}`);
+      toast.success('Puce supprimée.');
       navigate('/specimens/puces');
     } catch (err) {
-      alert(err.response?.data?.error || 'Erreur lors de la suppression');
+      toast.error(err.response?.data?.error || 'Erreur lors de la suppression');
       setDeleting(false);
     }
   };

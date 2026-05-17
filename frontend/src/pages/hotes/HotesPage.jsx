@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PawPrint, Plus, Search, X, MapPin, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
+import { toast } from '../../lib/toast';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
 
@@ -32,7 +33,7 @@ export default function HotesPage() {
   const remove = async (h) => {
     if (!confirm(`Supprimer l'hôte #${h.id} ?`)) return;
     try { await api.delete(`/hotes/${h.id}`); refresh(); }
-    catch (err) { alert(err.response?.data?.error || 'Erreur'); }
+    catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   };
 
   return (
