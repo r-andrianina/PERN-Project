@@ -8,6 +8,7 @@ const fs      = require('fs');
 const { resolveSpecimenTaxonomyId, libelleTaxonomie } = require('../utils/taxonomyResolve');
 const { generateIdTerrain, generateMany, isIdTerrainUnique } = require('../utils/idTerrain');
 const { validatePlacement, nextAvailablePositions } = require('../utils/container');
+const { logAudit, ACTIONS } = require('../utils/audit');
 
 const includeBase = {
   methode: {
@@ -37,7 +38,10 @@ const includeBase = {
 // GET /api/v1/moustiques
 const listMoustiques = async (req, res) => {
   try {
-    const { methodeId, missionId, taxonomieId, sexe, search } = req.query;
+    const { methodeId, missionId, taxonomieId, sexe, search, page, limit } = req.query;
+    const pageNum  = Math.max(parseInt(page)  || 1, 1);
+    const limitNum = Math.min(parseInt(limit) || 50, 200);
+
     const where = {};
     if (methodeId)   where.methodeId   = parseInt(methodeId);
     if (taxonomieId) where.taxonomieId = parseInt(taxonomieId);
@@ -47,14 +51,19 @@ const listMoustiques = async (req, res) => {
       where.OR = [
         { taxonomie: { nom: { contains: search, mode: 'insensitive' } } },
         { taxonomie: { parent: { nom: { contains: search, mode: 'insensitive' } } } },
+        { idTerrain: { contains: search, mode: 'insensitive' } },
         { notes:     { contains: search, mode: 'insensitive' } },
       ];
     }
 
-    const moustiques = await prisma.moustique.findMany({
-      where, include: includeBase, orderBy: { createdAt: 'desc' },
-    });
-    return res.json({ total: moustiques.length, moustiques });
+    const [total, moustiques] = await prisma.$transaction([
+      prisma.moustique.count({ where }),
+      prisma.moustique.findMany({
+        where, include: includeBase, orderBy: { createdAt: 'desc' },
+        skip: (pageNum - 1) * limitNum, take: limitNum,
+      }),
+    ]);
+    return res.json({ total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum), moustiques });
   } catch (err) {
     console.error('Erreur listMoustiques :', err.message);
     return res.status(500).json({ error: 'Erreur serveur' });
@@ -181,6 +190,10 @@ const createMoustique = async (req, res) => {
       include: includeBase,
     });
 
+    await logAudit({ req, action: ACTIONS.CREATE, entity: 'Moustique', entityId: moustique.id,
+      newValues: { idTerrain: moustique.idTerrain, taxonomieId: moustique.taxonomieId, nombre: moustique.nombre,
+        sexe: moustique.sexe, stade: moustique.stade, parite: moustique.parite, repasSang: moustique.repasSang,
+        methodeId: moustique.methodeId, dateCollecte: moustique.dateCollecte } });
     return res.status(201).json({ message: 'Moustique enregistré', moustique });
   } catch (err) {
     console.error('Erreur createMoustique :', err.message);
@@ -221,7 +234,18 @@ const updateMoustique = async (req, res) => {
   if (notes          !== undefined) data.notes          = notes;
 
   try {
+    const before = await prisma.moustique.findUnique({
+      where: { id },
+      select: { idTerrain:true, taxonomieId:true, nombre:true, sexe:true, stade:true,
+        parite:true, repasSang:true, methodeId:true, solutionId:true, dateCollecte:true, notes:true },
+    });
+    if (!before) return res.status(404).json({ error: 'Moustique introuvable' });
     const moustique = await prisma.moustique.update({ where: { id }, data, include: includeBase });
+    await logAudit({ req, action: ACTIONS.UPDATE, entity: 'Moustique', entityId: id,
+      oldValues: before,
+      newValues: { idTerrain: moustique.idTerrain, taxonomieId: moustique.taxonomieId, nombre: moustique.nombre,
+        sexe: moustique.sexe, stade: moustique.stade, parite: moustique.parite, repasSang: moustique.repasSang,
+        methodeId: moustique.methodeId, solutionId: moustique.solutionId, dateCollecte: moustique.dateCollecte, notes: moustique.notes } });
     return res.json({ message: 'Moustique mis à jour', moustique });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Moustique introuvable' });
@@ -234,7 +258,14 @@ const updateMoustique = async (req, res) => {
 const deleteMoustique = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
+    const before = await prisma.moustique.findUnique({
+      where: { id },
+      select: { idTerrain:true, taxonomieId:true, nombre:true, sexe:true, stade:true,
+        parite:true, repasSang:true, methodeId:true, dateCollecte:true },
+    });
+    if (!before) return res.status(404).json({ error: 'Moustique introuvable' });
     await prisma.moustique.delete({ where: { id } });
+    await logAudit({ req, action: ACTIONS.DELETE, entity: 'Moustique', entityId: id, oldValues: before });
     return res.json({ message: 'Moustique supprimé' });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Moustique introuvable' });

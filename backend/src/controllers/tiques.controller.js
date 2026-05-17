@@ -8,6 +8,7 @@ const fs      = require('fs');
 const { resolveSpecimenTaxonomyId, libelleTaxonomie } = require('../utils/taxonomyResolve');
 const { generateIdTerrain, generateMany, isIdTerrainUnique } = require('../utils/idTerrain');
 const { validatePlacement, nextAvailablePositions } = require('../utils/container');
+const { logAudit, ACTIONS } = require('../utils/audit');
 
 const includeBase = {
   methode: {
@@ -30,17 +31,32 @@ const includeBase = {
 
 const listTiques = async (req, res) => {
   try {
-    const { methodeId, missionId, taxonomieId, sexe } = req.query;
+    const { methodeId, missionId, taxonomieId, sexe, search, page, limit } = req.query;
+    const pageNum  = Math.max(parseInt(page)  || 1, 1);
+    const limitNum = Math.min(parseInt(limit) || 50, 200);
+
     const where = {};
     if (methodeId)   where.methodeId   = parseInt(methodeId);
     if (taxonomieId) where.taxonomieId = parseInt(taxonomieId);
     if (sexe)        where.sexe        = sexe;
     if (missionId)   where.methode     = { localite: { missionId: parseInt(missionId) } };
+    if (search) {
+      where.OR = [
+        { taxonomie: { nom: { contains: search, mode: 'insensitive' } } },
+        { taxonomie: { parent: { nom: { contains: search, mode: 'insensitive' } } } },
+        { idTerrain: { contains: search, mode: 'insensitive' } },
+        { notes:     { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
-    const tiques = await prisma.tique.findMany({
-      where, include: includeBase, orderBy: { createdAt: 'desc' },
-    });
-    return res.json({ total: tiques.length, tiques });
+    const [total, tiques] = await prisma.$transaction([
+      prisma.tique.count({ where }),
+      prisma.tique.findMany({
+        where, include: includeBase, orderBy: { createdAt: 'desc' },
+        skip: (pageNum - 1) * limitNum, take: limitNum,
+      }),
+    ]);
+    return res.json({ total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum), tiques });
   } catch (err) {
     console.error('Erreur listTiques :', err.message);
     return res.status(500).json({ error: 'Erreur serveur' });
@@ -152,6 +168,9 @@ const createTique = async (req, res) => {
       },
       include: includeBase,
     });
+    await logAudit({ req, action: ACTIONS.CREATE, entity: 'Tique', entityId: tique.id,
+      newValues: { idTerrain: tique.idTerrain, taxonomieId: tique.taxonomieId, nombre: tique.nombre,
+        sexe: tique.sexe, stade: tique.stade, gorge: tique.gorge, methodeId: tique.methodeId, hoteId: tique.hoteId, dateCollecte: tique.dateCollecte } });
     return res.status(201).json({ message: 'Tique enregistrée', tique });
   } catch (err) {
     console.error('Erreur createTique :', err.message);
@@ -191,7 +210,17 @@ const updateTique = async (req, res) => {
   if (notes           !== undefined) data.notes           = notes;
 
   try {
+    const before = await prisma.tique.findUnique({
+      where: { id },
+      select: { idTerrain:true, taxonomieId:true, nombre:true, sexe:true, stade:true,
+        gorge:true, partieCorpsHote:true, methodeId:true, hoteId:true, solutionId:true, dateCollecte:true, notes:true },
+    });
+    if (!before) return res.status(404).json({ error: 'Tique introuvable' });
     const tique = await prisma.tique.update({ where: { id }, data, include: includeBase });
+    await logAudit({ req, action: ACTIONS.UPDATE, entity: 'Tique', entityId: id,
+      oldValues: before,
+      newValues: { idTerrain: tique.idTerrain, taxonomieId: tique.taxonomieId, nombre: tique.nombre,
+        sexe: tique.sexe, stade: tique.stade, gorge: tique.gorge, methodeId: tique.methodeId, solutionId: tique.solutionId, dateCollecte: tique.dateCollecte, notes: tique.notes } });
     return res.json({ message: 'Tique mise à jour', tique });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Tique introuvable' });
@@ -203,7 +232,13 @@ const updateTique = async (req, res) => {
 const deleteTique = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
+    const before = await prisma.tique.findUnique({
+      where: { id },
+      select: { idTerrain:true, taxonomieId:true, nombre:true, sexe:true, stade:true, gorge:true, methodeId:true, hoteId:true, dateCollecte:true },
+    });
+    if (!before) return res.status(404).json({ error: 'Tique introuvable' });
     await prisma.tique.delete({ where: { id } });
+    await logAudit({ req, action: ACTIONS.DELETE, entity: 'Tique', entityId: id, oldValues: before });
     return res.json({ message: 'Tique supprimée' });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Tique introuvable' });

@@ -38,6 +38,7 @@ import AuditLogsPage            from '../pages/dictionnaire/AuditLogsPage';
 import UtilisateursPage         from '../pages/utilisateurs/UtilisateursPage';
 import RecherchePage            from '../pages/recherche/RecherchePage';
 import ImportPage               from '../pages/import/ImportPage';
+import CartePage                from '../pages/carte/CartePage';
 
 const ProtectedRoute = ({ children }) => {
   const token = useAuthStore((s) => s.token);
@@ -88,6 +89,7 @@ const router = createBrowserRouter([
 
       // Recherche / explorer
       { path: 'recherche',                    element: <RecherchePage /> },
+      { path: 'carte',                        element: <CartePage /> },
       { path: 'import',                       element: <ImportPage /> },
 
       // Spécimens

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FolderOpen, MapPin, BookOpen, Beaker, PawPrint, Users, Search, Upload,
-  Menu, X, LogOut, FlaskConical,
+  Menu, X, LogOut, FlaskConical, Map,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import ThemeToggle from '../ThemeToggle';
@@ -12,6 +12,7 @@ import SpecimenIcon from '../SpecimenIcon';
 const NAV_ITEMS = [
   { path: '/dashboard',     label: 'Tableau de bord', icon: LayoutDashboard },
   { path: '/recherche',     label: 'Explorer',        icon: Search          },
+  { path: '/carte',         label: 'Carte',           icon: Map             },
   { path: '/projets',       label: 'Projets',         icon: FolderOpen      },
   { path: '/missions',      label: 'Missions',        icon: MapPin          },
   { path: '/methodes',      label: 'Méthodes',        icon: Beaker          },

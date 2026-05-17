@@ -8,6 +8,7 @@ const fs      = require('fs');
 const { resolveSpecimenTaxonomyId, libelleTaxonomie } = require('../utils/taxonomyResolve');
 const { generateIdTerrain, generateMany, isIdTerrainUnique } = require('../utils/idTerrain');
 const { validatePlacement, nextAvailablePositions } = require('../utils/container');
+const { logAudit, ACTIONS } = require('../utils/audit');
 
 const includeBase = {
   methode: {
@@ -30,17 +31,32 @@ const includeBase = {
 
 const listPuces = async (req, res) => {
   try {
-    const { methodeId, missionId, taxonomieId, sexe } = req.query;
+    const { methodeId, missionId, taxonomieId, sexe, search, page, limit } = req.query;
+    const pageNum  = Math.max(parseInt(page)  || 1, 1);
+    const limitNum = Math.min(parseInt(limit) || 50, 200);
+
     const where = {};
     if (methodeId)   where.methodeId   = parseInt(methodeId);
     if (taxonomieId) where.taxonomieId = parseInt(taxonomieId);
     if (sexe)        where.sexe        = sexe;
     if (missionId)   where.methode     = { localite: { missionId: parseInt(missionId) } };
+    if (search) {
+      where.OR = [
+        { taxonomie: { nom: { contains: search, mode: 'insensitive' } } },
+        { taxonomie: { parent: { nom: { contains: search, mode: 'insensitive' } } } },
+        { idTerrain: { contains: search, mode: 'insensitive' } },
+        { notes:     { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
-    const puces = await prisma.puce.findMany({
-      where, include: includeBase, orderBy: { createdAt: 'desc' },
-    });
-    return res.json({ total: puces.length, puces });
+    const [total, puces] = await prisma.$transaction([
+      prisma.puce.count({ where }),
+      prisma.puce.findMany({
+        where, include: includeBase, orderBy: { createdAt: 'desc' },
+        skip: (pageNum - 1) * limitNum, take: limitNum,
+      }),
+    ]);
+    return res.json({ total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum), puces });
   } catch (err) {
     console.error('Erreur listPuces :', err.message);
     return res.status(500).json({ error: 'Erreur serveur' });
@@ -146,6 +162,9 @@ const createPuce = async (req, res) => {
       },
       include: includeBase,
     });
+    await logAudit({ req, action: ACTIONS.CREATE, entity: 'Puce', entityId: puce.id,
+      newValues: { idTerrain: puce.idTerrain, taxonomieId: puce.taxonomieId, nombre: puce.nombre,
+        sexe: puce.sexe, stade: puce.stade, methodeId: puce.methodeId, hoteId: puce.hoteId, dateCollecte: puce.dateCollecte } });
     return res.status(201).json({ message: 'Puce enregistrée', puce });
   } catch (err) {
     console.error('Erreur createPuce :', err.message);
@@ -182,7 +201,17 @@ const updatePuce = async (req, res) => {
   if (notes          !== undefined) data.notes          = notes;
 
   try {
+    const before = await prisma.puce.findUnique({
+      where: { id },
+      select: { idTerrain:true, taxonomieId:true, nombre:true, sexe:true, stade:true,
+        methodeId:true, hoteId:true, solutionId:true, dateCollecte:true, notes:true },
+    });
+    if (!before) return res.status(404).json({ error: 'Puce introuvable' });
     const puce = await prisma.puce.update({ where: { id }, data, include: includeBase });
+    await logAudit({ req, action: ACTIONS.UPDATE, entity: 'Puce', entityId: id,
+      oldValues: before,
+      newValues: { idTerrain: puce.idTerrain, taxonomieId: puce.taxonomieId, nombre: puce.nombre,
+        sexe: puce.sexe, stade: puce.stade, methodeId: puce.methodeId, solutionId: puce.solutionId, dateCollecte: puce.dateCollecte, notes: puce.notes } });
     return res.json({ message: 'Puce mise à jour', puce });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Puce introuvable' });
@@ -194,7 +223,13 @@ const updatePuce = async (req, res) => {
 const deletePuce = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
+    const before = await prisma.puce.findUnique({
+      where: { id },
+      select: { idTerrain:true, taxonomieId:true, nombre:true, sexe:true, stade:true, methodeId:true, hoteId:true, dateCollecte:true },
+    });
+    if (!before) return res.status(404).json({ error: 'Puce introuvable' });
     await prisma.puce.delete({ where: { id } });
+    await logAudit({ req, action: ACTIONS.DELETE, entity: 'Puce', entityId: id, oldValues: before });
     return res.json({ message: 'Puce supprimée' });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Puce introuvable' });

@@ -13,7 +13,8 @@ const ACTION_TONE = {
 };
 
 const ENTITIES = [
-  '', 'TaxonomieSpecimen', 'TaxonomieHote',
+  '', 'Moustique', 'Tique', 'Puce',
+  'TaxonomieSpecimen', 'TaxonomieHote',
   'TypeMethodeCollecte', 'SolutionConservation', 'TypeEnvironnement', 'TypeHabitat',
 ];
 
@@ -49,7 +50,7 @@ export default function AuditLogsPage() {
       <PageHeader
         icon={History} iconTone="default"
         title="Journal d'audit"
-        subtitle={`${total} entrée(s) — historisation des référentiels`}
+        subtitle={`${total} entrée(s) — référentiels et spécimens`}
       />
 
       <Card padding="sm" className="flex flex-wrap gap-2">
