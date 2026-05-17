@@ -14,10 +14,13 @@ import MissionDetail    from '../pages/missions/MissionDetail';
 import NouvelleMission  from '../pages/missions/NouvelleMission';
 import MoustiquesPage   from '../pages/specimens/MoustiquesPage';
 import NouveauMoustique from '../pages/specimens/NouveauMoustique';
+import MoustiqueDetail  from '../pages/specimens/MoustiqueDetail';
 import TiquesPage       from '../pages/specimens/TiquesPage';
 import NouveauTique     from '../pages/specimens/NouveauTique';
+import TiqueDetail      from '../pages/specimens/TiqueDetail';
 import PucesPage        from '../pages/specimens/PucesPage';
 import NouveauPuce      from '../pages/specimens/NouveauPuce';
+import PuceDetail       from '../pages/specimens/PuceDetail';
 import MainLayout       from '../components/layout/MainLayout';
 
 import MethodesPage             from '../pages/methodes/MethodesPage';
@@ -90,10 +93,13 @@ const router = createBrowserRouter([
       // Spécimens
       { path: 'specimens/moustiques',         element: <MoustiquesPage /> },
       { path: 'specimens/moustiques/nouveau', element: <NouveauMoustique /> },
+      { path: 'specimens/moustiques/:id',     element: <MoustiqueDetail /> },
       { path: 'specimens/tiques',             element: <TiquesPage /> },
       { path: 'specimens/tiques/nouveau',     element: <NouveauTique /> },
+      { path: 'specimens/tiques/:id',         element: <TiqueDetail /> },
       { path: 'specimens/puces',              element: <PucesPage /> },
       { path: 'specimens/puces/nouveau',      element: <NouveauPuce /> },
+      { path: 'specimens/puces/:id',          element: <PuceDetail /> },
 
       // Utilisateurs (admin)
       { path: 'utilisateurs',                          element: <AdminRoute><UtilisateursPage /></AdminRoute> },

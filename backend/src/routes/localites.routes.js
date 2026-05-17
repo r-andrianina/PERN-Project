@@ -1,23 +1,21 @@
-// backend/src/routes/localites.routes.js
-
-const express = require('express');
-const router  = express.Router();
-const ctrl    = require('../controllers/localites.controller');
+const express      = require('express');
+const router       = express.Router();
+const ctrl         = require('../controllers/localites.controller');
+const asyncHandler = require('../middlewares/asyncHandler');
+const { validate } = require('../middlewares/validate');
+const schema       = require('../schemas/localites.schema');
 const { verifyToken, requireRole, requireMinRole } = require('../middlewares/auth.middleware');
 
 router.use(verifyToken);
 
-// Lecture — tous les rôles
-router.get('/carte',             ctrl.getCarteLocalites);
-router.get('/lookup-fokontany',  ctrl.lookupFokontany);   // ← avant /:id
-router.get('/',                  ctrl.listLocalites);
-router.get('/:id',               ctrl.getLocalite);
+router.get('/carte',            asyncHandler(ctrl.getCarteLocalites));
+router.get('/lookup-fokontany', asyncHandler(ctrl.lookupFokontany));
+router.get('/',                 asyncHandler(ctrl.listLocalites));
+router.get('/:id',              asyncHandler(ctrl.getLocalite));
 
-// Écriture — Admin + Chercheur
-router.post('/',    requireMinRole('chercheur'), ctrl.createLocalite);
-router.put('/:id',  requireMinRole('chercheur'), ctrl.updateLocalite);
+router.post('/',    requireMinRole('chercheur'), validate(schema.createLocalite), asyncHandler(ctrl.createLocalite));
+router.put('/:id',  requireMinRole('chercheur'), validate(schema.updateLocalite), asyncHandler(ctrl.updateLocalite));
 
-// Suppression — Admin uniquement
-router.delete('/:id', requireRole('admin'), ctrl.deleteLocalite);
+router.delete('/:id', requireRole('admin'), asyncHandler(ctrl.deleteLocalite));
 
 module.exports = router;

@@ -38,8 +38,7 @@ function CreateContainerModal({ missionId, type, onCreated, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const submit = async () => {
     setLoading(true); setError(null);
     try {
       const r = await api.post('/containers', { type, missionId, notes });
@@ -51,7 +50,7 @@ function CreateContainerModal({ missionId, type, onCreated, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <form onSubmit={submit} className="bg-surface rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className={`px-6 py-5 flex items-center justify-between bg-gradient-to-r ${type === 'PLAQUE' ? 'from-emerald-600 to-emerald-500' : 'from-amber-600 to-amber-500'}`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
@@ -88,13 +87,13 @@ function CreateContainerModal({ missionId, type, onCreated, onClose }) {
 
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
-            <button type="submit" disabled={loading} className="btn-primary">
+            <button type="button" disabled={loading} onClick={submit} className="btn-primary">
               {loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
               Créer
             </button>
           </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

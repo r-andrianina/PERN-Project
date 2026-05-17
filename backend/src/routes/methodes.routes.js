@@ -1,21 +1,20 @@
-// backend/src/routes/methodes.routes.js
-
-const express = require('express');
-const router  = express.Router();
-const ctrl    = require('../controllers/methodes.controller');
+const express      = require('express');
+const router       = express.Router();
+const ctrl         = require('../controllers/methodes.controller');
+const asyncHandler = require('../middlewares/asyncHandler');
+const { validate } = require('../middlewares/validate');
+const schema       = require('../schemas/methodes.schema');
 const { verifyToken, requireRole, requireMinRole } = require('../middlewares/auth.middleware');
 
 router.use(verifyToken);
 
-router.get('/',    ctrl.listMethodes);
-router.get('/:id', ctrl.getMethode);
-router.get('/:id/preview-id-terrain', ctrl.previewIdTerrain);
+router.get('/',                        asyncHandler(ctrl.listMethodes));
+router.get('/:id/preview-id-terrain',  asyncHandler(ctrl.previewIdTerrain));
+router.get('/:id',                     asyncHandler(ctrl.getMethode));
 
-// Admin + Chercheur + Terrain peuvent créer/modifier des méthodes
-router.post('/',    requireMinRole('terrain'), ctrl.createMethode);
-router.put('/:id',  requireMinRole('terrain'), ctrl.updateMethode);
+router.post('/',    requireMinRole('terrain'), validate(schema.createMethode), asyncHandler(ctrl.createMethode));
+router.put('/:id',  requireMinRole('terrain'), validate(schema.updateMethode), asyncHandler(ctrl.updateMethode));
 
-// Suppression — Admin uniquement
-router.delete('/:id', requireRole('admin'), ctrl.deleteMethode);
+router.delete('/:id', requireRole('admin'), asyncHandler(ctrl.deleteMethode));
 
 module.exports = router;
