@@ -1,44 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, FolderOpen, MapPin, BookOpen, Beaker, PawPrint, Users, Search, Upload,
+  LayoutDashboard, FolderOpen, MapPin, BookOpen, Beaker, PawPrint, Users, Upload,
   Menu, X, LogOut, FlaskConical, Map,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import ThemeToggle from '../ThemeToggle';
 import { Badge } from '../ui';
 import SpecimenIcon from '../SpecimenIcon';
-
-const NAV_ITEMS = [
-  { path: '/dashboard',     label: 'Tableau de bord', icon: LayoutDashboard },
-  { path: '/recherche',     label: 'Explorer',        icon: Search          },
-  { path: '/carte',         label: 'Carte',           icon: Map             },
-  { path: '/projets',       label: 'Projets',         icon: FolderOpen      },
-  { path: '/missions',      label: 'Missions',        icon: MapPin          },
-  { path: '/methodes',      label: 'Méthodes',        icon: Beaker          },
-  { path: '/hotes',         label: 'Hôtes',           icon: PawPrint        },
-  { path: '/dictionnaire',  label: 'Dictionnaire',    icon: BookOpen        },
-  { path: '/import',        label: 'Import Excel',    icon: Upload          },
-];
-
-const ADMIN_NAV = [
-  { path: '/utilisateurs',  label: 'Utilisateurs',    icon: Users           },
-];
-
-const SPECIMEN_ITEMS = [
-  { path: '/specimens/moustiques', label: 'Moustiques', type: 'moustique' },
-  { path: '/specimens/tiques',     label: 'Tiques',     type: 'tique'     },
-  { path: '/specimens/puces',      label: 'Puces',      type: 'puce'      },
-];
+import GlobalSearch from '../GlobalSearch';
+import Footer from './Footer';
+import { useT } from '../../lib/i18n';
 
 const ROLE_TONE = {
-  admin:     'role-admin',
-  chercheur: 'role-chercheur',
-  terrain:   'role-terrain',
-  lecteur:   'role-lecteur',
+  admin:      'role-admin',
+  chercheur:  'role-chercheur',
+  technicien: 'role-terrain',
+  lecteur:    'role-lecteur',
 };
 
-// Item de navigation — extracted pour ne pas dupliquer la logique active/inactive
 function NavItem({ to, label, icon: Icon, iconColorIdle, onClick }) {
   return (
     <NavLink
@@ -72,17 +52,39 @@ function NavSection({ children }) {
 
 export default function MainLayout() {
   const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
+  const navigate         = useNavigate();
+  const t                = useT();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [now, setNow] = useState(new Date());
+
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const handleLogout = () => { logout(); navigate('/login'); };
   const closeSidebar = () => setSidebarOpen(false);
   const initials = `${user?.prenom?.[0] ?? ''}${user?.nom?.[0] ?? ''}`.toUpperCase();
+
+  // Nav dynamique (traduite)
+  const NAV_ITEMS = [
+    { path: '/dashboard',    label: t('nav.dashboard'),    icon: LayoutDashboard },
+    { path: '/recherche',    label: t('nav.explorer'),     icon: () => <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> },
+    { path: '/carte',        label: t('nav.carte'),        icon: Map             },
+    { path: '/projets',      label: t('nav.projets'),      icon: FolderOpen      },
+    { path: '/missions',     label: t('nav.missions'),     icon: MapPin          },
+    { path: '/methodes',     label: t('nav.methodes'),     icon: Beaker          },
+    { path: '/hotes',        label: t('nav.hotes'),        icon: PawPrint        },
+    { path: '/dictionnaire', label: t('nav.dictionnaire'), icon: BookOpen        },
+    { path: '/import',       label: t('nav.import'),       icon: Upload          },
+  ];
+
+  const SPECIMEN_ITEMS = [
+    { path: '/specimens/moustiques', label: t('nav.moustiques'), type: 'moustique' },
+    { path: '/specimens/tiques',     label: t('nav.tiques'),     type: 'tique'     },
+    { path: '/specimens/puces',      label: t('nav.puces'),      type: 'puce'      },
+  ];
 
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
@@ -109,13 +111,10 @@ export default function MainLayout() {
             </div>
             <div>
               <p className="text-sm font-semibold text-fg leading-tight">SpécimenManager</p>
-              <p className="text-[10px] text-fg-subtle leading-tight">Unité Entomologie Médicale (UEM)</p>
+              <p className="text-[10px] text-fg-subtle leading-tight">{t('sidebar.subtitle')}</p>
             </div>
           </div>
-          <button
-            onClick={closeSidebar}
-            className="lg:hidden p-1 rounded-md text-fg-subtle hover:text-fg-muted hover:bg-surface-2"
-          >
+          <button onClick={closeSidebar} className="lg:hidden p-1 rounded-md text-fg-subtle hover:text-fg-muted hover:bg-surface-2">
             <X size={18} />
           </button>
         </div>
@@ -126,7 +125,7 @@ export default function MainLayout() {
             <NavItem key={item.path} to={item.path} label={item.label} icon={item.icon} onClick={closeSidebar} />
           ))}
 
-          <NavSection>Spécimens</NavSection>
+          <NavSection>{t('nav.specimens')}</NavSection>
           {SPECIMEN_ITEMS.filter(({ type }) =>
             user?.role === 'admin' || (user?.specimensAutorises || []).includes(type)
           ).map(({ path, label, type }) => (
@@ -151,11 +150,9 @@ export default function MainLayout() {
 
           {user?.role === 'admin' && (
             <>
-              <NavSection>Administration</NavSection>
-              {ADMIN_NAV.map((item) => (
-                <NavItem key={item.path} to={item.path} label={item.label} icon={item.icon}
-                  iconColorIdle="text-role-admin" onClick={closeSidebar} />
-              ))}
+              <NavSection>{t('nav.admin')}</NavSection>
+              <NavItem to="/utilisateurs" label={t('nav.utilisateurs')} icon={Users}
+                iconColorIdle="text-role-admin" onClick={closeSidebar} />
             </>
           )}
         </nav>
@@ -170,11 +167,8 @@ export default function MainLayout() {
               <p className="text-sm font-medium text-fg truncate">{user?.prenom} {user?.nom}</p>
               <Badge tone={ROLE_TONE[user?.role] ?? 'default'} size="xs" className="mt-0.5">{user?.role}</Badge>
             </div>
-            <button
-              onClick={handleLogout}
-              title="Déconnexion"
-              className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
-            >
+            <button onClick={handleLogout} title={t('common.logout')}
+              className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors">
               <LogOut size={16} />
             </button>
           </div>
@@ -185,16 +179,20 @@ export default function MainLayout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* Topbar */}
-        <header className="bg-surface border-b border-border px-4 md:px-6 h-14 flex items-center justify-between flex-shrink-0">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 rounded-lg text-fg-muted hover:bg-surface-2 transition-colors"
-          >
+        <header className="bg-surface border-b border-border px-4 md:px-6 h-14 flex items-center justify-between flex-shrink-0 gap-3">
+          <button onClick={() => setSidebarOpen(true)}
+            className="lg:hidden p-2 rounded-lg text-fg-muted hover:bg-surface-2 transition-colors">
             <Menu size={20} />
           </button>
           <div className="hidden lg:block" />
 
-          <div className="flex items-center gap-3">
+          {/* Recherche globale */}
+          <div className="flex-1 flex justify-center max-w-md mx-auto">
+            <GlobalSearch />
+          </div>
+
+          {/* Droite : date, heure, statut, thème */}
+          <div className="flex items-center gap-3 flex-shrink-0">
             <span className="hidden sm:block text-xs text-fg-subtle capitalize">
               {now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </span>
@@ -203,7 +201,7 @@ export default function MainLayout() {
             </span>
             <div className="hidden md:flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span className="text-xs text-fg-subtle">Connecté</span>
+              <span className="text-xs text-fg-subtle">{t('topbar.connected')}</span>
             </div>
             <ThemeToggle compact />
           </div>
@@ -213,6 +211,9 @@ export default function MainLayout() {
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <Outlet />
         </main>
+
+        {/* Footer */}
+        <Footer />
       </div>
     </div>
   );
