@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FolderOpen, MapPin, BookOpen, Beaker, PawPrint, Users, Search, Upload,
@@ -73,6 +73,11 @@ export default function MainLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const handleLogout = () => { logout(); navigate('/login'); };
   const closeSidebar = () => setSidebarOpen(false);
@@ -103,7 +108,7 @@ export default function MainLayout() {
             </div>
             <div>
               <p className="text-sm font-semibold text-fg leading-tight">SpécimenManager</p>
-              <p className="text-xs text-fg-subtle leading-tight">IPM — v2.0</p>
+              <p className="text-[10px] text-fg-subtle leading-tight">Unité Entomologie Médicale (UEM)</p>
             </div>
           </div>
           <button
@@ -188,7 +193,10 @@ export default function MainLayout() {
 
           <div className="flex items-center gap-3">
             <span className="hidden sm:block text-xs text-fg-subtle capitalize">
-              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+              {now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </span>
+            <span className="hidden md:block text-xs font-mono text-fg-muted tabular-nums">
+              {now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
             <div className="hidden md:flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />

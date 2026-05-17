@@ -1,21 +1,22 @@
 import { Link } from 'react-router-dom';
 import {
-  FolderOpen, MapPin, Microscope, Bug, TrendingUp, ChevronRight, Calendar,
+  FolderOpen, MapPin, Microscope, TrendingUp, ChevronRight,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, EmptyState, Spinner } from '../../components/ui';
 import { useApiQueries } from '../../hooks';
+import SpecimenIcon from '../../components/SpecimenIcon';
 
 const STATUT_TONE  = { planifiee: 'info', en_cours: 'success', terminee: 'default', annulee: 'danger' };
 const STATUT_LABEL = { planifiee: 'Planifiée', en_cours: 'En cours', terminee: 'Terminée', annulee: 'Annulée' };
 
-function DashboardStat({ label, value, icon: Icon, iconColor, iconBg, to, trend }) {
+function DashboardStat({ label, value, icon: Icon, iconNode, iconColor, iconBg, to, trend }) {
   return (
     <Link to={to} className="group">
       <Card padding="none" className="p-5 hover:shadow-card-md transition-shadow">
         <div className="flex items-start justify-between mb-4">
           <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center`}>
-            <Icon size={20} className={iconColor} />
+            {iconNode ?? <Icon size={20} className={iconColor} />}
           </div>
           <ChevronRight size={16} className="text-fg-subtle group-hover:text-primary transition-colors mt-1" />
         </div>
@@ -62,15 +63,9 @@ export default function DashboardPage() {
     <div className="space-y-6 max-w-6xl">
 
       {/* En-tête */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-fg">{greeting}, {user?.prenom}</h1>
-          <p className="text-sm text-fg-subtle mt-0.5">Aperçu de vos données de collecte entomologique</p>
-        </div>
-        <Card padding="none" className="hidden sm:flex items-center gap-2 px-3 py-2 text-xs text-fg-muted">
-          <Calendar size={13} />
-          {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-        </Card>
+      <div>
+        <h1 className="text-xl font-bold text-fg">{greeting}, {user?.prenom}</h1>
+        <p className="text-sm text-fg-subtle mt-0.5">Aperçu de vos données de collecte entomologique</p>
       </div>
 
       {/* Stats principales */}
@@ -82,15 +77,15 @@ export default function DashboardPage() {
         <DashboardStat label="Spécimens total" value={totalSpecimens} to="/recherche"
           icon={Microscope} iconColor="text-role-admin" iconBg="bg-role-admin/10" />
         <DashboardStat label="Moustiques" value={totalMoustiques} to="/specimens/moustiques"
-          icon={Bug} iconColor="text-specimen-moustique" iconBg="bg-specimen-moustique/10" />
+          iconNode={<SpecimenIcon type="moustique" size={24} />} iconBg="bg-specimen-moustique/10" />
       </div>
 
       {/* Tiques + Puces + Profil */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <DashboardStat label="Tiques" value={totalTiques} to="/specimens/tiques"
-          icon={Bug} iconColor="text-specimen-tique" iconBg="bg-specimen-tique/10" />
+          iconNode={<SpecimenIcon type="tique" size={24} />} iconBg="bg-specimen-tique/10" />
         <DashboardStat label="Puces" value={totalPuces} to="/specimens/puces"
-          icon={Bug} iconColor="text-specimen-puce" iconBg="bg-specimen-puce/10" />
+          iconNode={<SpecimenIcon type="puce" size={24} />} iconBg="bg-specimen-puce/10" />
 
         <Card padding="none" className="p-5 bg-gradient-to-br from-primary to-primary-700 border-0">
           <p className="text-xs text-primary-100 font-medium uppercase tracking-wider mb-1">Mon profil</p>
