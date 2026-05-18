@@ -76,8 +76,8 @@ function SpecimenAccessModal({ user, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden my-4 sm:my-auto sm:mt-16">
         <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-white">Accès spécimens</h2>
@@ -164,8 +164,8 @@ function UserModal({ user, onClose, onSaved, currentUserId }) {
   const inputCls = 'w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-colors';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-md overflow-hidden my-4 sm:my-auto sm:mt-16">
         {/* Header */}
         <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -306,8 +306,8 @@ function ResetPasswordModal({ user, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden my-4 sm:my-auto sm:mt-16">
         <div className="bg-gradient-to-r from-amber-500 to-amber-400 px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
@@ -503,7 +503,7 @@ export default function UtilisateursPage() {
                   </button>
                   <button
                     onClick={() => remove(u)}
-                    className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                    className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -631,7 +631,7 @@ export default function UtilisateursPage() {
                           <button
                             onClick={() => toggleActif(u)}
                             title={u.actif ? 'Désactiver' : 'Activer'}
-                            className="p-1.5 text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                            className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                           >
                             {u.actif ? <ToggleRight size={16} className="text-success" /> : <ToggleLeft size={16} />}
                           </button>
@@ -640,7 +640,7 @@ export default function UtilisateursPage() {
                         <button
                           onClick={() => setModal({ type: 'edit', user: u })}
                           title="Modifier"
-                          className="p-1.5 text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                         >
                           <Edit2 size={14} />
                         </button>
@@ -649,7 +649,7 @@ export default function UtilisateursPage() {
                           <button
                             onClick={() => setModal({ type: 'specimens', user: u })}
                             title="Gérer les accès spécimens"
-                            className="p-1.5 text-fg-subtle hover:text-specimen-moustique hover:bg-specimen-moustique/10 rounded-lg transition-colors"
+                            className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-specimen-moustique hover:bg-specimen-moustique/10 rounded-lg transition-colors"
                           >
                             <ShieldCheck size={14} />
                           </button>
@@ -658,7 +658,7 @@ export default function UtilisateursPage() {
                         <button
                           onClick={() => setModal({ type: 'reset', user: u })}
                           title="Réinitialiser le mot de passe"
-                          className="p-1.5 text-fg-subtle hover:text-amber-600 hover:bg-warning/10 rounded-lg transition-colors"
+                          className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-amber-600 hover:bg-warning/10 rounded-lg transition-colors"
                         >
                           <KeyRound size={14} />
                         </button>
@@ -667,7 +667,7 @@ export default function UtilisateursPage() {
                           <button
                             onClick={() => remove(u)}
                             title="Supprimer"
-                            className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                            className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                           >
                             <Trash2 size={14} />
                           </button>

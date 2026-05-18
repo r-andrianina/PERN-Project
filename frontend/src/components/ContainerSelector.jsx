@@ -49,8 +49,8 @@ function CreateContainerModal({ missionId, type, onCreated, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+    <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-md overflow-hidden my-4 sm:mt-16">
         <div className={`px-6 py-5 flex items-center justify-between bg-gradient-to-r ${type === 'PLAQUE' ? 'from-emerald-600 to-emerald-500' : 'from-amber-600 to-amber-500'}`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">

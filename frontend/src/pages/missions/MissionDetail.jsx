@@ -86,8 +86,8 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <form onSubmit={submit} className="bg-surface rounded-2xl shadow-2xl w-full max-w-5xl my-8">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <form onSubmit={submit} className="bg-surface rounded-2xl shadow-2xl w-full max-w-5xl my-4 sm:my-8">
         <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
@@ -186,7 +186,7 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
               <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-2">
                 Carte — cliquez pour placer le point GPS
               </label>
-              <div className="flex-1 min-h-[480px]">
+              <div className="flex-1 min-h-[240px] sm:min-h-[480px]">
                 <MapPicker
                   latitude={form.latitude || undefined}
                   longitude={form.longitude || undefined}
@@ -361,9 +361,9 @@ export default function MissionDetail() {
                     {canEdit && (
                       <button
                         onClick={() => setModal({ type: 'edit', localite: l })}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg"
+                        className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg transition-colors sm:opacity-0 sm:group-hover:opacity-100"
                       >
-                        <Edit2 size={13} />
+                        <Edit2 size={14} />
                       </button>
                     )}
                   </div>

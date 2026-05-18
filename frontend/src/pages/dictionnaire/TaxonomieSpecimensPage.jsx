@@ -290,8 +290,8 @@ export default function TaxonomieSpecimensPage() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <form onSubmit={submit} className="bg-surface rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+          <form onSubmit={submit} className="bg-surface rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4 my-4 sm:mt-16">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-fg">
                 {editing.id ? 'Modifier la taxonomie' : 'Nouvelle taxonomie'}
