@@ -33,6 +33,11 @@ export default function GlobalSearch() {
   const inputRef   = useRef(null);
   const debounceRef = useRef(null);
 
+  // Nettoyage du debounce au démontage — évite setState sur composant démonté
+  useEffect(() => {
+    return () => clearTimeout(debounceRef.current);
+  }, []);
+
   // Ctrl+K global
   useEffect(() => {
     const onKey = (e) => {

@@ -8,7 +8,7 @@
 //   toast.warning('Attention : données incomplètes');
 //   toast.info('Redirection en cours…');
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { toastEmitter } from '../../lib/toast';
@@ -65,18 +65,23 @@ function ToastItem({ id, type, message, title, duration, onRemove }) {
   }, []);
 
   // Barre de progression + auto-dismiss
+  // rafId est une ref React pour survivre aux re-renders et être proprement annulé
+  const rafId = useRef(null);
   useEffect(() => {
-    const start  = Date.now();
-    const end    = start + duration;
+    const start = Date.now();
+    const end   = start + duration;
 
     const frame = () => {
       const pct = Math.max(0, ((end - Date.now()) / duration) * 100);
       setProgress(pct);
-      if (pct > 0) rafRef.current = requestAnimationFrame(frame);
-      else dismiss();
+      if (pct > 0) {
+        rafId.current = requestAnimationFrame(frame);
+      } else {
+        dismiss();
+      }
     };
-    const rafRef = { current: requestAnimationFrame(frame) };
-    return () => cancelAnimationFrame(rafRef.current);
+    rafId.current = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(rafId.current);
   }, [duration, dismiss]);
 
   return (
