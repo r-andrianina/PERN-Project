@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Microscope, FlaskConical, FileText, Check, Loader2, Info, Tag } from 'lucide-react';
 import api from '../../api/axios';
@@ -74,11 +74,6 @@ export default function NouveauMoustique() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.stade, form.sexe]);
 
-  // Si plaque → forcer nombre=1 (UI)
-  const isPlaqueSelected = useMemo(() => {
-    return form.containerId && form.insertMode === 'single' && form.nombre > 1
-      ? false : true; // logique gérée côté backend, mais on affiche un warning
-  }, [form.containerId, form.insertMode, form.nombre]);
 
   const validate = () => {
     const errs = {};

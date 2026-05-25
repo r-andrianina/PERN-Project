@@ -4,13 +4,12 @@
 // 1 marqueur par méthode de collecte géolocalisée, filtré par RBAC.
 
 import { useEffect, useRef, useState } from 'react';
-import { Map, Layers, RefreshCw, Info } from 'lucide-react';
+import { Map, Layers, Info } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { Spinner } from '../../components/ui';
-import SpecimenIcon from '../../components/SpecimenIcon';
 
 // ── Couleurs des types ────────────────────────────────────────
 const TYPE_CFG = {
@@ -233,7 +232,7 @@ export default function CartePage() {
 
     // Ajuster la vue sur les données visibles
     if (bounds.length > 0) {
-      try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 }); } catch {}
+      try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 }); } catch { /* fitBounds can throw on empty/invalid bounds */ }
     }
   }, [points, visibleTypes, loading]);
 

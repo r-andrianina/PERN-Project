@@ -14,7 +14,7 @@
 //  - Pour BOITE + nombre>1 : choix mode "single" (1 enreg. N indiv.) / "split" (N enreg. 1/tube)
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Loader2, Layers, Box, X, AlertTriangle, Check, RefreshCw } from 'lucide-react';
+import { Plus, Loader2, Layers, Box, X, AlertTriangle, Check } from 'lucide-react';
 import api from '../api/axios';
 
 // Génère toutes les positions d'un container

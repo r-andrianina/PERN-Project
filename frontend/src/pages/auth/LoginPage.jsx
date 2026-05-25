@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FlaskConical, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
-import { Button, Spinner } from '../../components/ui';
+import { Spinner } from '../../components/ui';
 
 const inputCls = 'w-full px-3.5 py-2.5 text-sm border border-border-strong rounded-xl bg-surface text-fg hover:border-border-strong focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors';
 

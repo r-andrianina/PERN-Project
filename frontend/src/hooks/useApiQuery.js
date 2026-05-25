@@ -36,6 +36,9 @@ export function useApiQuery(url, { params, deps = [], immediate = true, select }
     return () => { mountedRef.current = false; };
   }, []);
 
+  const paramsKey = JSON.stringify(params);
+  const depsKey   = JSON.stringify(deps);
+
   const fetch = useCallback(async (overrideOpts = {}) => {
     setLoading(true);
     setError(null);
@@ -54,7 +57,7 @@ export function useApiQuery(url, { params, deps = [], immediate = true, select }
       if (mountedRef.current) setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, JSON.stringify(params), ...deps]);
+  }, [url, paramsKey, depsKey]);
 
   useEffect(() => {
     if (immediate) fetch();

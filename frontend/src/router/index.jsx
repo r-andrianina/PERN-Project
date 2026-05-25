@@ -40,12 +40,14 @@ import RecherchePage            from '../pages/recherche/RecherchePage';
 import ImportPage               from '../pages/import/ImportPage';
 import CartePage                from '../pages/carte/CartePage';
 
+// eslint-disable-next-line react-refresh/only-export-components
 const ProtectedRoute = ({ children }) => {
   const token = useAuthStore((s) => s.token);
   if (!token) return <Navigate to="/login" replace />;
   return children;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 const AdminRoute = ({ children }) => {
   const { token, user } = useAuthStore();
   if (!token) return <Navigate to="/login" replace />;
@@ -53,6 +55,7 @@ const AdminRoute = ({ children }) => {
   return children;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 const PublicRoute = ({ children }) => {
   const token = useAuthStore((s) => s.token);
   if (token) return <Navigate to="/dashboard" replace />;

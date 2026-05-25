@@ -3,7 +3,7 @@
 
 import { useState, useRef } from 'react';
 import { Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle,
-         ChevronDown, ChevronRight, Info, Download } from 'lucide-react';
+         ChevronDown, ChevronRight, Info } from 'lucide-react';
 import api from '../../api/axios';
 import { Card, PageHeader, Badge, Spinner } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';

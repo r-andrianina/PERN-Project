@@ -23,7 +23,7 @@ export default function NouveauProjet() {
   const users = usersData ?? [];
 
   // Formulaire
-  const { form, setForm, setField, handleChange, errors, isLoading, handleSubmit } = useFormSubmit({
+  const { form, setField, handleChange, errors, isLoading, handleSubmit } = useFormSubmit({
     initial: {
       code: '', nom: '', description: '',
       porteur: '', responsableId: '',

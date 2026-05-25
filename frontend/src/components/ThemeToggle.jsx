@@ -14,6 +14,7 @@ function applyTheme(theme) {
   root.classList.toggle('dark', isDark);
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTheme() {
   const [theme, setThemeState] = useState(() => {
     return localStorage.getItem(STORAGE_KEY) || 'system';

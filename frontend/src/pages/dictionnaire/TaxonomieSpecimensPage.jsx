@@ -229,7 +229,7 @@ export default function TaxonomieSpecimensPage() {
     if (!editing) return NIVEAUX;
     if (editing.id) return NIVEAUX; // niveau non modifiable côté UI
     if (!editing.parentId) return [{ value: 'ordre', label: 'Ordre' }];
-    return NIVEAUX.filter((n) => true); // backend valide
+    return [...NIVEAUX]; // backend valide
   }, [editing]);
 
   return (

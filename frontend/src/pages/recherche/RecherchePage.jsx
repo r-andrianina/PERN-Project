@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Search, Download, Filter, X, ChevronDown, ChevronUp,
+  Search, Download, Filter, ChevronDown, ChevronUp,
   Bug, Calendar, MapPin, Layers, RotateCcw, FlaskConical, PawPrint,
   TrendingUp, Hash,
 } from 'lucide-react';

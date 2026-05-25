@@ -17,7 +17,7 @@ app.use((req, res, next) => {
 });
 
 // ── Health check ──────────────────────────────────────────────
-app.get('/api/health', (req, res) => res.json({ status: 'ok', app: 'SpécimenManager API', version: '2.0.0' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', app: 'SpécimenManager API', version: '1.0.0' }));
 
 // ── Routes ────────────────────────────────────────────────────
 app.use('/api/v1/auth',       require('./routes/auth.routes'));

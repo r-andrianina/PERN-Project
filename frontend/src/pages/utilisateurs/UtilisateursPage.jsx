@@ -41,17 +41,6 @@ const AvatarCircle = ({ user, size = 'md' }) => {
   );
 };
 
-// ── Composant badge rôle ──────────────────────────────────────
-const RoleBadge = ({ role }) => {
-  const info = roleInfo[role];
-  if (!info) return null;
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full border ${info.color}`}>
-      {info.label}
-    </span>
-  );
-};
-
 // ── Modal permissions spécimens ───────────────────────────────
 function SpecimenAccessModal({ user, onClose, onSaved }) {
   const [selected, setSelected] = useState(user.specimensAutorises || []);
@@ -124,7 +113,7 @@ function SpecimenAccessModal({ user, onClose, onSaved }) {
 }
 
 // ── Modal création / édition ──────────────────────────────────
-function UserModal({ user, onClose, onSaved, currentUserId }) {
+function UserModal({ user, onClose, onSaved }) {
   const isEdit = !!user?.id;
   const [form, setForm] = useState({
     nom:      user?.nom      ?? '',

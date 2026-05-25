@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { MapPin, X, Search, Layers, Loader2 } from 'lucide-react';
+import { MapPin, X, Search, Loader2 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -54,6 +54,15 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
 
   const defaultLat = latitude  || -18.9137;
   const defaultLng = longitude || 47.5361;
+
+  // ── Placer marker (helper) ────────────────────────────────────
+  const placeMarker = (map, lat, lng) => {
+    if (markerRef.current) {
+      markerRef.current.setLatLng([lat, lng]);
+    } else {
+      markerRef.current = L.marker([lat, lng], { icon: createCustomIcon() }).addTo(map);
+    }
+  };
 
   // ── Initialisation carte ──────────────────────────────────────
   useEffect(() => {
@@ -125,15 +134,6 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
       labelsRef.current = null;
     }
     setActiveLayer(key);
-  };
-
-  // ── Placer marker (helper) ────────────────────────────────────
-  const placeMarker = (map, lat, lng) => {
-    if (markerRef.current) {
-      markerRef.current.setLatLng([lat, lng]);
-    } else {
-      markerRef.current = L.marker([lat, lng], { icon: createCustomIcon() }).addTo(map);
-    }
   };
 
   // ── Recherche Nominatim (debounce 400 ms) ─────────────────────

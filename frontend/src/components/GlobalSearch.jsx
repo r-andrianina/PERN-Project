@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, Loader2, Bug, MapPin, FolderOpen, ArrowRight } from 'lucide-react';
+import { Search, X, Loader2, MapPin, FolderOpen, ArrowRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import api from '../api/axios';
 import { useT } from '../lib/i18n';

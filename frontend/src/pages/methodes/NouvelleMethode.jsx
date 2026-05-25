@@ -23,7 +23,7 @@ export default function NouvelleMethode() {
   const typesEnv     = results.typesEnv     ?? [];
 
   // Formulaire
-  const { form, setForm, setField, handleChange, errors, isLoading, handleSubmit } = useFormSubmit({
+  const { form, setField, handleChange, errors, isLoading, handleSubmit } = useFormSubmit({
     initial: {
       localiteId:          searchParams.get('localiteId') || '',
       typeMethodeId:       '',

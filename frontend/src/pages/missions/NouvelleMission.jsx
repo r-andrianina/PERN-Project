@@ -151,14 +151,6 @@ export default function NouvelleMission() {
     { value: 'terminee',  label: 'Terminée'  },
     { value: 'annulee',   label: 'Annulée'   },
   ];
-  const regions = [
-    'Analamanga','Vakinankaratra','Itasy','Bongolava','Matsiatra Ambony',
-    'Amoron\'i Mania','Vatovavy','Fitovinany','Atsimo-Atsinanana',
-    'Atsinanana','Analanjirofo','Alaotra-Mangoro','Boeny','Sofia',
-    'Betsiboka','Melaky','Atsimo-Andrefana','Androy','Anosy',
-    'Menabe','Diana','Sava',
-  ].map(r => ({ value: r, label: r }));
-
   const selectedProjet = projets.find((p) => p.id === parseInt(mission.projetId));
   const selectedChef   = users.find((u) => u.id === parseInt(mission.chefMissionId));
   const selectedAgents = users.filter((u) => mission.agentIds.includes(u.id));

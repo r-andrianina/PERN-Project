@@ -5,7 +5,7 @@ import {
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend, Cell, PieChart, Pie,
+  ResponsiveContainer, Cell, PieChart, Pie,
 } from 'recharts';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, EmptyState, Spinner } from '../../components/ui';

@@ -6,6 +6,11 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   globalIgnores(['dist']),
+  // Config files (CJS) need node globals
+  {
+    files: ['tailwind.config.js', 'postcss.config.js'],
+    languageOptions: { globals: { ...globals.node } },
+  },
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -16,6 +21,10 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+    rules: {
+      // useEffect(() => { setState(x) }, [dep]) is the standard data-fetching pattern
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
 ])
