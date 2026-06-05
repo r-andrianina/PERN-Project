@@ -1,0 +1,68 @@
+# docker-compose.prod.yml
+# Déploiement production — Synology NAS (x86_64)
+# Usage : docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+
+  # ── Base de données PostgreSQL 16 + PostGIS 3.4 ───────────────
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: sm_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       specimenmanager
+      POSTGRES_USER:     smuser
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Active PostGIS au premier démarrage (base vide uniquement)
+      - ./db/init-postgis.sh:/docker-entrypoint-initdb.d/01-postgis.sh
+    networks:
+      - sm_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smuser -d specimenmanager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API Backend Node.js 20 ────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sm_backend
+    restart: unless-stopped
+    env_file: ./backend/.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sm_network
+    volumes:
+      # Fichiers uploadés (Excel imports) persistés sur le NAS
+      - uploads:/app/uploads
+
+  # ── Nginx : sert React + reverse proxy vers backend ───────────
+  nginx:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+    container_name: sm_nginx
+    restart: unless-stopped
+    ports:
+      # Port 8080 exposé → Proxy Inversé DSM fait le HTTPS
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - sm_network
+
+networks:
+  sm_network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  uploads:
