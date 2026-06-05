@@ -15,8 +15,9 @@ NAS Synology avec Docker Compose, Nginx et HTTPS via Let's Encrypt.
 6. [Transfert des fichiers vers le NAS](#6-transfert-des-fichiers-vers-le-nas)
 7. [Premier déploiement](#7-premier-déploiement)
 8. [Configurer HTTPS et domaine](#8-configurer-https-et-domaine)
-9. [Maintenance et sauvegardes](#9-maintenance-et-sauvegardes)
-10. [Variables d'environnement — référence complète](#10-variables-denvironnement--référence-complète)
+9. [Accès externe — administration et utilisateurs](#9-accès-externe--administration-et-utilisateurs)
+10. [Maintenance et sauvegardes](#10-maintenance-et-sauvegardes)
+11. [Variables d'environnement — référence complète](#11-variables-denvironnement--référence-complète)
 
 ---
 
@@ -610,7 +611,105 @@ La page de login doit s'afficher avec le cadenas HTTPS dans le navigateur.
 
 ---
 
-## 9. Maintenance et sauvegardes
+## 9. Accès externe — administration et utilisateurs
+
+Deux besoins distincts, deux solutions distinctes.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Admin (vous) : déployer, maintenir, superviser                     │
+│  PC Windows ──[ Tailscale VPN ]──► NAS :22  (SSH chiffré)          │
+│                  sans ouvrir de port sur le routeur                 │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│  Utilisateurs IPM : accéder à l'application                         │
+│  Navigateur ──[ HTTPS :443 ]──► Routeur ──► NAS :8080              │
+│               DDNS + Let's Encrypt (section 8)                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 9.1 Tailscale — accès admin sécurisé depuis n'importe où
+
+Tailscale est un VPN point-à-point basé sur WireGuard. Une fois installé sur
+le NAS et votre PC, vous accédez au NAS comme s'il était en local — sans
+ouvrir aucun port sur votre routeur.
+
+**Étape A — Créer un compte Tailscale (gratuit)**
+
+1. Aller sur `https://tailscale.com` → **Get started free**
+2. Se connecter avec un compte Google ou Microsoft
+
+**Étape B — Installer Tailscale sur le NAS Synology**
+
+1. **Package Center** DSM → onglet **Communauté** → chercher **Tailscale**
+   > Si absent : ajouter la source `https://packages.synocommunity.com`
+   > dans Package Center → Paramètres → Sources des packages
+2. Installer **Tailscale** → lancer l'application
+3. Cliquer **Authentifier** → copier l'URL affichée → l'ouvrir dans
+   un navigateur → se connecter avec votre compte Tailscale
+4. Le NAS apparaît dans votre réseau Tailscale avec une IP `100.x.x.x`
+
+**Étape C — Installer Tailscale sur votre PC Windows**
+
+1. Télécharger sur `https://tailscale.com/download/windows`
+2. Installer → se connecter avec le même compte Tailscale
+3. Le PC apparaît aussi dans le réseau
+
+**Étape D — Vérifier la connexion**
+
+```powershell
+# Dans PowerShell, l'IP Tailscale du NAS (visible dans le dashboard Tailscale)
+ping 100.X.X.X
+
+# SSH via Tailscale (même commande que sur le réseau local)
+ssh admin@100.X.X.X
+```
+
+À partir de là, toutes les commandes de déploiement (`/deploy-nas`,
+`/transfer-nas`) fonctionnent depuis n'importe où en remplaçant l'IP locale
+par l'IP Tailscale `100.x.x.x`.
+
+---
+
+### 9.2 Accès utilisateurs depuis l'extérieur (HTTPS public)
+
+C'est la configuration décrite en section 8 (DDNS + Let's Encrypt +
+Proxy Inversé). Une fois le domaine `VOTRE_NAS.synology.me` configuré
+et les ports 80/443 redirigés sur le routeur, l'application est
+accessible depuis n'importe quel navigateur dans le monde.
+
+**Checklist accès externe utilisateurs :**
+
+- [ ] DDNS Synology configuré (`VOTRE_NAS.synology.me`)
+- [ ] Ports 80 et 443 redirigés sur le routeur vers l'IP du NAS
+- [ ] Certificat Let's Encrypt obtenu dans DSM
+- [ ] Proxy Inversé DSM pointant vers `localhost:8080`
+- [ ] `CLIENT_URL` dans `backend/.env.production` mis à jour :
+      `CLIENT_URL=https://VOTRE_NAS.synology.me`
+- [ ] Backend redémarré : `docker compose -f docker-compose.prod.yml restart backend`
+
+**Test final :**
+```
+https://VOTRE_NAS.synology.me  → page login SpécimenManager
+```
+
+---
+
+### 9.3 Tableau récapitulatif — qui accède comment
+
+| Qui | Objectif | Solution | Prérequis |
+|---|---|---|---|
+| Admin (vous) | Déployer, SSH, rsync | Tailscale | Compte gratuit + pkg NAS |
+| Admin (vous) | Voir l'app depuis l'extérieur | HTTPS public ou Tailscale | Section 8 ou Tailscale |
+| Personnel IPM | Utiliser l'application | HTTPS public | Section 8 |
+| Admin (urgence) | Prisma Studio distant | Tailscale + port 5555 | Tailscale actif |
+
+---
+
+## 10. Maintenance et sauvegardes
 
 ### 9.1 Voir les logs
 
@@ -701,7 +800,7 @@ docker exec \
 
 ---
 
-## 10. Variables d'environnement — référence complète
+## 11. Variables d'environnement — référence complète
 
 ### `backend/.env.production`
 
