@@ -214,9 +214,12 @@ const activateUser = async (req, res) => {
   if (id === req.user.id && actif === false)
     return res.status(400).json({ error: 'Vous ne pouvez pas désactiver votre propre compte' });
 
+  if (role && !ROLES_VALIDES.includes(role))
+    return res.status(400).json({ error: 'Rôle invalide' });
+
   const data = {};
   if (typeof actif === 'boolean') data.actif = actif;
-  if (role && ROLES_VALIDES.includes(role)) data.role = role;
+  if (role) data.role = role;
 
   if (Object.keys(data).length === 0)
     return res.status(400).json({ error: 'Aucune modification fournie (actif ou role attendu)' });

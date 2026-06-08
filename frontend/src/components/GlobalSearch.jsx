@@ -29,6 +29,7 @@ export default function GlobalSearch() {
   const [results, setResults] = useState({ specimens: [], missions: [], projets: [] });
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(-1); // index résultat sélectionné au clavier
+  const [searchError, setSearchError] = useState(false);
 
   const inputRef   = useRef(null);
   const debounceRef = useRef(null);
@@ -58,6 +59,7 @@ export default function GlobalSearch() {
       setQuery('');
       setResults({ specimens: [], missions: [], projets: [] });
       setFocused(-1);
+      setSearchError(false);
     }
   }, [open]);
 
@@ -69,6 +71,7 @@ export default function GlobalSearch() {
       return;
     }
     setLoading(true);
+    setSearchError(false);
     try {
       const autorises = user?.role === 'admin' ? ['moustique','tique','puce'] : (user?.specimensAutorises || []);
       const [specRes, missRes, projRes] = await Promise.allSettled([
@@ -79,12 +82,15 @@ export default function GlobalSearch() {
         api.get('/projets',   { params: { search: q } }),
       ]);
 
+      const allFailed = [specRes, missRes, projRes].every(r => r.status === 'rejected');
+      if (allFailed) { setSearchError(true); return; }
+
       setResults({
         specimens: specRes.status === 'fulfilled' ? (specRes.value.data.items || []).slice(0, 5) : [],
         missions:  missRes.status === 'fulfilled' ? (missRes.value.data.missions || []).slice(0, 3) : [],
         projets:   projRes.status === 'fulfilled' ? (projRes.value.data.projets  || []).slice(0, 3) : [],
       });
-    } catch { /* silently fail */ }
+    } catch { setSearchError(true); }
     finally { setLoading(false); }
   }, [user]);
 
@@ -120,7 +126,7 @@ export default function GlobalSearch() {
   };
 
   const hasResults = flatResults.length > 0;
-  const showEmpty  = query.length >= 2 && !loading && !hasResults;
+  const showEmpty  = query.length >= 2 && !loading && !hasResults && !searchError;
 
   // Bouton trigger dans la topbar
   const trigger = (
@@ -181,8 +187,13 @@ export default function GlobalSearch() {
         </div>
 
         {/* Résultats */}
-        {(hasResults || showEmpty) && (
+        {(hasResults || showEmpty || searchError) && (
           <div className="max-h-[400px] overflow-y-auto py-2">
+
+            {/* Erreur réseau */}
+            {searchError && (
+              <p className="text-sm text-danger text-center py-6">Impossible de contacter le serveur.</p>
+            )}
 
             {/* Aucun résultat */}
             {showEmpty && (

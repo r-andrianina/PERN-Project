@@ -37,6 +37,8 @@ const LABELS_URL = 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/
 // Les PNG Leaflet ignorent width/height HTML → on utilise des pastilles CSS.
 function buildMarkerHtml(point, visibleTypes) {
   const types = Object.keys(point.specimens).filter(t => visibleTypes.has(t));
+  if (types.length === 0) return '';
+
   const total = types.reduce((s, t) => s + (point.specimens[t]?.total || 0), 0);
 
   const dominant = types.reduce((best, t) =>
@@ -74,6 +76,9 @@ function buildMarkerHtml(point, visibleTypes) {
   `;
 }
 
+// Échappe les caractères HTML pour éviter le XSS dans les popups Leaflet (innerHTML)
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 // ── Construction HTML du popup ────────────────────────────────
 function buildPopupHtml(point, visibleTypes) {
   const { localite, typeMethode, dateCollecte, methodeId, specimens } = point;
@@ -85,13 +90,13 @@ function buildPopupHtml(point, visibleTypes) {
       if (!data) return '';
       const cfg = TYPE_CFG[t];
       const exemples = data.items.slice(0, 2).map(x =>
-        `<span style="display:inline-block;background:#f3f4f6;border-radius:4px;padding:1px 5px;font-size:10px;color:#4b5563;font-style:italic;">${x.taxonomie || x.idTerrain || `#${x.id}`}</span>`
+        `<span style="display:inline-block;background:#f3f4f6;border-radius:4px;padding:1px 5px;font-size:10px;color:#4b5563;font-style:italic;">${esc(x.taxonomie || x.idTerrain || `#${x.id}`)}</span>`
       ).join(' ');
       return `
         <div style="display:flex;align-items:flex-start;gap:6px;padding:5px 0;border-bottom:1px solid #f3f4f6;">
-          <img src="${cfg.icon}" style="width:16px;height:16px;max-width:16px;max-height:16px;display:block;object-fit:contain;flex-shrink:0;margin-top:1px;" />
+          <img src="${esc(cfg.icon)}" style="width:16px;height:16px;max-width:16px;max-height:16px;display:block;object-fit:contain;flex-shrink:0;margin-top:1px;" />
           <div>
-            <span style="font-size:11px;font-weight:700;color:${cfg.color};">${data.total} ${cfg.label}${data.total > 1 ? 's' : ''}</span>
+            <span style="font-size:11px;font-weight:700;color:${esc(cfg.color)};">${data.total} ${esc(cfg.label)}${data.total > 1 ? 's' : ''}</span>
             <div style="margin-top:2px;">${exemples}</div>
           </div>
         </div>
@@ -102,25 +107,27 @@ function buildPopupHtml(point, visibleTypes) {
     ? new Date(dateCollecte).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' })
     : null;
 
+  const region   = [localite?.region, localite?.district].filter(Boolean).map(esc).join(' · ');
+  const projetBit = mission?.projet?.code
+    ? `<span style="color:#9ca3af;margin-left:6px;">Projet</span> ${esc(mission.projet.code)}`
+    : '';
+
   return `
     <div style="font-family:system-ui,sans-serif;min-width:230px;max-width:280px;padding:2px;">
-      <div style="font-weight:700;font-size:13px;color:#111827;">${localite?.nom || '—'}</div>
-      <div style="font-size:11px;color:#6b7280;margin-top:1px;">
-        ${[localite?.region, localite?.district].filter(Boolean).join(' · ')}
-      </div>
+      <div style="font-weight:700;font-size:13px;color:#111827;">${esc(localite?.nom) || '—'}</div>
+      <div style="font-size:11px;color:#6b7280;margin-top:1px;">${region}</div>
       <div style="margin:8px 0;border-top:1px solid #e5e7eb;"></div>
       <div style="font-size:11px;color:#374151;margin-bottom:3px;">
-        <span style="color:#9ca3af;">Mission</span> ${mission?.ordreMission || '—'}
-        ${mission?.projet?.code ? `<span style="color:#9ca3af;margin-left:6px;">Projet</span> ${mission.projet.code}` : ''}
+        <span style="color:#9ca3af;">Mission</span> ${esc(mission?.ordreMission) || '—'}
+        ${projetBit}
       </div>
       <div style="font-size:11px;color:#374151;margin-bottom:${dateStr ? '3px' : '8px'};">
-        <span style="color:#9ca3af;">Méthode</span> ${typeMethode?.nom || '—'}
+        <span style="color:#9ca3af;">Méthode</span> ${esc(typeMethode?.nom) || '—'}
       </div>
-      ${dateStr ? `<div style="font-size:11px;color:#374151;margin-bottom:8px;"><span style="color:#9ca3af;">Date</span> ${dateStr}</div>` : ''}
+      ${dateStr ? `<div style="font-size:11px;color:#374151;margin-bottom:8px;"><span style="color:#9ca3af;">Date</span> ${esc(dateStr)}</div>` : ''}
       ${specimenRows}
       <a
-        href="/recherche?methodeId=${methodeId}"
-        onclick="event.preventDefault();window.location.href='/recherche?methodeId=${methodeId}'"
+        href="/recherche?methodeId=${encodeURIComponent(methodeId)}"
         style="
           display:block;margin-top:10px;
           background:#1D9E75;color:white;

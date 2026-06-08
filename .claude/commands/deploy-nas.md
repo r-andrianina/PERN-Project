@@ -44,7 +44,7 @@ docker exec sm_backend npx prisma migrate deploy
 ```bash
 docker exec sm_backend node prisma/seed.js
 ```
-Compte admin : andrianinar@pasteur.mg / Admin1234!
+Compte admin : voir `backend/prisma/seed.js` (email et mot de passe définis dans le script).
 **Changer le mot de passe dès le premier login.**
 
 ### 5. Importer la taxonomie des spécimens (~3 600 espèces)

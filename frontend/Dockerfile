@@ -4,10 +4,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY frontend/package*.json ./
 RUN npm ci
 
-COPY . .
+COPY frontend/ .
 
 # VITE_API_URL vide = URL relative /api/v1 (même domaine via Nginx)
 # Peut être surchargée au moment du build : --build-arg VITE_API_URL=https://...

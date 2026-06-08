@@ -40,82 +40,68 @@ const getSpecimens = async (req, res) => {
     },
   });
 
-  // Pour chaque méthode, récupérer les spécimens des types autorisés
-  const points = await Promise.all(methodes.map(async (m) => {
+  const methodeIds = methodes.map(m => m.id);
+
+  // Une requête par type autorisé (batch) — évite le N+1
+  const include = { taxonomie: { include: { parent: true } } };
+  const mapItem = x => ({
+    id:        x.id,
+    idTerrain: x.idTerrain,
+    taxonomie: taxoLabel(x.taxonomie),
+    sexe:      x.sexe,
+    stade:     x.stade,
+    methodeId: x.methodeId,
+  });
+
+  const [rawMoustiques, rawTiques, rawPuces] = await Promise.all([
+    autorises.includes('moustique')
+      ? prisma.moustique.findMany({ where: { methodeId: { in: methodeIds } }, include, orderBy: { createdAt: 'desc' } })
+      : [],
+    autorises.includes('tique')
+      ? prisma.tique.findMany({ where: { methodeId: { in: methodeIds } }, include, orderBy: { createdAt: 'desc' } })
+      : [],
+    autorises.includes('puce')
+      ? prisma.puce.findMany({ where: { methodeId: { in: methodeIds } }, include, orderBy: { createdAt: 'desc' } })
+      : [],
+  ]);
+
+  // Grouper par methodeId (Map pour O(1))
+  const byMethode = (rows) => rows.reduce((acc, x) => {
+    (acc[x.methodeId] = acc[x.methodeId] || []).push(mapItem(x));
+    return acc;
+  }, {});
+
+  const moustiquesMap = byMethode(rawMoustiques);
+  const tiquesMap     = byMethode(rawTiques);
+  const pucesMap      = byMethode(rawPuces);
+
+  const points = methodes.map(m => {
     const specimens = {};
 
     if (autorises.includes('moustique') && m._count.moustiques > 0) {
-      const items = await prisma.moustique.findMany({
-        where:   { methodeId: m.id },
-        include: { taxonomie: { include: { parent: true } } },
-        take:    3,
-        orderBy: { createdAt: 'desc' },
-      });
-      specimens.moustique = {
-        total: m._count.moustiques,
-        items: items.map(x => ({
-          id:        x.id,
-          idTerrain: x.idTerrain,
-          taxonomie: taxoLabel(x.taxonomie),
-          sexe:      x.sexe,
-          stade:     x.stade,
-        })),
-      };
+      specimens.moustique = { total: m._count.moustiques, items: (moustiquesMap[m.id] || []).slice(0, 3) };
     }
-
     if (autorises.includes('tique') && m._count.tiques > 0) {
-      const items = await prisma.tique.findMany({
-        where:   { methodeId: m.id },
-        include: { taxonomie: { include: { parent: true } } },
-        take:    3,
-        orderBy: { createdAt: 'desc' },
-      });
-      specimens.tique = {
-        total: m._count.tiques,
-        items: items.map(x => ({
-          id:        x.id,
-          idTerrain: x.idTerrain,
-          taxonomie: taxoLabel(x.taxonomie),
-          sexe:      x.sexe,
-          stade:     x.stade,
-        })),
-      };
+      specimens.tique = { total: m._count.tiques, items: (tiquesMap[m.id] || []).slice(0, 3) };
     }
-
     if (autorises.includes('puce') && m._count.puces > 0) {
-      const items = await prisma.puce.findMany({
-        where:   { methodeId: m.id },
-        include: { taxonomie: { include: { parent: true } } },
-        take:    3,
-        orderBy: { createdAt: 'desc' },
-      });
-      specimens.puce = {
-        total: m._count.puces,
-        items: items.map(x => ({
-          id:        x.id,
-          idTerrain: x.idTerrain,
-          taxonomie: taxoLabel(x.taxonomie),
-          sexe:      x.sexe,
-          stade:     x.stade,
-        })),
-      };
+      specimens.puce = { total: m._count.puces, items: (pucesMap[m.id] || []).slice(0, 3) };
     }
 
-    // Ignorer si aucun spécimen autorisé sur ce site
     const totalVisible = Object.values(specimens).reduce((s, v) => s + (v?.total || 0), 0);
     if (totalVisible === 0) return null;
 
     return {
-      methodeId:   m.id,
-      latitude:    m.latitude,
-      longitude:   m.longitude,
-      dateCollecte: m.dateCollecte ? m.dateCollecte.toISOString().split('T')[0] : null,
-      typeMethode: m.typeMethode,
-      localite:    m.localite,
+      methodeId:      m.id,
+      latitude:       m.latitude,
+      longitude:      m.longitude,
+      dateCollecte:   m.dateCollecte ? m.dateCollecte.toISOString().split('T')[0] : null,
+      typeMethode:    m.typeMethode,
+      localite:       m.localite,
       specimens,
       totalSpecimens: totalVisible,
     };
-  }));
+  });
 
   return res.json({ points: points.filter(Boolean) });
 };
