@@ -2,6 +2,12 @@
 # Déploiement production — Synology NAS (x86_64)
 # Usage : docker compose -f docker-compose.prod.yml up -d --build
 
+# Nom de projet explicite : évite la collision avec l'ancien projet
+# "specimenmanager" (PHP) dans Container Manager — Compose normalise les
+# noms de dossier en minuscules, donc /volume1/docker/SpecimenManager et
+# /volume1/docker/specimenmanager finissent tous deux sur "specimenmanager".
+name: sm_pern
+
 services:
 
   # ── Base de données PostgreSQL 16 + PostGIS 3.4 ───────────────
@@ -14,7 +20,7 @@ services:
       POSTGRES_USER:     smuser
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata16:/var/lib/postgresql/data
       # Active PostGIS au premier démarrage (base vide uniquement)
       - ./db/init-postgis.sh:/docker-entrypoint-initdb.d/01-postgis.sh
     networks:
@@ -64,5 +70,12 @@ networks:
     driver: bridge
 
 volumes:
-  pgdata:
+  # External : référencent les volumes existants du déploiement initial
+  # (créés sous l'ancien nom de projet "specimenmanager") pour ne pas
+  # perdre la base de données / les fichiers uploadés au changement de nom.
+  pgdata16:
+    external: true
+    name: specimenmanager_pgdata16
   uploads:
+    external: true
+    name: specimenmanager_uploads
