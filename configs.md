@@ -578,13 +578,17 @@ http://ADRESSE_IP_DU_NAS:8080
 
 | Champ | Valeur |
 |---|---|
-| Description | SpécimenManager |
+| Description | SpécimenManager (sm_pern) |
 | Protocole source | HTTPS |
-| Nom d'hôte source | `votre-choix.synology.me` |
+| Nom d'hôte source | `sm.ipmnas.synology.me` |
 | Port source | 443 |
 | Protocole destination | HTTP |
 | Nom d'hôte destination | `localhost` |
 | Port destination | **8080** |
+
+> Sous-domaine dédié `sm.` : le NAS héberge aussi une autre application sur
+> le domaine racine `ipmnas.synology.me` (autre règle de Proxy Inversé,
+> indépendante). Le sous-domaine `sm.` évite toute collision.
 
 3. **Enregistrer**
 
@@ -592,7 +596,7 @@ http://ADRESSE_IP_DU_NAS:8080
 
 Dans `backend/.env.production` :
 ```env
-CLIENT_URL=https://votre-choix.synology.me
+CLIENT_URL=https://sm.ipmnas.synology.me
 ```
 
 Redémarrer le backend :
@@ -604,7 +608,7 @@ docker compose -f docker-compose.prod.yml restart backend
 ### 8.6 Test final HTTPS
 
 ```
-https://votre-choix.synology.me
+https://sm.ipmnas.synology.me
 ```
 
 La page de login doit s'afficher avec le cadenas HTTPS dans le navigateur.
@@ -674,26 +678,25 @@ par l'IP Tailscale `100.x.x.x`.
 
 ---
 
-### 9.2 Accès utilisateurs depuis l'extérieur (HTTPS public)
+### 9.2 Les deux accès à sm_pern
 
-C'est la configuration décrite en section 8 (DDNS + Let's Encrypt +
-Proxy Inversé). Une fois le domaine `VOTRE_NAS.synology.me` configuré
-et les ports 80/443 redirigés sur le routeur, l'application est
-accessible depuis n'importe quel navigateur dans le monde.
+| Accès | URL | Usage |
+|---|---|---|
+| **Réseau local (LAN IPM)** | `http://192.168.64.18:8080` | Accès direct à `sm_nginx`, sans HTTPS — réseau de l'institut uniquement |
+| **Externe (HTTPS public)** | `https://sm.ipmnas.synology.me` | Accès production pour tout le personnel IPM, via DDNS + Let's Encrypt + Proxy Inversé (section 8) |
 
-**Checklist accès externe utilisateurs :**
+**Checklist accès externe (fait) :**
 
-- [ ] DDNS Synology configuré (`VOTRE_NAS.synology.me`)
-- [ ] Ports 80 et 443 redirigés sur le routeur vers l'IP du NAS
-- [ ] Certificat Let's Encrypt obtenu dans DSM
-- [ ] Proxy Inversé DSM pointant vers `localhost:8080`
-- [ ] `CLIENT_URL` dans `backend/.env.production` mis à jour :
-      `CLIENT_URL=https://VOTRE_NAS.synology.me`
-- [ ] Backend redémarré : `docker compose -f docker-compose.prod.yml restart backend`
+- [x] DDNS Synology configuré (`ipmnas.synology.me`, sous-domaine `sm.`)
+- [x] Ports 80 et 443 redirigés sur le routeur vers l'IP du NAS
+- [x] Certificat Let's Encrypt obtenu dans DSM pour `sm.ipmnas.synology.me`
+- [x] Proxy Inversé DSM : `sm.ipmnas.synology.me:443` → `localhost:8080`
+- [x] `CLIENT_URL=https://sm.ipmnas.synology.me` dans `backend/.env.production`
+- [x] Backend redémarré : `docker compose -f docker-compose.prod.yml restart backend`
 
 **Test final :**
 ```
-https://VOTRE_NAS.synology.me  → page login SpécimenManager
+https://sm.ipmnas.synology.me  → page login SpécimenManager
 ```
 
 ---
@@ -704,7 +707,8 @@ https://VOTRE_NAS.synology.me  → page login SpécimenManager
 |---|---|---|---|
 | Admin (vous) | Déployer, SSH, rsync | Tailscale | Compte gratuit + pkg NAS |
 | Admin (vous) | Voir l'app depuis l'extérieur | HTTPS public ou Tailscale | Section 8 ou Tailscale |
-| Personnel IPM | Utiliser l'application | HTTPS public | Section 8 |
+| Personnel IPM (bureau) | Utiliser l'application | Réseau local — `http://192.168.64.18:8080` | Connecté au réseau IPM |
+| Personnel IPM (hors site) | Utiliser l'application | HTTPS public — `https://sm.ipmnas.synology.me` | Section 8 |
 | Admin (urgence) | Prisma Studio distant | Tailscale + port 5555 | Tailscale actif |
 
 ---
