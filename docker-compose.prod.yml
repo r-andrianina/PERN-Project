@@ -47,6 +47,8 @@ services:
     volumes:
       # Fichiers uploadés (Excel imports) persistés sur le NAS
       - uploads:/app/uploads
+      # Shapefile Fokontany pour l'import géo (lecture seule)
+      - ./fokontany:/app/fokontany:ro
 
   # ── Nginx : sert React + reverse proxy vers backend ───────────
   nginx:
