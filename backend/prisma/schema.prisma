@@ -64,6 +64,7 @@ enum AuditAction {
   DELETE
   ACTIVATE
   DEACTIVATE
+  READ
 }
 
 enum ContainerType {
@@ -501,6 +502,7 @@ model AuditLog {
   oldValues Json?       @map("old_values")
   newValues Json?       @map("new_values")
   metadata  Json?
+  isRead    Boolean     @default(false) @map("is_read")
   createdAt DateTime    @default(now()) @map("created_at")
 
   user User? @relation(fields: [userId], references: [id])
@@ -508,5 +510,6 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([userId])
   @@index([createdAt])
+  @@index([isRead])
   @@map("audit_logs")
 }

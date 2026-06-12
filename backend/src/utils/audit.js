@@ -10,6 +10,7 @@ const ACTIONS = {
   DELETE:     'DELETE',
   ACTIVATE:   'ACTIVATE',
   DEACTIVATE: 'DEACTIVATE',
+  READ:       'READ',
 };
 
 /**

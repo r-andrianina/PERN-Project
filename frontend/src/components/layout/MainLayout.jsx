@@ -9,6 +9,7 @@ import ThemeToggle from '../ThemeToggle';
 import { Badge } from '../ui';
 import SpecimenIcon from '../SpecimenIcon';
 import GlobalSearch from '../GlobalSearch';
+import NotificationBell from '../NotificationBell';
 import Footer from './Footer';
 import { useT } from '../../lib/i18n';
 
@@ -106,11 +107,13 @@ export default function MainLayout() {
         {/* Logo */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <FlaskConical size={16} className="text-fg-on-primary" />
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-card flex-shrink-0">
+              <FlaskConical size={20} className="text-fg-on-primary" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-fg leading-tight">SpécimenManager</p>
+              <p className="text-base font-bold text-fg leading-tight tracking-tight">
+                Spécimen<span className="text-primary">Manager</span>
+              </p>
               <p className="text-[10px] text-fg-subtle leading-tight">{t('sidebar.subtitle')}</p>
             </div>
           </div>
@@ -179,15 +182,24 @@ export default function MainLayout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* Topbar */}
-        <header className="bg-surface border-b border-border px-4 md:px-6 h-14 flex items-center justify-between flex-shrink-0 gap-3">
+        <header className="bg-surface border-b border-border px-4 md:px-6 h-14 flex items-center flex-shrink-0 gap-3">
           <button onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 rounded-lg text-fg-muted hover:bg-surface-2 transition-colors">
+            className="lg:hidden p-2 rounded-lg text-fg-muted hover:bg-surface-2 transition-colors flex-shrink-0">
             <Menu size={20} />
           </button>
-          <div className="hidden lg:block" />
+
+          {/* Marque — visible quand la sidebar est masquée (mobile/tablette) */}
+          <div className="flex items-center gap-2 lg:hidden flex-shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+              <FlaskConical size={14} className="text-fg-on-primary" />
+            </div>
+            <span className="hidden sm:inline text-sm font-bold text-fg tracking-tight whitespace-nowrap">
+              Spécimen<span className="text-primary">Manager</span>
+            </span>
+          </div>
 
           {/* Recherche globale */}
-          <div className="flex-1 flex justify-center max-w-md mx-auto">
+          <div className="flex-1 flex justify-center max-w-2xl mx-auto min-w-0">
             <GlobalSearch />
           </div>
 
@@ -203,6 +215,7 @@ export default function MainLayout() {
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               <span className="text-xs text-fg-subtle">{t('topbar.connected')}</span>
             </div>
+            <NotificationBell />
             <ThemeToggle compact />
           </div>
         </header>

@@ -2,7 +2,7 @@ import { useEffect, useState, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { History, ChevronLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, PageHeader, Spinner } from '../../components/ui';
+import { Card, Badge, PageHeader, Spinner, Select } from '../../components/ui';
 
 const ACTION_TONE = {
   CREATE:     'success',
@@ -10,10 +10,11 @@ const ACTION_TONE = {
   DELETE:     'danger',
   ACTIVATE:   'primary',
   DEACTIVATE: 'default',
+  READ:       'default',
 };
 
 const ENTITIES = [
-  '', 'Moustique', 'Tique', 'Puce',
+  '', 'Moustique', 'Tique', 'Puce', 'Localite', 'MethodeCollecte',
   'TaxonomieSpecimen', 'TaxonomieHote',
   'TypeMethodeCollecte', 'SolutionConservation', 'TypeEnvironnement', 'TypeHabitat',
 ];
@@ -39,10 +40,8 @@ export default function AuditLogsPage() {
   };
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filterEntity, filterAction]);
 
-  const selectCls = 'text-sm px-3 py-2 rounded-xl border border-border-strong bg-surface text-fg focus:outline-none';
-
   return (
-    <div className="max-w-6xl space-y-5">
+    <div className="max-w-screen-2xl space-y-5">
       <Link to="/dictionnaire" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg">
         <ChevronLeft size={16} /> Dictionnaire
       </Link>
@@ -54,13 +53,21 @@ export default function AuditLogsPage() {
       />
 
       <Card padding="sm" className="flex flex-wrap gap-2">
-        <select value={filterEntity} onChange={(e) => setFE(e.target.value)} className={selectCls}>
-          {ENTITIES.map((e) => <option key={e} value={e}>{e || 'Toutes les entités'}</option>)}
-        </select>
-        <select value={filterAction} onChange={(e) => setFA(e.target.value)} className={selectCls}>
-          <option value="">Toutes les actions</option>
-          {Object.keys(ACTION_TONE).map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
+        <Select
+          value={filterEntity}
+          onChange={setFE}
+          wrapperClassName="w-56 flex-shrink-0"
+          options={ENTITIES.map((e) => ({ value: e, label: e || 'Toutes les entités' }))}
+        />
+        <Select
+          value={filterAction}
+          onChange={setFA}
+          wrapperClassName="w-48 flex-shrink-0"
+          options={[
+            { value: '', label: 'Toutes les actions' },
+            ...Object.keys(ACTION_TONE).map((a) => ({ value: a, label: a })),
+          ]}
+        />
       </Card>
 
       {loading ? <Spinner.Block /> : items.length === 0 ? (
