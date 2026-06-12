@@ -10,3 +10,4 @@ export { default as PageHeader } from './PageHeader';
 export { default as Spinner }     from './Spinner';
 export { default as Pagination }  from './Pagination';
 export { ToastProvider }          from './Toast';
+export { default as Select }      from './Select';

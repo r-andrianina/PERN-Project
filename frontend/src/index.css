@@ -166,7 +166,7 @@
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
 
-  /* ── Inputs : assure le dark mode sur les <input> et <select> non passés par FormField ── */
+  /* ── Inputs : assure le dark mode sur les <input> non passés par FormField ── */
   input[type="text"],
   input[type="email"],
   input[type="number"],
@@ -174,8 +174,7 @@
   input[type="time"],
   input[type="password"],
   input[type="search"],
-  textarea,
-  select {
+  textarea {
     @apply transition-colors;
     background-color: rgb(var(--surface));
     color: rgb(var(--fg));

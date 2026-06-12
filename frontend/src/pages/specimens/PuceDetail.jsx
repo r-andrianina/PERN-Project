@@ -5,7 +5,7 @@ import {
   Pencil, Trash2, Save, X, Bird,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, CardHeader, CardTitle, Badge, Button, PageHeader, Spinner } from '../../components/ui';
+import { Card, CardHeader, CardTitle, Badge, Button, PageHeader, Spinner, Select } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
@@ -31,12 +31,11 @@ function EditSelect({ label, value, onChange, options }) {
   return (
     <div>
       <label className="text-xs text-fg-subtle font-medium block mb-1">{label}</label>
-      <select
-        value={value} onChange={onChange}
-        className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg"
-      >
-        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+      <Select
+        value={value}
+        onChange={(val) => onChange({ target: { value: val } })}
+        options={options}
+      />
     </div>
   );
 }

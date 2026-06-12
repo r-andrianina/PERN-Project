@@ -9,7 +9,7 @@ import {
   TrendingUp, Hash,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, Button, EmptyState, PageHeader, Spinner } from '../../components/ui';
+import { Card, Badge, Button, EmptyState, PageHeader, Spinner, Select } from '../../components/ui';
 
 // ── Constantes UI ─────────────────────────────────────────────
 const TYPE_TONE  = { moustique: 'specimen-moustique', tique: 'specimen-tique', puce: 'specimen-puce' };
@@ -278,27 +278,44 @@ export default function RecherchePage() {
           </FilterSection>
 
           <FilterSection title="Localisation" icon={MapPin}>
-            <select className={inputCls} value={f.projetId || ''} onChange={(e) => setFilter('projetId', e.target.value)}>
-              <option value="">Tous les projets</option>
-              {projets.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.nom}</option>)}
-            </select>
-            <select className={inputCls} value={f.missionId || ''} onChange={(e) => setFilter('missionId', e.target.value)}>
-              <option value="">Toutes les missions</option>
-              {missions.filter((m) => !f.projetId || m.projet?.id === parseInt(f.projetId))
-                .map((m) => <option key={m.id} value={m.id}>{m.ordreMission}</option>)}
-            </select>
-            <select className={inputCls} value={f.localiteId || ''} onChange={(e) => setFilter('localiteId', e.target.value)} disabled={!f.missionId}>
-              <option value="">Toutes les localités</option>
-              {localites.map((l) => <option key={l.id} value={l.id}>{l.nom}</option>)}
-            </select>
-            <select className={inputCls} value={f.methodeId || ''} onChange={(e) => setFilter('methodeId', e.target.value)} disabled={!f.localiteId}>
-              <option value="">Toutes les méthodes</option>
-              {methodes.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.typeMethode?.code ? `[${m.typeMethode.code}] ` : ''}{m.typeMethode?.nom || `#${m.id}`}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={f.projetId || ''}
+              onChange={(val) => setFilter('projetId', val)}
+              options={[
+                { value: '', label: 'Tous les projets' },
+                ...projets.map((p) => ({ value: p.id, label: `${p.code} — ${p.nom}` })),
+              ]}
+            />
+            <Select
+              value={f.missionId || ''}
+              onChange={(val) => setFilter('missionId', val)}
+              options={[
+                { value: '', label: 'Toutes les missions' },
+                ...missions.filter((m) => !f.projetId || m.projet?.id === parseInt(f.projetId))
+                  .map((m) => ({ value: m.id, label: m.ordreMission })),
+              ]}
+            />
+            <Select
+              value={f.localiteId || ''}
+              onChange={(val) => setFilter('localiteId', val)}
+              disabled={!f.missionId}
+              options={[
+                { value: '', label: 'Toutes les localités' },
+                ...localites.map((l) => ({ value: l.id, label: l.nom })),
+              ]}
+            />
+            <Select
+              value={f.methodeId || ''}
+              onChange={(val) => setFilter('methodeId', val)}
+              disabled={!f.localiteId}
+              options={[
+                { value: '', label: 'Toutes les méthodes' },
+                ...methodes.map((m) => ({
+                  value: m.id,
+                  label: `${m.typeMethode?.code ? `[${m.typeMethode.code}] ` : ''}${m.typeMethode?.nom || `#${m.id}`}`,
+                })),
+              ]}
+            />
             <input className={inputCls} placeholder="Région" value={f.region || ''} onChange={(e) => setFilter('region', e.target.value)} />
             <input className={inputCls} placeholder="District" value={f.district || ''} onChange={(e) => setFilter('district', e.target.value)} />
           </FilterSection>
@@ -315,72 +332,108 @@ export default function RecherchePage() {
           </FilterSection>
 
           <FilterSection title="Taxonomie" icon={Bug}>
-            <select className={inputCls} value={f.taxonomieId || ''} onChange={(e) => setFilter('taxonomieId', e.target.value)}>
-              <option value="">Toutes les taxonomies</option>
-              {taxonomiesFiltered.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {`[${t.niveau}] `}{t.parent?.nom ? t.parent.nom + ' ' : ''}{t.nom}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={f.taxonomieId || ''}
+              onChange={(val) => setFilter('taxonomieId', val)}
+              searchPlaceholder="Rechercher une taxonomie…"
+              options={[
+                { value: '', label: 'Toutes les taxonomies' },
+                ...taxonomiesFiltered.map((t) => ({
+                  value: t.id,
+                  label: `[${t.niveau}] ${t.parent?.nom ? t.parent.nom + ' ' : ''}${t.nom}`,
+                })),
+              ]}
+            />
           </FilterSection>
 
           <FilterSection title="Biologie" icon={Layers} defaultOpen={false}>
-            <select className={inputCls} value={f.sexe || ''} onChange={(e) => setFilter('sexe', e.target.value)}>
-              <option value="">Tous les sexes</option>
-              <option value="M">Mâle</option>
-              <option value="F">Femelle</option>
-              <option value="inconnu">Inconnu</option>
-            </select>
-            <select className={inputCls} value={f.stade || ''} onChange={(e) => setFilter('stade', e.target.value)}>
-              <option value="">Tous les stades</option>
-              {STADE_SUGGEST.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <Select
+              value={f.sexe || ''}
+              onChange={(val) => setFilter('sexe', val)}
+              options={[
+                { value: '', label: 'Tous les sexes' },
+                { value: 'M', label: 'Mâle' },
+                { value: 'F', label: 'Femelle' },
+                { value: 'inconnu', label: 'Inconnu' },
+              ]}
+            />
+            <Select
+              value={f.stade || ''}
+              onChange={(val) => setFilter('stade', val)}
+              options={[
+                { value: '', label: 'Tous les stades' },
+                ...STADE_SUGGEST.map((s) => ({ value: s, label: s })),
+              ]}
+            />
             {activeTypes.includes('moustique') && (
               <>
-                <select className={inputCls} value={f.parite || ''} onChange={(e) => setFilter('parite', e.target.value)}>
-                  <option value="">Toutes parités</option>
-                  {PARITE_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-                <select className={inputCls} value={f.repasSang || ''} onChange={(e) => setFilter('repasSang', e.target.value)}>
-                  <option value="">Repas sang : tous</option>
-                  <option value="true">Avec repas</option>
-                  <option value="false">Sans repas</option>
-                </select>
+                <Select
+                  value={f.parite || ''}
+                  onChange={(val) => setFilter('parite', val)}
+                  options={[
+                    { value: '', label: 'Toutes parités' },
+                    ...PARITE_OPTIONS.map((p) => ({ value: p, label: p })),
+                  ]}
+                />
+                <Select
+                  value={f.repasSang || ''}
+                  onChange={(val) => setFilter('repasSang', val)}
+                  options={[
+                    { value: '', label: 'Repas sang : tous' },
+                    { value: 'true', label: 'Avec repas' },
+                    { value: 'false', label: 'Sans repas' },
+                  ]}
+                />
               </>
             )}
             {activeTypes.includes('tique') && (
-              <select className={inputCls} value={f.gorge || ''} onChange={(e) => setFilter('gorge', e.target.value)}>
-                <option value="">Gorgée : tous</option>
-                <option value="true">Gorgée</option>
-                <option value="false">Non gorgée</option>
-              </select>
+              <Select
+                value={f.gorge || ''}
+                onChange={(val) => setFilter('gorge', val)}
+                options={[
+                  { value: '', label: 'Gorgée : tous' },
+                  { value: 'true', label: 'Gorgée' },
+                  { value: 'false', label: 'Non gorgée' },
+                ]}
+              />
             )}
           </FilterSection>
 
           {(activeTypes.includes('tique') || activeTypes.includes('puce')) && (
             <FilterSection title="Hôte" icon={PawPrint} defaultOpen={false}>
-              <select className={inputCls} value={f.hasHote || ''} onChange={(e) => setFilter('hasHote', e.target.value)}>
-                <option value="">Présence hôte : tous</option>
-                <option value="true">Avec hôte</option>
-                <option value="false">Sans hôte</option>
-              </select>
-              <select className={inputCls} value={f.taxonomieHoteId || ''} onChange={(e) => setFilter('taxonomieHoteId', e.target.value)}>
-                <option value="">Tous les hôtes</option>
-                {taxonomiesHote.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {`[${t.niveau}] `}{t.parent?.nom ? t.parent.nom + ' ' : ''}{t.nom}
-                  </option>
-                ))}
-              </select>
+              <Select
+                value={f.hasHote || ''}
+                onChange={(val) => setFilter('hasHote', val)}
+                options={[
+                  { value: '', label: 'Présence hôte : tous' },
+                  { value: 'true', label: 'Avec hôte' },
+                  { value: 'false', label: 'Sans hôte' },
+                ]}
+              />
+              <Select
+                value={f.taxonomieHoteId || ''}
+                onChange={(val) => setFilter('taxonomieHoteId', val)}
+                searchPlaceholder="Rechercher un hôte…"
+                options={[
+                  { value: '', label: 'Tous les hôtes' },
+                  ...taxonomiesHote.map((t) => ({
+                    value: t.id,
+                    label: `[${t.niveau}] ${t.parent?.nom ? t.parent.nom + ' ' : ''}${t.nom}`,
+                  })),
+                ]}
+              />
             </FilterSection>
           )}
 
           <FilterSection title="Conservation" icon={FlaskConical} defaultOpen={false}>
-            <select className={inputCls} value={f.solutionId || ''} onChange={(e) => setFilter('solutionId', e.target.value)}>
-              <option value="">Toutes les solutions</option>
-              {solutions.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
-            </select>
+            <Select
+              value={f.solutionId || ''}
+              onChange={(val) => setFilter('solutionId', val)}
+              options={[
+                { value: '', label: 'Toutes les solutions' },
+                ...solutions.map((s) => ({ value: s.id, label: s.nom })),
+              ]}
+            />
           </FilterSection>
         </Card>
 

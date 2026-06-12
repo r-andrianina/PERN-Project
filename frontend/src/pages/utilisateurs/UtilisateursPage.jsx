@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import {
   Users, UserPlus, Search, X, Edit2, Trash2, KeyRound,
   ShieldCheck, ToggleLeft, ToggleRight, Loader2, Check,
-  Clock, UserCheck, ChevronDown, Eye, EyeOff,
+  Clock, UserCheck, Eye, EyeOff,
 } from 'lucide-react';
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
+import { Select } from '../../components/ui';
 
 // ── Constantes ────────────────────────────────────────────────
 const ROLES = [
@@ -249,7 +250,7 @@ function UserModal({ user, onClose, onSaved }) {
                   onClick={() => set('actif', !form.actif)}
                   className={`relative w-10 h-5 rounded-full transition-colors ${form.actif ? 'bg-primary-500' : 'bg-gray-300'}`}
                 >
-                  <span className={`absolute top-0.5 w-4 h-4 bg-surface rounded-full shadow transition-transform ${form.actif ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  <span className={`absolute left-0.5 top-0.5 w-4 h-4 bg-surface rounded-full shadow transition-transform ${form.actif ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
                 <div>
                   <p className="text-sm font-medium text-fg">Compte actif immédiatement</p>
@@ -423,7 +424,7 @@ export default function UtilisateursPage() {
   const onSaved    = () => { closeModal(); refresh(); };
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-screen-2xl space-y-6">
       {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
@@ -477,13 +478,13 @@ export default function UtilisateursPage() {
                   {new Date(u.createdAt).toLocaleDateString('fr-FR')}
                 </p>
                 <div className="flex items-center gap-2">
-                  <select
-                    defaultValue={u.role}
-                    onChange={(e) => changeRole(u, e.target.value)}
-                    className="text-xs px-2 py-1.5 rounded-lg border border-border-strong focus:outline-none focus:ring-2 focus:ring-primary-300"
-                  >
-                    {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                  </select>
+                  <Select
+                    value={u.role}
+                    onChange={(val) => changeRole(u, val)}
+                    wrapperClassName="w-32"
+                    buttonClassName="w-full flex items-center justify-between gap-1 text-left text-xs px-2 py-1.5 rounded-lg border border-border-strong bg-surface text-fg transition-colors focus:outline-none focus:ring-2 focus:ring-primary-300"
+                    options={ROLES.map((r) => ({ value: r.value, label: r.label }))}
+                  />
                   <button
                     onClick={() => toggleActif(u)}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-success hover:brightness-110 text-white text-xs font-semibold rounded-lg transition-colors"
@@ -515,18 +516,26 @@ export default function UtilisateursPage() {
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle"><X size={13} /></button>}
         </div>
 
-        <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}
-          className="text-sm px-3 py-2 rounded-xl border border-border-strong focus:outline-none">
-          <option value="">Tous les rôles</option>
-          {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-        </select>
+        <Select
+          value={filterRole}
+          onChange={setFilterRole}
+          wrapperClassName="w-44 flex-shrink-0"
+          options={[
+            { value: '', label: 'Tous les rôles' },
+            ...ROLES.map((r) => ({ value: r.value, label: r.label })),
+          ]}
+        />
 
-        <select value={filterActif} onChange={(e) => setFilterActif(e.target.value)}
-          className="text-sm px-3 py-2 rounded-xl border border-border-strong focus:outline-none">
-          <option value="">Tous les statuts</option>
-          <option value="actifs">Actifs uniquement</option>
-          <option value="attente">En attente</option>
-        </select>
+        <Select
+          value={filterActif}
+          onChange={setFilterActif}
+          wrapperClassName="w-44 flex-shrink-0"
+          options={[
+            { value: '', label: 'Tous les statuts' },
+            { value: 'actifs', label: 'Actifs uniquement' },
+            { value: 'attente', label: 'En attente' },
+          ]}
+        />
 
         <span className="text-xs text-fg-subtle ml-auto">{filtered.length} utilisateur(s)</span>
       </div>
@@ -571,17 +580,16 @@ export default function UtilisateursPage() {
                     <td className="px-5 py-3.5 text-fg-muted text-xs">{u.email}</td>
                     <td className="px-5 py-3.5">
                       {/* Dropdown rôle inline */}
-                      <div className="relative inline-block">
-                        <select
-                          value={u.role}
-                          onChange={(e) => changeRole(u, e.target.value)}
-                          disabled={isMe}
-                          className={`text-xs font-semibold pl-2.5 pr-6 py-1.5 rounded-full border appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-300 ${roleInfo[u.role]?.color || 'bg-surface-3 text-fg-muted border-border-strong'} disabled:cursor-not-allowed`}
-                        >
-                          {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                        </select>
-                        {!isMe && <ChevronDown size={11} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-current opacity-70" />}
-                      </div>
+                      <Select
+                        value={u.role}
+                        onChange={(val) => changeRole(u, val)}
+                        disabled={isMe}
+                        hideChevron={isMe}
+                        wrapperClassName="inline-block"
+                        buttonClassName={`w-full flex items-center justify-between gap-1 text-left text-xs font-semibold pl-2.5 pr-2 py-1.5 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-300 ${roleInfo[u.role]?.color || 'bg-surface-3 text-fg-muted border-border-strong'}`}
+                        chevronClassName="text-current opacity-70"
+                        options={ROLES.map((r) => ({ value: r.value, label: r.label }))}
+                      />
                     </td>
                     {/* Spécimens autorisés */}
                     <td className="px-5 py-3.5">

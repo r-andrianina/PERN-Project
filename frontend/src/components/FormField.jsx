@@ -1,4 +1,5 @@
 import { AlertCircle } from 'lucide-react';
+import { Select } from './ui';
 
 export default function FormField({
   label, name, type = 'text', value, onChange, onBlur,
@@ -25,12 +26,14 @@ export default function FormField({
       )}
 
       {type === 'select' ? (
-        <select name={name} value={value} onChange={onChange} required={required} disabled={disabled} className={baseClass}>
-          <option value="">— Sélectionner —</option>
-          {options?.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        <Select
+          name={name}
+          value={value}
+          onChange={(val) => onChange({ target: { name, value: val } })}
+          disabled={disabled}
+          error={error}
+          options={[{ value: '', label: '— Sélectionner —' }, ...(options ?? [])]}
+        />
 
       ) : type === 'textarea' ? (
         <textarea name={name} value={value} onChange={onChange}

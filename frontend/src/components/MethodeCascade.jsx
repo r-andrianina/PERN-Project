@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import api from '../api/axios';
+import { Select } from './ui';
 
 export default function MethodeCascade({ methodeId, onChange, onMissionChange, error }) {
   const [missions,  setMissions]  = useState([]);
@@ -20,26 +21,13 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missionId]);
 
-  const baseClass = `
-    w-full px-3.5 py-2.5 text-sm rounded-xl border transition-colors
-    focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400
-    disabled:bg-surface-2 disabled:text-fg-subtle disabled:cursor-not-allowed
-    border-border-strong bg-surface hover:border-gray-300
-  `;
-  const errClass = `
-    w-full px-3.5 py-2.5 text-sm rounded-xl border transition-colors
-    focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400
-    border-red-300 bg-danger/10
-  `;
-
   // Charger toutes les missions au montage
   useEffect(() => {
     api.get('/missions').then((r) => setMissions(r.data.missions || []));
   }, []);
 
   // Quand la mission change → charger ses localités, réinitialiser la suite
-  const handleMissionChange = async (e) => {
-    const id = e.target.value;
+  const handleMissionChange = async (id) => {
     setMissionId(id);
     setLocaliteId('');
     setMethodes([]);
@@ -51,8 +39,7 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
   };
 
   // Quand la localité change → charger ses méthodes, réinitialiser la méthode
-  const handleLocaliteChange = async (e) => {
-    const id = e.target.value;
+  const handleLocaliteChange = async (id) => {
     setLocaliteId(id);
     onChange('');
 
@@ -61,8 +48,8 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
     setMethodes(r.data.methodes || []);
   };
 
-  const handleMethodeChange = (e) => {
-    onChange(e.target.value);
+  const handleMethodeChange = (id) => {
+    onChange(id);
   };
 
   return (
@@ -82,15 +69,17 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
           <label className="block text-xs font-semibold text-fg-muted tracking-wide">
             Ordre de mission <span className="text-red-400">*</span>
           </label>
-          <select value={missionId} onChange={handleMissionChange} className={baseClass}>
-            <option value="">— Sélectionner —</option>
-            {missions.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.ordreMission}
-                {m.projet?.code ? ` (${m.projet.code})` : ''}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={missionId}
+            onChange={handleMissionChange}
+            options={[
+              { value: '', label: '— Sélectionner —' },
+              ...missions.map((m) => ({
+                value: m.id,
+                label: `${m.ordreMission}${m.projet?.code ? ` (${m.projet.code})` : ''}`,
+              })),
+            ]}
+          />
         </div>
 
         {/* 2. Localité */}
@@ -98,19 +87,18 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
           <label className="block text-xs font-semibold text-fg-muted tracking-wide">
             Localité <span className="text-red-400">*</span>
           </label>
-          <select
+          <Select
             value={localiteId}
             onChange={handleLocaliteChange}
             disabled={!missionId}
-            className={baseClass}
-          >
-            <option value="">— Sélectionner —</option>
-            {localites.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.nom}{l.region ? ` — ${l.region}` : ''}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: '— Sélectionner —' },
+              ...localites.map((l) => ({
+                value: l.id,
+                label: `${l.nom}${l.region ? ` — ${l.region}` : ''}`,
+              })),
+            ]}
+          />
           {missionId && localites.length === 0 && (
             <p className="text-xs text-amber-500">Aucune localité pour cette mission</p>
           )}
@@ -121,21 +109,19 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
           <label className="block text-xs font-semibold text-fg-muted tracking-wide">
             Méthode de collecte <span className="text-red-400">*</span>
           </label>
-          <select
+          <Select
             value={methodeId}
             onChange={handleMethodeChange}
             disabled={!localiteId}
-            className={error ? errClass : baseClass}
-          >
-            <option value="">— Sélectionner —</option>
-            {methodes.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.typeMethode?.code ? `[${m.typeMethode.code}] ` : ''}
-                {m.typeMethode?.nom || `Méthode #${m.id}`}
-                {m.dateCollecte ? ` — ${new Date(m.dateCollecte).toLocaleDateString('fr-FR')}` : ''}
-              </option>
-            ))}
-          </select>
+            error={!!error}
+            options={[
+              { value: '', label: '— Sélectionner —' },
+              ...methodes.map((m) => ({
+                value: m.id,
+                label: `${m.typeMethode?.code ? `[${m.typeMethode.code}] ` : ''}${m.typeMethode?.nom || `Méthode #${m.id}`}${m.dateCollecte ? ` — ${new Date(m.dateCollecte).toLocaleDateString('fr-FR')}` : ''}`,
+              })),
+            ]}
+          />
           {localiteId && methodes.length === 0 && (
             <p className="text-xs text-amber-500">Aucune méthode pour cette localité</p>
           )}

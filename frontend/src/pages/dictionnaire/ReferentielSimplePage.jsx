@@ -6,7 +6,7 @@ import api from '../../api/axios';
 import { toast } from '../../lib/toast';
 import FormField from '../../components/FormField';
 import useAuthStore from '../../store/authStore';
-import { Card, Badge, Button, EmptyState, PageHeader, Spinner } from '../../components/ui';
+import { Card, Badge, Button, EmptyState, PageHeader, Spinner, Select } from '../../components/ui';
 
 const ROLES = { admin: 4, chercheur: 3, terrain: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
@@ -64,7 +64,7 @@ export default function ReferentielSimplePage({ config }) {
   };
 
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="max-w-screen-2xl space-y-5">
       <Link to="/dictionnaire" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg">
         <ChevronLeft size={16} /> Dictionnaire
       </Link>
@@ -80,12 +80,16 @@ export default function ReferentielSimplePage({ config }) {
           <input value={filterSearch} onChange={(e) => setFs(e.target.value)} placeholder="Rechercher…"
             className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-border-strong bg-surface text-fg focus:outline-none focus:ring-2 focus:ring-primary/30" />
         </div>
-        <select value={filterActif} onChange={(e) => setFa(e.target.value)}
-          className="text-sm px-3 py-2 rounded-xl border border-border-strong bg-surface text-fg focus:outline-none">
-          <option value="all">Tous</option>
-          <option value="actifs">Actifs uniquement</option>
-          <option value="inactifs">Inactifs uniquement</option>
-        </select>
+        <Select
+          value={filterActif}
+          onChange={setFa}
+          wrapperClassName="w-48 flex-shrink-0"
+          options={[
+            { value: 'all', label: 'Tous' },
+            { value: 'actifs', label: 'Actifs uniquement' },
+            { value: 'inactifs', label: 'Inactifs uniquement' },
+          ]}
+        />
       </Card>
 
       {isLoading ? <Spinner.Block /> : items.length === 0 ? (

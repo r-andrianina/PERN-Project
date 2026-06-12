@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Loader2, Layers, Box, X, AlertTriangle, Check } from 'lucide-react';
 import api from '../api/axios';
+import { Select } from './ui';
 
 // Génère toutes les positions d'un container
 const buildPositions = (type) => {
@@ -233,8 +234,7 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
     setContainerData(null);
   };
 
-  const handleSelectContainer = (e) => {
-    const id = e.target.value;
+  const handleSelectContainer = (id) => {
     onChange({ containerId: id, position: '', insertMode });
   };
 
@@ -286,20 +286,18 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
           <label className="text-xs font-semibold text-fg-muted tracking-wide">
             {isPlaque ? 'Plaque' : 'Boîte'} de conservation
           </label>
-          <select
+          <Select
             value={containerId || ''}
             onChange={handleSelectContainer}
             disabled={!missionId || loading}
-            className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
-          >
-            <option value="">— Sélectionner —</option>
-            {containers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code}
-                {c.notes ? ` — ${c.notes.slice(0, 30)}` : ''}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: '— Sélectionner —' },
+              ...containers.map((c) => ({
+                value: c.id,
+                label: `${c.code}${c.notes ? ` — ${c.notes.slice(0, 30)}` : ''}`,
+              })),
+            ]}
+          />
         </div>
         <button
           type="button"
