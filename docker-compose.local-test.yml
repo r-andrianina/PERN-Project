@@ -1,0 +1,6 @@
+# Override local uniquement — NE PAS transférer sur le NAS
+# Usage : docker compose -p sm-prod -f docker-compose.prod.yml -f docker-compose.local-test.yml up -d --build
+services:
+  nginx:
+    ports:
+      - "8090:80"
