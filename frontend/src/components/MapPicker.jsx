@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { MapPin, X, Search, Loader2 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { BASE_LAYERS, createBaseLayer } from '../lib/mapLayers';
 
 // Icône personnalisée — cercle primaire avec halo
 const createCustomIcon = () =>
@@ -19,31 +20,11 @@ const createCustomIcon = () =>
     iconAnchor: [11, 11],
   });
 
-// Couches disponibles
-const LAYERS = {
-  satellite: {
-    label: 'Satellite',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '© Esri, Maxar',
-    maxZoom: 19,
-  },
-  osm: {
-    label: 'Carte',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 19,
-  },
-};
-
-// Labels OSM par-dessus le satellite (routes + toponymie)
-const LABELS_URL = 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png';
-
 export default function MapPicker({ latitude, longitude, onChange, height = '340px' }) {
   const mapRef      = useRef(null);
   const instanceRef = useRef(null);
   const markerRef   = useRef(null);
   const tileRef     = useRef(null);
-  const labelsRef   = useRef(null);
 
   const [activeLayer, setActiveLayer] = useState('satellite');
   const [query,       setQuery]       = useState('');
@@ -75,9 +56,7 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     // Couche de base
-    const cfg = LAYERS.satellite;
-    tileRef.current = L.tileLayer(cfg.url, { attribution: cfg.attribution, maxZoom: cfg.maxZoom }).addTo(map);
-    labelsRef.current = L.tileLayer(LABELS_URL, { attribution: '', maxZoom: cfg.maxZoom, opacity: 0.8 }).addTo(map);
+    tileRef.current = createBaseLayer(L, 'satellite').addTo(map);
 
     // Marker initial
     if (latitude && longitude) {
@@ -121,18 +100,9 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
   const switchLayer = (key) => {
     if (!instanceRef.current || key === activeLayer) return;
     const map = instanceRef.current;
-    const cfg  = LAYERS[key];
 
     map.removeLayer(tileRef.current);
-    if (labelsRef.current) map.removeLayer(labelsRef.current);
-
-    tileRef.current = L.tileLayer(cfg.url, { attribution: cfg.attribution, maxZoom: cfg.maxZoom }).addTo(map);
-
-    if (key === 'satellite') {
-      labelsRef.current = L.tileLayer(LABELS_URL, { attribution: '', maxZoom: cfg.maxZoom, opacity: 0.8 }).addTo(map);
-    } else {
-      labelsRef.current = null;
-    }
+    tileRef.current = createBaseLayer(L, key).addTo(map);
     setActiveLayer(key);
   };
 
@@ -255,7 +225,7 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
         zIndex: 800,
         display: 'flex', flexDirection: 'column', gap: 4,
       }}>
-        {Object.entries(LAYERS).map(([key, cfg]) => (
+        {Object.entries(BASE_LAYERS).map(([key, cfg]) => (
           <button
             key={key}
             type="button"
@@ -274,7 +244,7 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
               fontSize: 10, fontWeight: 600,
             }}
           >
-            {key === 'satellite' ? '🛰' : '🗺'}
+            {cfg.icon}
           </button>
         ))}
       </div>

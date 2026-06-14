@@ -10,6 +10,7 @@ import 'leaflet/dist/leaflet.css';
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { Spinner } from '../../components/ui';
+import { BASE_LAYERS, createBaseLayer } from '../../lib/mapLayers';
 
 // ── Couleurs des types ────────────────────────────────────────
 const TYPE_CFG = {
@@ -17,21 +18,6 @@ const TYPE_CFG = {
   tique:     { color: '#f59e0b', label: 'Tique',     icon: '/icons/tick.png'     },
   puce:      { color: '#ef4444', label: 'Puce',      icon: '/icons/flea.png'     },
 };
-
-// ── Couches cartographiques ───────────────────────────────────
-const LAYERS = {
-  satellite: {
-    label: 'Satellite',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '© Esri, Maxar',
-  },
-  osm: {
-    label: 'Carte',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '© OpenStreetMap contributors',
-  },
-};
-const LABELS_URL = 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png';
 
 // ── Construction HTML du marqueur (pin style, sans PNG) ───────
 // Les PNG Leaflet ignorent width/height HTML → on utilise des pastilles CSS.
@@ -157,7 +143,6 @@ export default function CartePage() {
   const mapRef      = useRef(null);  // div conteneur
   const instanceRef = useRef(null);  // instance L.Map
   const tileRef     = useRef(null);
-  const labelsRef   = useRef(null);
   const groupsRef   = useRef({});    // { moustique: L.LayerGroup, ... }
 
   // ── Chargement données ─────────────────────────────────────
@@ -178,9 +163,7 @@ export default function CartePage() {
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    const cfg = LAYERS.satellite;
-    tileRef.current   = L.tileLayer(cfg.url, { attribution: cfg.attribution, maxZoom: 19 }).addTo(map);
-    labelsRef.current = L.tileLayer(LABELS_URL, { attribution: '', maxZoom: 19, opacity: 0.8 }).addTo(map);
+    tileRef.current = createBaseLayer(L, 'satellite').addTo(map);
 
     // Groupes par type (pour show/hide)
     groupsRef.current = {
@@ -247,15 +230,8 @@ export default function CartePage() {
   const switchLayer = (key) => {
     const map = instanceRef.current;
     if (!map || key === activeLayer) return;
-    const cfg = LAYERS[key];
     map.removeLayer(tileRef.current);
-    if (labelsRef.current) map.removeLayer(labelsRef.current);
-    tileRef.current = L.tileLayer(cfg.url, { attribution: cfg.attribution, maxZoom: 19 }).addTo(map);
-    if (key === 'satellite') {
-      labelsRef.current = L.tileLayer(LABELS_URL, { attribution: '', maxZoom: 19, opacity: 0.8 }).addTo(map);
-    } else {
-      labelsRef.current = null;
-    }
+    tileRef.current = createBaseLayer(L, key).addTo(map);
     setActiveLayer(key);
   };
 
@@ -381,12 +357,12 @@ export default function CartePage() {
 
         {/* ── Sélecteur couche (flottant haut-droite) ── */}
         <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 800, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {Object.entries(LAYERS).map(([key]) => (
+          {Object.entries(BASE_LAYERS).map(([key, cfg]) => (
             <button
               key={key}
               type="button"
               onClick={() => switchLayer(key)}
-              title={LAYERS[key].label}
+              title={cfg.label}
               style={{
                 width: 36, height: 36, borderRadius: 10, cursor: 'pointer',
                 border: activeLayer === key ? '2px solid #1D9E75' : '2px solid rgba(255,255,255,0.9)',
@@ -398,7 +374,7 @@ export default function CartePage() {
                 fontSize: 16, transition: 'all 0.15s',
               }}
             >
-              {key === 'satellite' ? '🛰' : '🗺'}
+              {cfg.icon}
             </button>
           ))}
         </div>
