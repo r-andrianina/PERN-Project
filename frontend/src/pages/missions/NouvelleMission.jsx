@@ -28,6 +28,8 @@ export default function NouvelleMission() {
   const [activeLocalite, setActiveLocalite] = useState(0);
   // état auto-fill par localité : { 0: 'loading'|'match'|'nearest'|null }
   const [autoFill,  setAutoFill]    = useState({});
+  // état chargement altitude par localité : { 0: true|false }
+  const [altitudeLoading, setAltitudeLoading] = useState({});
 
   useEffect(() => {
     Promise.all([api.get('/projets'), api.get('/auth/users')])
@@ -57,15 +59,17 @@ export default function NouvelleMission() {
       const d = r.data;
       const filled = d.match ? d : d.nearest;
       if (filled) {
-        const updated = [...localites];
-        updated[index] = {
-          ...updated[index],
-          region:    filled.region    || updated[index].region,
-          district:  filled.district  || updated[index].district,
-          commune:   filled.commune   || updated[index].commune,
-          fokontany: filled.fokontany || updated[index].fokontany,
-        };
-        setLocalites(updated);
+        setLocalites((prev) => {
+          const updated = [...prev];
+          updated[index] = {
+            ...updated[index],
+            region:    filled.region    || updated[index].region,
+            district:  filled.district  || updated[index].district,
+            commune:   filled.commune   || updated[index].commune,
+            fokontany: filled.fokontany || updated[index].fokontany,
+          };
+          return updated;
+        });
         setAutoFill((s) => ({ ...s, [index]: d.match ? 'match' : 'nearest' }));
       } else {
         setAutoFill((s) => ({ ...s, [index]: 'none' }));
@@ -75,12 +79,37 @@ export default function NouvelleMission() {
     }
   };
 
+  // Altitude automatique via l'API d'élévation Open-Meteo (gratuite, sans clé)
+  const lookupAltitude = async (index, lat, lng) => {
+    if (!lat || !lng) return;
+    setAltitudeLoading((s) => ({ ...s, [index]: true }));
+    try {
+      const r = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`);
+      const data = await r.json();
+      const elevation = data?.elevation?.[0];
+      if (elevation !== undefined && elevation !== null) {
+        setLocalites((prev) => {
+          const updated = [...prev];
+          updated[index] = { ...updated[index], altitudeM: String(Math.round(elevation)) };
+          return updated;
+        });
+      }
+    } catch {
+      // silencieux — l'utilisateur peut saisir l'altitude manuellement
+    } finally {
+      setAltitudeLoading((s) => ({ ...s, [index]: false }));
+    }
+  };
+
   const handleMapChange = (index, coords) => {
-    const updated = [...localites];
-    updated[index] = { ...updated[index], ...coords };
-    setLocalites(updated);
+    setLocalites((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], ...coords, altitudeM: '' };
+      return updated;
+    });
     if (coords.latitude && coords.longitude) {
       lookupFokontany(index, coords.latitude, coords.longitude);
+      lookupAltitude(index, coords.latitude, coords.longitude);
     } else {
       setAutoFill((s) => ({ ...s, [index]: null }));
     }
@@ -358,7 +387,8 @@ export default function NouvelleMission() {
                     <FormField
                       label="Altitude (m)" name="altitudeM"
                       value={loc.altitudeM} onChange={(e) => handleLocaliteChange(index, e)}
-                      placeholder="1200"
+                      placeholder={altitudeLoading[index] ? 'Calcul…' : '1200'}
+                      disabled={altitudeLoading[index]}
                     />
                   </div>
                 </div>

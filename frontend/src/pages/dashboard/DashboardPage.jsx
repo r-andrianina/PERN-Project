@@ -111,7 +111,7 @@ export default function DashboardPage() {
   const hasChartData = parMois.some(m => autorises.some(t => (m[t] || 0) > 0));
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 max-w-screen-2xl">
 
       {/* En-tête */}
       <div>

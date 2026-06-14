@@ -16,7 +16,7 @@ export default function DictionnairePage() {
   const { user } = useAuthStore();
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="max-w-screen-2xl space-y-6">
       <PageHeader
         icon={BookOpen} iconTone="primary"
         title="Dictionnaire de données"

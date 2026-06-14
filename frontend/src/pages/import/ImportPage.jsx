@@ -117,7 +117,7 @@ export default function ImportPage() {
   const reset = () => { setFile(null); setResult(null); setError(null); };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-6xl">
       <PageHeader
         icon={Upload} iconTone="info"
         title="Import de données"

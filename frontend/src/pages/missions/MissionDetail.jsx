@@ -36,6 +36,7 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
   const [loading,    setLoading]    = useState(false);
   const [autoFilling, setAutoFilling] = useState(false);
   const [autoMatch,   setAutoMatch]   = useState(null); // null | 'match' | 'nearest' | 'none'
+  const [altitudeLoading, setAltitudeLoading] = useState(false);
   const [error,      setError]      = useState(null);
 
   // Lookup fokontany à chaque changement de coordonnées
@@ -63,10 +64,32 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
     } finally { setAutoFilling(false); }
   };
 
+  // Altitude automatique via l'API d'élévation Open-Meteo (gratuite, sans clé)
+  const lookupAltitude = async (lat, lng) => {
+    if (!lat || !lng) return;
+    setAltitudeLoading(true);
+    try {
+      const r = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`);
+      const data = await r.json();
+      const elevation = data?.elevation?.[0];
+      if (elevation !== undefined && elevation !== null) {
+        setForm((f) => ({ ...f, altitudeM: String(Math.round(elevation)) }));
+      }
+    } catch {
+      // silencieux — l'utilisateur peut saisir l'altitude manuellement
+    } finally {
+      setAltitudeLoading(false);
+    }
+  };
+
   const handleMapChange = ({ latitude, longitude }) => {
-    setForm((f) => ({ ...f, latitude, longitude }));
-    if (latitude && longitude) lookupFokontany(latitude, longitude);
-    else setAutoMatch(null);
+    setForm((f) => ({ ...f, latitude, longitude, altitudeM: '' }));
+    if (latitude && longitude) {
+      lookupFokontany(latitude, longitude);
+      lookupAltitude(latitude, longitude);
+    } else {
+      setAutoMatch(null);
+    }
   };
 
   const submit = async (e) => {
@@ -177,7 +200,8 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
                   placeholder="47.5361" />
                 <FormField label="Altitude (m)" name="altitudeM" type="number"
                   value={form.altitudeM} onChange={(e) => setForm({ ...form, altitudeM: e.target.value })}
-                  placeholder="1200" />
+                  placeholder={altitudeLoading ? 'Calcul…' : '1200'}
+                  disabled={altitudeLoading} />
               </div>
             </div>
 
@@ -237,7 +261,7 @@ export default function MissionDetail() {
   const s = STATUT[mission.statut] ?? {};
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <Link to="/missions" className="inline-flex items-center gap-1.5 text-sm text-fg-subtle hover:text-fg transition-colors">
         <ChevronLeft size={16} /> Missions
       </Link>

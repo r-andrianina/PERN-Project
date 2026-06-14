@@ -163,7 +163,7 @@ export default function TaxonomieHotesPage() {
   };
 
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="max-w-screen-2xl space-y-5">
       <button onClick={() => navigate('/dictionnaire')} className="inline-flex items-center gap-1.5 text-sm text-fg-subtle hover:text-fg">
         <ChevronLeft size={16} /> Dictionnaire
       </button>

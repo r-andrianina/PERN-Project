@@ -18,7 +18,7 @@ export default function ProjetDetail() {
   if (!projet) return <Spinner.Block label="Chargement…" height="h-40" />;
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <Link to="/projets" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
         <ChevronLeft size={16} /> Projets
       </Link>

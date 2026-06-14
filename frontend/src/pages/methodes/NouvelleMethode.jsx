@@ -71,7 +71,7 @@ export default function NouvelleMethode() {
   const typeEnvOptions     = typesEnv.map((t)     => ({ value: t.id, label: t.nom }));
 
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="max-w-5xl space-y-5">
       <Link to="/methodes" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
         <ChevronLeft size={16} /> Méthodes
       </Link>
