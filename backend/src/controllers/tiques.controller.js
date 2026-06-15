@@ -9,6 +9,7 @@ const { resolveSpecimenTaxonomyId, libelleTaxonomie } = require('../utils/taxono
 const { generateIdTerrain, generateMany, isIdTerrainUnique } = require('../utils/idTerrain');
 const { validatePlacement, nextAvailablePositions } = require('../utils/container');
 const { logAudit, ACTIONS } = require('../utils/audit');
+const { BLOOD_MEAL, normalizeKey } = require('../utils/importMappings');
 
 const includeBase = {
   methode: {
@@ -116,7 +117,7 @@ const createTique = async (req, res) => {
         nombre:          1,
         sexe:            sexe   || 'inconnu',
         stade:           stade           || null,
-        gorge:           gorge === true || gorge === 'true',
+        gorge,
         partieCorpsHote: partieCorpsHote || null,
         solutionId:      solutionId      ? parseInt(solutionId) : null,
         containerId:     cId,
@@ -158,7 +159,7 @@ const createTique = async (req, res) => {
         nombre:          cId && container.type === 'PLAQUE' ? 1 : nbInt,
         sexe:            sexe   || 'inconnu',
         stade:           stade           || null,
-        gorge:           gorge === true || gorge === 'true',
+        gorge,
         partieCorpsHote: partieCorpsHote || null,
         solutionId:      solutionId      ? parseInt(solutionId) : null,
         containerId:     cId,
@@ -201,7 +202,7 @@ const updateTique = async (req, res) => {
   if (nombre          !== undefined) data.nombre          = parseInt(nombre);
   if (sexe            !== undefined) data.sexe            = sexe;
   if (stade           !== undefined) data.stade           = stade;
-  if (gorge           !== undefined) data.gorge           = gorge === true || gorge === 'true';
+  if (gorge           !== undefined) data.gorge           = gorge;
   if (partieCorpsHote !== undefined) data.partieCorpsHote = partieCorpsHote;
   if (solutionId      !== undefined) data.solutionId      = solutionId ? parseInt(solutionId) : null;
   if (containerId     !== undefined) data.containerId     = containerId ? parseInt(containerId) : null;
@@ -248,7 +249,7 @@ const deleteTique = async (req, res) => {
 };
 
 // Excel : col1=Genre, col2=Espèce, col3=Nombre, col4=Sexe, col5=Stade,
-//         col6=Gorgée(Oui/Non), col7=PartieCorpsHôte,
+//         col6=StatutSanguin(N/G/Gr/SGr/NC ou Oui/Non), col7=PartieCorpsHôte,
 //         col8=Contenant, col9=PositionPlaque, col10=DateCollecte, col11=Notes
 const importExcel = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier fourni' });
@@ -284,7 +285,8 @@ const importExcel = async (req, res) => {
 
       const sexe          = row.getCell(4).value?.toString().trim() || 'inconnu';
       const stade         = row.getCell(5).value?.toString().trim() || null;
-      const gorge         = row.getCell(6).value?.toString().toLowerCase() === 'oui';
+      const rawGorge      = row.getCell(6).value?.toString().trim() || '';
+      const gorge         = BLOOD_MEAL[normalizeKey(rawGorge)] ?? 'NC';
       const partieCorpsHote = row.getCell(7).value?.toString().trim() || null;
       const dateRaw       = row.getCell(8).value;
       const notes         = row.getCell(9).value?.toString().trim() || null;
@@ -385,7 +387,7 @@ const exportExcel = async (req, res) => {
         nombre:          t.nombre,
         sexe:            t.sexe,
         stade:           t.stade,
-        gorge:           t.gorge ? 'Oui' : 'Non',
+        gorge:           t.gorge,
         partieCorpsHote: t.partieCorpsHote,
         hote:            t.hote?.taxonomieHote?.nom,
         solution:        t.solution?.nom,

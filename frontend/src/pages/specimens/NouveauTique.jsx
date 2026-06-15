@@ -8,13 +8,15 @@ import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
 import { Card } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
+import { STADE_OPTIONS_TIQUE, formatStade } from '../../utils/stade';
+import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
 
 export default function NouveauTique() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
     methodeId: '', hoteId: '', taxonomieId: '', idTerrain: '',
-    nombre: '1', sexe: 'inconnu', stade: '', gorge: false,
+    nombre: '1', sexe: 'inconnu', stade: '', gorge: 'N',
     partieCorpsHote: '', solutionId: '',
     containerId: '', position: '', insertMode: 'single',
     dateCollecte: '', notes: '',
@@ -45,7 +47,7 @@ export default function NouveauTique() {
   };
 
   // ── Cascade biologique : Stade → Sexe → Gorgée ──
-  const stadeImmature = form.stade === 'Larve' || form.stade === 'Nymphe';
+  const stadeImmature = form.stade === 'L' || form.stade === 'N';
   const sexeDisabled  = stadeImmature; // larve/nymphe = sexe pas déterminable
   const sexeForce     = stadeImmature ? 'inconnu' : form.sexe;
   const gorgeDisabled = sexeForce === 'M'; // un mâle adulte ne se gorge pas
@@ -54,7 +56,7 @@ export default function NouveauTique() {
     setForm((f) => {
       const next = { ...f };
       if (sexeDisabled && f.sexe !== 'inconnu') next.sexe = 'inconnu';
-      if (gorgeDisabled && f.gorge)             next.gorge = false;
+      if (gorgeDisabled && f.gorge !== 'N')     next.gorge = 'N';
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,7 +108,7 @@ export default function NouveauTique() {
   }));
   const solutionOptions  = solutions.map(s => ({ value: s.id, label: `${s.nom}${s.temperature ? ' (' + s.temperature + ')' : ''}` }));
   const sexeOptions    = [{ value:'M', label:'Mâle' }, { value:'F', label:'Femelle' }, { value:'inconnu', label:'Inconnu' }];
-  const stadeOptions   = [{ value:'Adulte', label:'Adulte' }, { value:'Nymphe', label:'Nymphe' }, { value:'Larve', label:'Larve' }];
+  const stadeOptions   = STADE_OPTIONS_TIQUE;
   const partieOptions  = [
     { value:'Tête', label:'Tête' }, { value:'Cou', label:'Cou' },
     { value:'Oreille', label:'Oreille' }, { value:'Dos', label:'Dos' },
@@ -180,7 +182,7 @@ export default function NouveauTique() {
           {stadeImmature && (
             <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-xl flex items-start gap-2 text-xs text-info">
               <Info size={13} className="mt-0.5 flex-shrink-0" />
-              <span>Au stade <strong>{form.stade}</strong>, le sexe ne peut pas être déterminé.</span>
+              <span>Au stade <strong>{formatStade(form.stade)}</strong>, le sexe ne peut pas être déterminé.</span>
             </div>
           )}
           {!stadeImmature && form.sexe === 'M' && (
@@ -197,15 +199,11 @@ export default function NouveauTique() {
               value={sexeForce} onChange={handleChange}
               options={sexeOptions} disabled={sexeDisabled}
               hint={sexeDisabled ? 'Indéterminable à ce stade' : undefined} />
-            <div className="flex items-center gap-3 pt-6">
-              <input type="checkbox" id="gorge" name="gorge"
-                checked={form.gorge} onChange={handleChange}
-                disabled={gorgeDisabled}
-                className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500 disabled:opacity-40" />
-              <label htmlFor="gorge" className={`text-sm cursor-pointer ${gorgeDisabled ? 'text-gray-300' : 'text-gray-600'}`}>
-                Gorgée de sang
-              </label>
-            </div>
+            <FormField label="Statut sanguin" name="gorge" type="select"
+              value={form.gorge} onChange={handleChange}
+              options={GORGEMENT_OPTIONS} disabled={gorgeDisabled}
+              hint={gorgeDisabled ? 'Un mâle adulte ne se gorge pas' : undefined}
+            />
           </div>
         </div>
 
@@ -272,9 +270,9 @@ export default function NouveauTique() {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div><p className="text-fg-subtle mb-0.5">Nombre</p><p className="font-semibold text-fg">{form.nombre || '—'}</p></div>
                   <div><p className="text-fg-subtle mb-0.5">Sexe</p><p className="font-semibold text-fg capitalize">{sexeForce === 'inconnu' ? '—' : sexeForce === 'M' ? 'Mâle' : 'Femelle'}</p></div>
-                  {form.stade && <div><p className="text-fg-subtle mb-0.5">Stade</p><p className="font-semibold text-fg">{form.stade}</p></div>}
+                  {form.stade && <div><p className="text-fg-subtle mb-0.5">Stade</p><p className="font-semibold text-fg">{formatStade(form.stade)}</p></div>}
                 </div>
-                {form.gorge && <p className="text-xs text-danger font-medium">Gorgée de sang : Oui</p>}
+                {form.gorge !== 'N' && <p className="text-xs text-danger font-medium">Statut sanguin : {formatGorgement(form.gorge)}</p>}
                 {selectedHote && (
                   <div>
                     <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Hôte</p>

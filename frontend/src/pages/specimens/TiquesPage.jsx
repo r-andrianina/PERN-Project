@@ -4,6 +4,7 @@ import { Plus, Download, Search, X } from 'lucide-react';
 import { Card, Button, Badge, EmptyState, PageHeader, Spinner, Pagination } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
 import SpecimenIcon from '../../components/SpecimenIcon';
+import { formatGorgement } from '../../utils/gorgement';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
@@ -87,7 +88,7 @@ export default function TiquesPage() {
                     <td className="px-4 py-3 text-fg-muted font-medium">{t.nombre}</td>
                     <td className="px-4 py-3"><Badge tone={SEXE_TONE[t.sexe] ?? 'default'}>{SEXE_LABEL[t.sexe] ?? 'Inconnu'}</Badge></td>
                     <td className="px-4 py-3 text-fg-muted text-xs">{t.stade || <span className="text-fg-subtle">—</span>}</td>
-                    <td className="px-4 py-3"><Badge tone={t.gorge ? 'danger' : 'default'}>{t.gorge ? 'Oui' : 'Non'}</Badge></td>
+                    <td className="px-4 py-3"><Badge tone={['G', 'Gr'].includes(t.gorge) ? 'danger' : 'default'}>{formatGorgement(t.gorge)}</Badge></td>
                     <td className="px-4 py-3 text-fg-muted text-xs">{t.hote?.taxonomieHote?.nom || <span className="text-fg-subtle">—</span>}</td>
                     <td className="px-4 py-3">
                       {t.position

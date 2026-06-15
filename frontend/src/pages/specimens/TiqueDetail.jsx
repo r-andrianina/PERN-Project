@@ -9,6 +9,8 @@ import { Card, CardHeader, CardTitle, Badge, Button, PageHeader, Spinner, Select
 import SpecimenIcon from '../../components/SpecimenIcon';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
+import { STADE_OPTIONS_TIQUE, formatStade } from '../../utils/stade';
+import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
@@ -139,7 +141,7 @@ export default function TiqueDetail() {
 
   const taxoOptions     = taxonomies.map(tx => ({ value: String(tx.id), label: tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom }));
   const solutionOptions = [{ value: '', label: '— Aucune —' }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
-  const stadeOptions    = [{ value: '', label: '—' }, ...['Adulte','Nymphe','Larve','Oeuf'].map(v => ({ value: v, label: v }))];
+  const stadeOptions    = [{ value: '', label: '—' }, ...STADE_OPTIONS_TIQUE];
   const sexeOptions     = [{ value: 'M', label: 'Mâle' }, { value: 'F', label: 'Femelle' }, { value: 'inconnu', label: 'Inconnu' }];
 
   return (
@@ -201,13 +203,9 @@ export default function TiqueDetail() {
                       className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg"
                     />
                   </div>
-                  <div className="flex items-center gap-2 pt-5">
-                    <input type="checkbox" id="edit-gorge" checked={editForm.gorge}
-                      onChange={e => setEditForm(f => ({ ...f, gorge: e.target.checked }))}
-                      className="w-4 h-4 rounded border-border text-primary"
-                    />
-                    <label htmlFor="edit-gorge" className="text-sm text-fg">Gorgée de sang</label>
-                  </div>
+                  <EditSelect label="Statut sanguin" value={editForm.gorge}
+                    onChange={e => setEditForm(f => ({ ...f, gorge: e.target.value }))}
+                    options={GORGEMENT_OPTIONS} />
                 </div>
               </div>
             ) : (
@@ -219,9 +217,9 @@ export default function TiqueDetail() {
                 </div>
                 <Field label="Sexe"><Badge tone={SEXE_TONE[t.sexe] ?? 'default'}>{SEXE_LABEL[t.sexe] ?? '—'}</Badge></Field>
                 <Field label="Nombre">{t.nombre}</Field>
-                {t.stade && <Field label="Stade">{t.stade}</Field>}
-                <Field label="Gorgée">
-                  <Badge tone={t.gorge ? 'danger' : 'default'}>{t.gorge ? 'Oui' : 'Non'}</Badge>
+                {t.stade && <Field label="Stade">{formatStade(t.stade)}</Field>}
+                <Field label="Statut sanguin">
+                  <Badge tone={['G', 'Gr'].includes(t.gorge) ? 'danger' : 'default'}>{formatGorgement(t.gorge)}</Badge>
                 </Field>
                 {t.partieCorpsHote && <Field label="Partie du corps (hôte)">{t.partieCorpsHote}</Field>}
               </div>

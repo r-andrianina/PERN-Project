@@ -4,6 +4,7 @@ import { Plus, Download, Search, X } from 'lucide-react';
 import { Card, Button, Badge, EmptyState, PageHeader, Spinner, Pagination } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
 import SpecimenIcon from '../../components/SpecimenIcon';
+import { formatGorgement } from '../../utils/gorgement';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
@@ -117,7 +118,7 @@ export default function MoustiquesPage() {
                     <td className="px-4 py-3 text-fg-muted text-xs">{m.stade || <span className="text-fg-subtle">—</span>}</td>
                     <td className="px-4 py-3 text-fg-muted text-xs">{m.parite || <span className="text-fg-subtle">—</span>}</td>
                     <td className="px-4 py-3">
-                      <Badge tone={m.repasSang ? 'danger' : 'default'}>{m.repasSang ? 'Oui' : 'Non'}</Badge>
+                      <Badge tone={['G', 'Gr'].includes(m.repasSang) ? 'danger' : 'default'}>{formatGorgement(m.repasSang)}</Badge>
                     </td>
                     <td className="px-4 py-3 text-fg-muted text-xs max-w-32 truncate">
                       {m.methode?.localite?.nom || <span className="text-fg-subtle">—</span>}

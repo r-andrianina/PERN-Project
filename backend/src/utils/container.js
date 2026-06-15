@@ -117,6 +117,9 @@ async function validatePlacement(containerId, position, { allowMultiple = false 
       ? 'Position plaque invalide (attendu: A1 à H12)'
       : 'Position boîte invalide (attendu: 1-1 à 9-9)';
   }
+  if (container.type === 'PLAQUE' && position === 'H12') {
+    return 'H12 est réservé au témoin négatif (SOP) — aucun spécimen ne doit y être placé';
+  }
   // Plaque = 1 spécimen / puit strict
   if (container.type === 'PLAQUE') {
     const occupied = await getOccupiedPositions(containerId);

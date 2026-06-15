@@ -11,6 +11,7 @@ const {
   includeWithHote,
 } = require('../utils/specimenSearch');
 const { libelleTaxonomie } = require('../utils/taxonomyResolve');
+const { toParietéSOP } = require('../utils/importMappings');
 
 const TYPES_VALIDES = ['moustique', 'tique', 'puce'];
 
@@ -181,6 +182,7 @@ const exportExcel = async (req, res) => {
       { header: 'Sexe',         key: 'sexe',       width: 10 },
       { header: 'Stade',        key: 'stade',      width: 10 },
       { header: 'Parité',       key: 'parite',     width: 10 },
+      { header: 'Parité (SOP)', key: 'pariteSOP',  width: 12 },
       { header: 'Repas sang',   key: 'repasSang',  width: 12 },
       { header: 'Gorgée',       key: 'gorge',      width: 10 },
       { header: 'Date collecte',key: 'date',       width: 14 },
@@ -210,8 +212,9 @@ const exportExcel = async (req, res) => {
         sexe:      s.sexe,
         stade:     s.stade,
         parite:    s.parite ?? '',
-        repasSang: s._type === 'moustique' ? (s.repasSang ? 'Oui' : 'Non') : '',
-        gorge:     s._type === 'tique'     ? (s.gorge     ? 'Oui' : 'Non') : '',
+        pariteSOP: toParietéSOP(s.parite),
+        repasSang: s._type === 'moustique' ? (s.repasSang ?? '') : '',
+        gorge:     s._type === 'tique'     ? (s.gorge     ?? '') : '',
         date:      s.dateCollecte ? new Date(s.dateCollecte).toISOString().split('T')[0] : '',
         mission:   s.methode?.localite?.mission?.ordreMission ?? '',
         localite:  s.methode?.localite?.nom ?? '',

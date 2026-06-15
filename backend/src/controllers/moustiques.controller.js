@@ -9,6 +9,7 @@ const { resolveSpecimenTaxonomyId, libelleTaxonomie } = require('../utils/taxono
 const { generateIdTerrain, generateMany, isIdTerrainUnique } = require('../utils/idTerrain');
 const { validatePlacement, nextAvailablePositions } = require('../utils/container');
 const { logAudit, ACTIONS } = require('../utils/audit');
+const { toParietéSOP, BLOOD_MEAL, normalizeKey } = require('../utils/importMappings');
 
 const includeBase = {
   methode: {
@@ -133,7 +134,7 @@ const createMoustique = async (req, res) => {
         sexe:         sexe   || 'inconnu',
         stade:        stade         || null,
         parite:       parite        || null,
-        repasSang:    repasSang === true || repasSang === 'true',
+        repasSang,
         organePreleve:organePreleve || null,
         solutionId:   solutionId ? parseInt(solutionId) : null,
         containerId:  cId,
@@ -179,7 +180,7 @@ const createMoustique = async (req, res) => {
         sexe:           sexe   || 'inconnu',
         stade:          stade         || null,
         parite:         parite        || null,
-        repasSang:      repasSang === true || repasSang === 'true',
+        repasSang,
         organePreleve:  organePreleve || null,
         solutionId:     solutionId    ? parseInt(solutionId) : null,
         containerId:    cId,
@@ -225,7 +226,7 @@ const updateMoustique = async (req, res) => {
   if (sexe           !== undefined) data.sexe           = sexe;
   if (stade          !== undefined) data.stade          = stade;
   if (parite         !== undefined) data.parite         = parite;
-  if (repasSang      !== undefined) data.repasSang      = repasSang === true || repasSang === 'true';
+  if (repasSang      !== undefined) data.repasSang      = repasSang;
   if (organePreleve  !== undefined) data.organePreleve  = organePreleve;
   if (solutionId     !== undefined) data.solutionId     = solutionId ? parseInt(solutionId) : null;
   if (containerId    !== undefined) data.containerId    = containerId ? parseInt(containerId) : null;
@@ -276,7 +277,7 @@ const deleteMoustique = async (req, res) => {
 
 // POST /api/v1/moustiques/import   (multipart : file + methodeId)
 // Excel : col1=Genre, col2=Espèce, col3=Nombre, col4=Sexe, col5=Stade,
-//         col6=Parité, col7=RepasSang(Oui/Non), col8=OrganePrélevé,
+//         col6=Parité, col7=StatutSanguin(N/G/Gr/SGr/NC ou Oui/Non), col8=OrganePrélevé,
 //         col9=Contenant, col10=PositionPlaque, col11=DateCollecte, col12=Notes
 const importExcel = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier fourni' });
@@ -316,7 +317,8 @@ const importExcel = async (req, res) => {
       const sexe          = row.getCell(4).value?.toString().trim() || 'inconnu';
       const stade         = row.getCell(5).value?.toString().trim() || null;
       const parite        = row.getCell(6).value?.toString().trim() || null;
-      const repasSang     = row.getCell(7).value?.toString().toLowerCase() === 'oui';
+      const rawRepasSang  = row.getCell(7).value?.toString().trim() || '';
+      const repasSang     = BLOOD_MEAL[normalizeKey(rawRepasSang)] ?? 'NC';
       const organePreleve = row.getCell(8).value?.toString().trim() || null;
       const dateRaw       = row.getCell(9).value;
       const notes         = row.getCell(10).value?.toString().trim() || null;
@@ -403,6 +405,7 @@ const exportExcel = async (req, res) => {
       { header: 'Sexe',            key: 'sexe',           width: 10 },
       { header: 'Stade',           key: 'stade',          width: 10 },
       { header: 'Parité',          key: 'parite',         width: 10 },
+      { header: 'Parité (SOP)',    key: 'pariteSOP',      width: 12 },
       { header: 'Repas sang',      key: 'repasSang',      width: 12 },
       { header: 'Organe prélevé',  key: 'organePreleve',  width: 15 },
       { header: 'Solution',        key: 'solution',       width: 15 },
@@ -430,7 +433,8 @@ const exportExcel = async (req, res) => {
         sexe:           m.sexe,
         stade:          m.stade,
         parite:         m.parite,
-        repasSang:      m.repasSang ? 'Oui' : 'Non',
+        pariteSOP:      toParietéSOP(m.parite),
+        repasSang:      m.repasSang,
         organePreleve:  m.organePreleve,
         solution:       m.solution?.nom,
         container:      m.container?.code,

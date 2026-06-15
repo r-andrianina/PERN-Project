@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import api from '../../api/axios';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner, Select } from '../../components/ui';
+import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
+import { GORGEMENT_OPTIONS } from '../../utils/gorgement';
 
 // ── Constantes UI ─────────────────────────────────────────────
 const TYPE_TONE  = { moustique: 'specimen-moustique', tique: 'specimen-tique', puce: 'specimen-puce' };
@@ -19,7 +21,7 @@ const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
 
 const PARITE_OPTIONS = ['Nulle', 'Paucie', 'Multi'];
-const STADE_SUGGEST  = ['Adulte', 'Larve', 'Nymphe', 'Oeuf'];
+const STADE_SUGGEST  = STADE_OPTIONS_MOUSTIQUE;
 
 const taxoLabel = (t) => {
   if (!t) return '—';
@@ -362,7 +364,7 @@ export default function RecherchePage() {
               onChange={(val) => setFilter('stade', val)}
               options={[
                 { value: '', label: 'Tous les stades' },
-                ...STADE_SUGGEST.map((s) => ({ value: s, label: s })),
+                ...STADE_SUGGEST,
               ]}
             />
             {activeTypes.includes('moustique') && (
@@ -379,9 +381,8 @@ export default function RecherchePage() {
                   value={f.repasSang || ''}
                   onChange={(val) => setFilter('repasSang', val)}
                   options={[
-                    { value: '', label: 'Repas sang : tous' },
-                    { value: 'true', label: 'Avec repas' },
-                    { value: 'false', label: 'Sans repas' },
+                    { value: '', label: 'Statut sanguin : tous' },
+                    ...GORGEMENT_OPTIONS,
                   ]}
                 />
               </>
@@ -391,9 +392,8 @@ export default function RecherchePage() {
                 value={f.gorge || ''}
                 onChange={(val) => setFilter('gorge', val)}
                 options={[
-                  { value: '', label: 'Gorgée : tous' },
-                  { value: 'true', label: 'Gorgée' },
-                  { value: 'false', label: 'Non gorgée' },
+                  { value: '', label: 'Statut sanguin : tous' },
+                  ...GORGEMENT_OPTIONS,
                 ]}
               />
             )}
@@ -474,7 +474,7 @@ export default function RecherchePage() {
                         <td className="px-4 py-3 italic font-medium text-fg">{taxoLabel(s.taxonomie)}</td>
                         <td className="px-4 py-3 text-fg-muted font-semibold">{s.nombre}</td>
                         <td className="px-4 py-3"><Badge tone={SEXE_TONE[s.sexe || 'inconnu']}>{SEXE_LABEL[s.sexe || 'inconnu']}</Badge></td>
-                        <td className="px-4 py-3 text-xs text-fg-muted">{s.stade || <span className="text-fg-subtle">—</span>}</td>
+                        <td className="px-4 py-3 text-xs text-fg-muted">{s.stade ? formatStade(s.stade) : <span className="text-fg-subtle">—</span>}</td>
                         <td className="px-4 py-3 text-xs text-fg-muted font-mono">{s.methode?.localite?.mission?.ordreMission || '—'}</td>
                         <td className="px-4 py-3 text-xs text-fg-muted">
                           <div>{s.methode?.localite?.nom || '—'}</div>

@@ -73,7 +73,7 @@ function CreateContainerModal({ missionId, type, onCreated, onClose }) {
           {error && <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">{error}</div>}
 
           <div className="bg-surface-2 rounded-xl p-3 text-xs text-fg-muted">
-            Le code sera de la forme <code className="font-mono font-semibold text-fg">{type === 'PLAQUE' ? 'P' : 'B'}_AAAAMM_n</code>
+            Le code sera de la forme <code className="font-mono font-semibold text-fg">{type === 'PLAQUE' ? 'P' : 'B'}_&lt;n° mission&gt;_AAAAMM_n</code>
             {' '}où AAAAMM correspond au mois de début de la mission, et n est un compteur propre à cette mission.
           </div>
 
@@ -110,6 +110,8 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
 
   const isOccupied = (pos) => occupied.has(pos);
   const isAuto     = (pos) => autoPositions.includes(pos);
+  // H12 = puits témoin (SOP) : jamais utilisable pour un spécimen
+  const isTemoin   = (pos) => isPlaque && pos === 'H12';
 
   return (
     <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-border-strong p-4 overflow-x-auto">
@@ -132,15 +134,18 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
               const occ = isOccupied(pos);
               const sel = pos === selectedPosition;
               const auto= isAuto(pos);
+              const tem = isTemoin(pos);
               return (
                 <button
                   key={pos}
                   type="button"
-                  onClick={() => !occ && onSelect(pos)}
-                  disabled={occ}
-                  title={occ ? `${pos} : ${occupied.get(pos).map((s) => s.idTerrain || `#${s.id}`).join(', ')}` : pos}
+                  onClick={() => !occ && !tem && onSelect(pos)}
+                  disabled={occ || tem}
+                  title={tem ? 'H12 — réservé au témoin (SOP)' : occ ? `${pos} : ${occupied.get(pos).map((s) => s.idTerrain || `#${s.id}`).join(', ')}` : pos}
                   className={`${cellSize} rounded-md text-[9px] font-mono transition-all border
-                    ${occ
+                    ${tem
+                      ? 'bg-amber-100 text-amber-700 border-amber-300 cursor-not-allowed'
+                      : occ
                       ? 'bg-gray-300 text-fg-muted border-gray-400 cursor-not-allowed'
                       : sel
                       ? 'bg-primary-600 text-white border-primary-700 ring-2 ring-primary-300 scale-110 z-10'
@@ -149,7 +154,7 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
                       : 'bg-surface text-fg-subtle border-border-strong hover:bg-primary/10 hover:border-primary-300 hover:text-primary'}
                   `}
                 >
-                  {sel ? '●' : occ ? '×' : auto ? '+' : ''}
+                  {tem ? 'T' : sel ? '●' : occ ? '×' : auto ? '+' : ''}
                 </button>
               );
             })}
@@ -172,6 +177,11 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-sm bg-gray-300 border border-gray-400" /> Occupé
           </span>
+          {isPlaque && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-sm bg-amber-100 border border-amber-300" /> Témoin (réservé)
+            </span>
+          )}
         </div>
       </div>
     </div>

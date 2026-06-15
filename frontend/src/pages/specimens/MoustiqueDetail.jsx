@@ -9,6 +9,8 @@ import { Card, CardHeader, CardTitle, Badge, Button, PageHeader, Spinner, Select
 import SpecimenIcon from '../../components/SpecimenIcon';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
+import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
+import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
@@ -90,12 +92,12 @@ export default function MoustiqueDetail() {
   };
 
   const handleStadeChange = (stade) => {
-    const immature = stade === 'Larve' || stade === 'Oeuf';
+    const immature = stade === 'L' || stade === 'E';
     setEditForm(f => ({
       ...f, stade,
       sexe:      immature ? 'inconnu' : f.sexe,
       parite:    immature ? '' : f.parite,
-      repasSang: immature ? false : f.repasSang,
+      repasSang: immature ? 'N' : f.repasSang,
     }));
   };
 
@@ -103,7 +105,7 @@ export default function MoustiqueDetail() {
     setEditForm(f => ({
       ...f, sexe,
       parite:    sexe !== 'F' ? '' : f.parite,
-      repasSang: sexe !== 'F' ? false : f.repasSang,
+      repasSang: sexe !== 'F' ? 'N' : f.repasSang,
     }));
   };
 
@@ -156,14 +158,14 @@ export default function MoustiqueDetail() {
   );
 
   const m = specimen;
-  const stadeImmature  = editForm.stade === 'Larve' || editForm.stade === 'Oeuf';
+  const stadeImmature  = editForm.stade === 'L' || editForm.stade === 'E';
   const sexeForce      = stadeImmature ? 'inconnu' : editForm.sexe;
   const pariteDisabled = stadeImmature || sexeForce !== 'F';
   const repasSangOff   = stadeImmature || sexeForce !== 'F';
 
   const taxoOptions    = taxonomies.map(t => ({ value: String(t.id), label: t.parent ? `${t.parent.nom} ${t.nom}` : t.nom }));
   const solutionOptions = [{ value: '', label: '— Aucune —' }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
-  const stadeOptions   = [{ value: '', label: '—' }, ...['Adulte','Nymphe','Larve','Oeuf'].map(v => ({ value: v, label: v }))];
+  const stadeOptions   = [{ value: '', label: '—' }, ...STADE_OPTIONS_MOUSTIQUE];
   const sexeOptions    = [{ value: 'M', label: 'Mâle' }, { value: 'F', label: 'Femelle' }, { value: 'inconnu', label: 'Inconnu' }];
   const pariteOptions  = [{ value: '', label: '—' }, ...['Nulle','Paucie','Multi'].map(v => ({ value: v, label: v }))];
   const organeOptions  = [{ value: '', label: '—' }, ...['Tête','Thorax','Abdomen','Entier'].map(v => ({ value: v, label: v }))];
@@ -228,16 +230,9 @@ export default function MoustiqueDetail() {
                   <EditSelect label="Organe prélevé" value={editForm.organePreleve}
                     onChange={e => setEditForm(f => ({ ...f, organePreleve: e.target.value }))}
                     options={organeOptions} />
-                  <div className="flex items-center gap-2 pt-5">
-                    <input type="checkbox" id="edit-repasSang"
-                      checked={editForm.repasSang} disabled={repasSangOff}
-                      onChange={e => setEditForm(f => ({ ...f, repasSang: e.target.checked }))}
-                      className="w-4 h-4 rounded border-border text-primary disabled:opacity-40"
-                    />
-                    <label htmlFor="edit-repasSang" className={`text-sm ${repasSangOff ? 'text-fg-subtle' : 'text-fg'}`}>
-                      Repas de sang effectué
-                    </label>
-                  </div>
+                  <EditSelect label="Statut sanguin" value={editForm.repasSang}
+                    onChange={e => setEditForm(f => ({ ...f, repasSang: e.target.value }))}
+                    options={GORGEMENT_OPTIONS} disabled={repasSangOff} />
                 </div>
               </div>
             ) : (
@@ -249,11 +244,11 @@ export default function MoustiqueDetail() {
                 </div>
                 <Field label="Sexe"><Badge tone={SEXE_TONE[m.sexe] ?? 'default'}>{SEXE_LABEL[m.sexe] ?? '—'}</Badge></Field>
                 <Field label="Nombre">{m.nombre}</Field>
-                {m.stade         && <Field label="Stade">{m.stade}</Field>}
+                {m.stade         && <Field label="Stade">{formatStade(m.stade)}</Field>}
                 {m.parite        && <Field label="Parité">{m.parite}</Field>}
                 {m.organePreleve && <Field label="Organe prélevé">{m.organePreleve}</Field>}
-                <Field label="Repas sang">
-                  <Badge tone={m.repasSang ? 'danger' : 'default'}>{m.repasSang ? 'Oui' : 'Non'}</Badge>
+                <Field label="Statut sanguin">
+                  <Badge tone={['G', 'Gr'].includes(m.repasSang) ? 'danger' : 'default'}>{formatGorgement(m.repasSang)}</Badge>
                 </Field>
               </div>
             )}

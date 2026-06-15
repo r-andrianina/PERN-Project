@@ -3,6 +3,7 @@
 // Réutilisé par le contrôleur de recherche et l'export Excel.
 
 const prisma = require('../config/prisma');
+const { STATUT_SANGUIN } = require('../schemas/specimens.schema');
 
 /**
  * Renvoie tous les ids descendants d'un nœud de taxonomie spécimens
@@ -85,13 +86,11 @@ function buildSpecimenWhere({
   // Spécifiques moustique
   if (type === 'moustique') {
     if (params.parite) where.parite = params.parite;
-    const rs = asBool(params.repasSang);
-    if (rs !== undefined) where.repasSang = rs;
+    if (STATUT_SANGUIN.includes(params.repasSang)) where.repasSang = params.repasSang;
   }
   // Spécifiques tique
   if (type === 'tique') {
-    const g = asBool(params.gorge);
-    if (g !== undefined) where.gorge = g;
+    if (STATUT_SANGUIN.includes(params.gorge)) where.gorge = params.gorge;
   }
 
   // Période sur dateCollecte

@@ -22,6 +22,18 @@ const COLLECTION_METHOD = {
   RODENT_TRAP: 'PIEGE-RG', SHERMAN: 'PIEGE-RG', BTS: 'PIEGE-RG',
   ON_HOST: 'PRISE-HOTE', HOST_COLLECTION: 'PRISE-HOTE',
   LARVAL_SURVEY: 'GITES',
+  // Acronymes Trap_ID du SOP (Institut Pasteur Madagascar)
+  LC: 'GITES',
+  BG: 'BG-SENT',
+  ZP: 'ZP-DP', DP: 'ZP-DP', 'ZP/DP': 'ZP-DP', ZEBU_PARK: 'ZP-DP', DOG_PERK: 'ZP-DP', DOG_PARK: 'ZP-DP',
+  DN: 'DN', DOUBLE_NET: 'DN',
+  NC: 'NC', NET_CATCH: 'NC',
+  MHT: 'MHT',
+  OVITRAP: 'OVITRAP',
+  HOTE: 'PRISE-HOTE', 'HÔTE': 'PRISE-HOTE',
+  ET: 'ET',
+  PYR: 'PYR',
+  OTHER: 'AUTRE-METHODE', AUTRE: 'AUTRE-METHODE',
 };
 
 const PRESERVATIVE = {
@@ -43,10 +55,18 @@ const ORGANISM_PART = {
   ABDOMEN: 'Abdomen',
 };
 
+// Statut sanguin SOP : N (Non gorgé) / G (Gorgé) / Gr (Gravide) / SGr (Semi-gravide) / NC (Not collected)
 const BLOOD_MEAL = {
-  Y: true, YES: true, OUI: true, '1': true, TRUE: true,
-  N: false, NO: false, NON: false, '0': false, FALSE: false,
+  G: 'G', GORGE: 'G', 'GORGÉ': 'G', Y: 'G', YES: 'G', OUI: 'G', '1': 'G', TRUE: 'G',
+  N: 'N', NON_GORGE: 'N', 'NON_GORGÉ': 'N', NO: 'N', NON: 'N', '0': 'N', FALSE: 'N',
+  GR: 'Gr', GRAVIDE: 'Gr',
+  SGR: 'SGr', SEMI_GRAVIDE: 'SGr',
+  NC: 'NC', NOT_COLLECTED: 'NC', NON_COLLECTE: 'NC',
 };
+
+// Mapping export SOP : parité interne (granulaire) -> binaire Pare/Nullipare
+const PARITE_SOP = { Nulle: 'NP', Paucie: 'P', Multi: 'P' };
+function toParietéSOP(parite) { return PARITE_SOP[parite] ?? ''; }
 
 /**
  * Normalise une valeur pour lookup dans les tables ci-dessus.
@@ -109,5 +129,6 @@ function cellValue(row, hMap, ...keys) {
 
 module.exports = {
   LIFESTAGE, SEX, COLLECTION_METHOD, PRESERVATIVE, ORGANISM_PART, BLOOD_MEAL,
+  PARITE_SOP, toParietéSOP,
   normalizeKey, parseScientificName, buildHeaderMap, cellValue,
 };

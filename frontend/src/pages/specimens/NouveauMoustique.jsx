@@ -8,6 +8,8 @@ import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
 import { Card } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
+import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
+import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
 
 export default function NouveauMoustique() {
   const navigate = useNavigate();
@@ -21,7 +23,7 @@ export default function NouveauMoustique() {
     sexe:           'inconnu',
     stade:          '',
     parite:         '',
-    repasSang:      false,
+    repasSang:      'N',
     organePreleve:  '',
     solutionId:     '',
     containerId:    '',
@@ -56,7 +58,7 @@ export default function NouveauMoustique() {
   // Larve / Œuf : pas de sexe, pas de parité, pas de repas sang
   // Sexe = inconnu : pas de parité (on ne paritè que les femelles)
   // Sexe = M       : pas de repas sang (un mâle ne se gorge pas)
-  const stadeImmature = form.stade === 'Larve' || form.stade === 'Oeuf';
+  const stadeImmature = form.stade === 'L' || form.stade === 'E';
   const sexeDisabled  = stadeImmature;
   const sexeForce     = stadeImmature ? 'inconnu' : form.sexe;
   const pariteDisabled = stadeImmature || sexeForce !== 'F';
@@ -68,7 +70,7 @@ export default function NouveauMoustique() {
       const next = { ...f };
       if (sexeDisabled && f.sexe !== 'inconnu') next.sexe = 'inconnu';
       if (pariteDisabled && f.parite)          next.parite = '';
-      if (repasSangDisabled && f.repasSang)    next.repasSang = false;
+      if (repasSangDisabled && f.repasSang !== 'N') next.repasSang = 'N';
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,7 +121,7 @@ export default function NouveauMoustique() {
   }));
   const solutionOptions  = solutions.map(s => ({ value: s.id, label: `${s.nom}${s.temperature ? ' (' + s.temperature + ')' : ''}` }));
   const sexeOptions    = [{ value:'M', label:'Mâle' }, { value:'F', label:'Femelle' }, { value:'inconnu', label:'Inconnu' }];
-  const stadeOptions   = [{ value:'Adulte', label:'Adulte' }, { value:'Nymphe', label:'Nymphe' }, { value:'Larve', label:'Larve' }, { value:'Oeuf', label:'Œuf' }];
+  const stadeOptions   = STADE_OPTIONS_MOUSTIQUE;
   const pariteOptions  = [{ value:'Nulle', label:'Nulle' }, { value:'Paucie', label:'Paucie' }, { value:'Multi', label:'Multi' }];
   const organeOptions  = [{ value:'Tête', label:'Tête' }, { value:'Thorax', label:'Thorax' }, { value:'Abdomen', label:'Abdomen' }, { value:'Entier', label:'Entier' }];
 
@@ -180,7 +182,7 @@ export default function NouveauMoustique() {
           {stadeImmature && (
             <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-xl flex items-start gap-2 text-xs text-info">
               <Info size={13} className="mt-0.5 flex-shrink-0" />
-              <span>Au stade <strong>{form.stade}</strong>, le sexe ne peut pas être déterminé — Sexe, Parité et Repas sang sont désactivés.</span>
+              <span>Au stade <strong>{formatStade(form.stade)}</strong>, le sexe ne peut pas être déterminé — Sexe, Parité et Repas sang sont désactivés.</span>
             </div>
           )}
           {!stadeImmature && form.sexe === 'M' && (
@@ -210,18 +212,11 @@ export default function NouveauMoustique() {
               value={form.organePreleve} onChange={handleChange}
               options={organeOptions} disabled={stadeImmature}
             />
-            <div className="flex items-center gap-3 pt-6">
-              <input
-                type="checkbox" id="repasSang" name="repasSang"
-                checked={form.repasSang} onChange={handleChange}
-                disabled={repasSangDisabled}
-                className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500 disabled:opacity-40"
-              />
-              <label htmlFor="repasSang" className={`text-sm cursor-pointer ${repasSangDisabled ? 'text-gray-300' : 'text-gray-600'}`}>
-                Repas de sang effectué
-                {repasSangDisabled && form.sexe === 'M' && <span className="text-xs text-gray-400 ml-2">(mâle)</span>}
-              </label>
-            </div>
+            <FormField label="Statut sanguin" name="repasSang" type="select"
+              value={form.repasSang} onChange={handleChange}
+              options={GORGEMENT_OPTIONS} disabled={repasSangDisabled}
+              hint={repasSangDisabled ? (form.sexe === 'M' ? 'Un mâle ne se gorge pas (mâle)' : 'Femelle adulte uniquement') : undefined}
+            />
           </div>
         </div>
 
@@ -313,7 +308,7 @@ export default function NouveauMoustique() {
                   {form.stade && (
                     <div>
                       <p className="text-fg-subtle mb-0.5">Stade</p>
-                      <p className="font-semibold text-fg">{form.stade}</p>
+                      <p className="font-semibold text-fg">{formatStade(form.stade)}</p>
                     </div>
                   )}
                   {form.parite && (
@@ -323,8 +318,8 @@ export default function NouveauMoustique() {
                     </div>
                   )}
                 </div>
-                {form.repasSang && (
-                  <p className="text-xs text-danger font-medium">Repas de sang : Oui</p>
+                {form.repasSang !== 'N' && (
+                  <p className="text-xs text-danger font-medium">Statut sanguin : {formatGorgement(form.repasSang)}</p>
                 )}
               </div>
             </Card>

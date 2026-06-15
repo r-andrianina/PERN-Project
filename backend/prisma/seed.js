@@ -147,6 +147,14 @@ async function main() {
     { code: 'PIEGE-CO2',nom: 'Piège CO2',                description: 'Piège à CO2 pour tiques et moustiques' },
     { code: 'PRISE-HOTE', nom: 'Collecte sur hôte',      description: 'Collecte directe d\'ectoparasites sur l\'animal' },
     { code: 'PIEGE-RG', nom: 'Piège à rongeurs',         description: 'Capture-vivant de rongeurs hôtes (Sherman, BTS)' },
+    { code: 'ZP-DP',    nom: 'Zebu Park / Dog Perk',     description: 'Collecte dans un enclos à zébus (Zebu Park) ou à chiens (Dog Perk)' },
+    { code: 'DN',       nom: 'Double Net',               description: 'Capture sans contact direct à l\'aide de deux moustiquaires' },
+    { code: 'NC',       nom: 'Net Catch',                description: 'Capture sur moustiquaires après une période de repos' },
+    { code: 'MHT',      nom: 'Puits Muirhead-Thomson',   description: 'Puits aménagé pour capture avec hôte protégé' },
+    { code: 'OVITRAP',  nom: 'Ovitrap',                  description: 'Piège-pondoir pour la collecte d\'œufs de moustiques (Aedes)' },
+    { code: 'ET',       nom: 'Lieu d\'élevage',          description: 'Site d\'élevage utilisé comme lieu de capture d\'insectes' },
+    { code: 'PYR',      nom: 'Pyrethrum Spray Catch',    description: 'Méthode chimique de capture des insectes à l\'intérieur des habitations' },
+    { code: 'AUTRE-METHODE', nom: 'Autre',               description: 'Méthode de capture non listée (code SOP : Other) — préciser en remarque' },
   ];
   for (const t of typesMethode) {
     await prisma.typeMethodeCollecte.upsert({

@@ -256,7 +256,7 @@ const importMoustiques = async (req, res) => {
 
     const stade        = LIFESTAGE[rawStade]  ?? null;
     const sexe         = SEX[rawSexe]         ?? 'inconnu';
-    const repasSang    = BLOOD_MEAL[rawBlood]  ?? false;
+    const repasSang    = BLOOD_MEAL[rawBlood]  ?? 'NC';
     const organePreleve = ORGANISM_PART[rawOrgane] ?? null;
     const solutionId   = await resolveSolution(rawPres);
 
