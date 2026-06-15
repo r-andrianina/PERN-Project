@@ -2,10 +2,10 @@
 // Tables de correspondance entre les valeurs Excel et les valeurs SpécimenManager
 
 const LIFESTAGE = {
-  ADULT: 'Adulte', ADULT_MALE: 'Adulte', ADULT_FEMALE: 'Adulte',
-  LARVA: 'Larve', LARVAE: 'Larve', L1: 'Larve', L2: 'Larve', L3: 'Larve', L4: 'Larve',
-  NYMPH: 'Nymphe', NYMPHAE: 'Nymphe', PUPA: 'Nymphe', PUPAL: 'Nymphe',
-  EGG: 'Oeuf', EGGS: 'Oeuf',
+  ADULT: 'A', ADULT_MALE: 'A', ADULT_FEMALE: 'A', A: 'A',
+  LARVA: 'L', LARVAE: 'L', L1: 'L', L2: 'L', L3: 'L', L4: 'L', L: 'L',
+  NYMPH: 'N', NYMPHAE: 'N', PUPA: 'N', PUPAL: 'N', N: 'N',
+  EGG: 'E', EGGS: 'E', E: 'E',
 };
 
 const SEX = {

@@ -132,6 +132,7 @@ model Mission {
   dateDebut     DateTime      @map("date_debut") @db.Date
   dateFin       DateTime?     @map("date_fin") @db.Date
   statut        StatutMission @default(planifiee)
+  objet         String?       @db.Text
   observations  String?       @db.Text
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
@@ -171,6 +172,9 @@ model Localite {
   district  String?  @db.VarChar(100)
   commune   String?  @db.VarChar(100)
   fokontany String?  @db.VarChar(100)
+  contactNom       String? @map("contact_nom")       @db.VarChar(150)
+  contactTelephone String? @map("contact_telephone") @db.VarChar(50)
+  contactStatut    String? @map("contact_statut")    @db.VarChar(100)
   latitude  Float?
   longitude Float?
   altitudeM Float?   @map("altitude_m")

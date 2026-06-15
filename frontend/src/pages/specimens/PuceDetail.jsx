@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, Badge, Button, PageHeader, Spinner, Select
 import SpecimenIcon from '../../components/SpecimenIcon';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
+import { STADE_OPTIONS_PUCE, formatStade } from '../../utils/stade';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
@@ -134,7 +135,7 @@ export default function PuceDetail() {
 
   const taxoOptions     = taxonomies.map(tx => ({ value: String(tx.id), label: tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom }));
   const solutionOptions = [{ value: '', label: '— Aucune —' }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
-  const stadeOptions    = [{ value: '', label: '—' }, ...['Adulte','Nymphe','Larve','Oeuf'].map(v => ({ value: v, label: v }))];
+  const stadeOptions    = [{ value: '', label: '—' }, ...STADE_OPTIONS_PUCE];
   const sexeOptions     = [{ value: 'M', label: 'Mâle' }, { value: 'F', label: 'Femelle' }, { value: 'inconnu', label: 'Inconnu' }];
 
   return (
@@ -197,7 +198,7 @@ export default function PuceDetail() {
                 </div>
                 <Field label="Sexe"><Badge tone={SEXE_TONE[p.sexe] ?? 'default'}>{SEXE_LABEL[p.sexe] ?? '—'}</Badge></Field>
                 <Field label="Nombre">{p.nombre}</Field>
-                {p.stade && <Field label="Stade">{p.stade}</Field>}
+                {p.stade && <Field label="Stade">{formatStade(p.stade)}</Field>}
               </div>
             )}
           </Card>

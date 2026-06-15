@@ -35,6 +35,7 @@ const FIELD_LABELS = {
   nombre: 'nombre', sexe: 'sexe', stade: 'stade', notes: 'notes',
   taxonomieId: 'taxonomie', solutionId: 'solution', dateCollecte: 'date de collecte',
   region: 'région', district: 'district', commune: 'commune', fokontany: 'fokontany',
+  contactNom: 'nom du contact local', contactTelephone: 'téléphone du contact local', contactStatut: 'statut du contact local',
   typeMethodeId: 'type de méthode', typeHabitatId: 'habitat', typeEnvironnementId: 'environnement',
 };
 

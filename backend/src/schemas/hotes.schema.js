@@ -16,6 +16,10 @@ const createHote = z.object({
 const updateHote = createHote
   .omit({ methodeId: true, taxonomieHoteId: true })
   .partial()
+  // Sous Zod v4, .partial() sur un champ .default() réinjecte la valeur par
+  // défaut pour les clés absentes — on retire .default() ici pour ne pas
+  // écraser silencieusement "sexe" lors d'une mise à jour partielle.
+  .extend({ sexe: z.enum(['M', 'F', 'inconnu']).optional() })
   .refine(d => Object.keys(d).length > 0, { message: 'Aucune modification fournie' });
 
 module.exports = { createHote, updateHote };

@@ -1,8 +1,9 @@
 // backend/src/utils/container.js
 // Helpers pour la gestion des containers (plaques 96 puits / boîtes 81 tubes).
 //
-// Code automatique : <P|B>_AAAAMM_n  où :
+// Code automatique : <P|B>_<n° mission>_AAAAMM_n  où :
 //   - P/B selon le type
+//   - n° mission = numéro extrait de l'ordre de mission (4 chiffres, padded)
 //   - AAAAMM = année et mois du début de la mission
 //   - n = compteur incrémental propre à la mission
 
@@ -40,7 +41,7 @@ function isValidPosition(type, position) {
   return false;
 }
 
-// Génère le code container P/B_AAAAMM_n
+// Génère le code container P/B_<n° mission>_AAAAMM_n
 async function generateContainerCode(type, missionId) {
   const mission = await prisma.mission.findUnique({ where: { id: parseInt(missionId) } });
   if (!mission) throw new Error('Mission introuvable');
@@ -48,17 +49,22 @@ async function generateContainerCode(type, missionId) {
   const yearMonth = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
   const prefix    = type === 'PLAQUE' ? 'P' : 'B';
 
+  const missionNumMatch = mission.ordreMission?.match(/^(\d+)/);
+  const missionNum = missionNumMatch
+    ? missionNumMatch[1].padStart(4, '0')
+    : String(mission.id).padStart(4, '0');
+
   // Compteur propre à la mission, peu importe le mois (1a)
-  const re = new RegExp(`^${prefix}_${yearMonth}_(\\d+)$`);
+  const re = new RegExp(`^${prefix}_${missionNum}_${yearMonth}_(\\d+)$`);
   const existing = await prisma.container.findMany({
-    where: { missionId: parseInt(missionId), type, code: { startsWith: `${prefix}_${yearMonth}_` } },
+    where: { missionId: parseInt(missionId), type, code: { startsWith: `${prefix}_${missionNum}_${yearMonth}_` } },
     select: { code: true },
   });
   const max = existing
     .map((c) => { const m = c.code.match(re); return m ? parseInt(m[1]) : 0; })
     .reduce((a, b) => Math.max(a, b), 0);
 
-  return `${prefix}_${yearMonth}_${max + 1}`;
+  return `${prefix}_${missionNum}_${yearMonth}_${max + 1}`;
 }
 
 // Renvoie les positions occupées d'un container avec le détail des spécimens

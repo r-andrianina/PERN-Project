@@ -29,6 +29,9 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
     district:  localite?.district  || '',
     commune:   localite?.commune   || '',
     fokontany: localite?.fokontany || '',
+    contactNom:       localite?.contactNom       || '',
+    contactTelephone: localite?.contactTelephone || '',
+    contactStatut:    localite?.contactStatut    || '',
     latitude:  localite?.latitude  ? String(localite.latitude)  : '',
     longitude: localite?.longitude ? String(localite.longitude) : '',
     altitudeM: localite?.altitudeM ? String(localite.altitudeM) : '',
@@ -203,6 +206,15 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
                   placeholder={altitudeLoading ? 'Calcul…' : '1200'}
                   disabled={altitudeLoading} />
               </div>
+
+              <div>
+                <p className="text-xs font-semibold text-fg-muted tracking-wide mb-2">Contact local</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField label="Nom" name="contactNom" value={form.contactNom} onChange={(e) => setForm({ ...form, contactNom: e.target.value })} />
+                  <FormField label="Téléphone" name="contactTelephone" value={form.contactTelephone} onChange={(e) => setForm({ ...form, contactTelephone: e.target.value })} />
+                  <FormField label="Statut" name="contactStatut" value={form.contactStatut} onChange={(e) => setForm({ ...form, contactStatut: e.target.value })} placeholder="ex: Chef fokontany" />
+                </div>
+              </div>
             </div>
 
             {/* ─── Colonne droite : carte alignée verticalement ─── */}
@@ -309,6 +321,13 @@ export default function MissionDetail() {
             </div>
           )}
         </div>
+
+        {mission.objet && (
+          <div className="mt-4 p-3.5 bg-primary/10 border border-primary/20 rounded-xl">
+            <p className="text-xs font-semibold text-primary mb-1">Objet de la mission</p>
+            <p className="text-sm text-primary">{mission.objet}</p>
+          </div>
+        )}
 
         {mission.observations && (
           <div className="mt-4 p-3.5 bg-warning/10 border border-warning/20 rounded-xl">

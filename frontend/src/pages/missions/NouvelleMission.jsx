@@ -9,6 +9,7 @@ import AgentMultiSelect from '../../components/AgentMultiSelect';
 const defaultLocalite = () => ({
   nom: '', toponyme: '', pays: 'Madagascar',
   region: '', district: '', commune: '', fokontany: '',
+  contactNom: '', contactTelephone: '', contactStatut: '',
   latitude: '', longitude: '', altitudeM: '',
 });
 
@@ -17,7 +18,7 @@ export default function NouvelleMission() {
 
   const [mission, setMission] = useState({
     ordreMission: '', projetId: '', chefMissionId: '',
-    dateDebut: '', dateFin: '', statut: 'planifiee', observations: '',
+    dateDebut: '', dateFin: '', statut: 'planifiee', objet: '', observations: '',
     agentIds: [],
   });
   const [localites, setLocalites]   = useState([defaultLocalite()]);
@@ -252,6 +253,13 @@ export default function NouvelleMission() {
             </div>
             <div className="md:col-span-2">
               <FormField
+                label="Objet de la mission" name="objet" type="textarea"
+                value={mission.objet} onChange={handleMissionChange}
+                placeholder="Objectif / cadre de la mission..."
+              />
+            </div>
+            <div className="md:col-span-2">
+              <FormField
                 label="Observations" name="observations" type="textarea"
                 value={mission.observations} onChange={handleMissionChange}
                 placeholder="Notes, contexte de la mission..."
@@ -390,6 +398,25 @@ export default function NouvelleMission() {
                       placeholder={altitudeLoading[index] ? 'Calcul…' : '1200'}
                       disabled={altitudeLoading[index]}
                     />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Contact local</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <FormField
+                        label="Nom" name="contactNom"
+                        value={loc.contactNom} onChange={(e) => handleLocaliteChange(index, e)}
+                      />
+                      <FormField
+                        label="Téléphone" name="contactTelephone"
+                        value={loc.contactTelephone} onChange={(e) => handleLocaliteChange(index, e)}
+                      />
+                      <FormField
+                        label="Statut" name="contactStatut"
+                        value={loc.contactStatut} onChange={(e) => handleLocaliteChange(index, e)}
+                        placeholder="ex: Chef fokontany"
+                      />
+                    </div>
                   </div>
                 </div>
 

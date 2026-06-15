@@ -77,7 +77,7 @@ const getCarte = async () => {
 };
 
 const create = async (data) => {
-  const { missionId, code, nom, toponyme, pays, region, district, commune, fokontany, latitude, longitude, altitudeM } = data;
+  const { missionId, code, nom, toponyme, pays, region, district, commune, fokontany, contactNom, contactTelephone, contactStatut, latitude, longitude, altitudeM } = data;
 
   const mission = await prisma.mission.findUnique({ where: { id: parseInt(missionId) } });
   if (!mission) throw AppError.notFound('Mission introuvable');
@@ -96,6 +96,9 @@ const create = async (data) => {
       district:   district   || null,
       commune:    commune    || null,
       fokontany:  fokontany  || null,
+      contactNom:       contactNom       || null,
+      contactTelephone: contactTelephone || null,
+      contactStatut:    contactStatut    || null,
       latitude:   latitude   ? parseFloat(latitude)  : null,
       longitude:  longitude  ? parseFloat(longitude) : null,
       altitudeM:  altitudeM  ? parseFloat(altitudeM) : null,
@@ -105,7 +108,7 @@ const create = async (data) => {
 };
 
 const update = async (id, data) => {
-  const { code, nom, toponyme, pays, region, district, commune, fokontany, latitude, longitude, altitudeM } = data;
+  const { code, nom, toponyme, pays, region, district, commune, fokontany, contactNom, contactTelephone, contactStatut, latitude, longitude, altitudeM } = data;
   const patch = {};
   if (nom       !== undefined) patch.nom       = nom.trim();
   if (toponyme  !== undefined) patch.toponyme  = toponyme;
@@ -114,6 +117,9 @@ const update = async (id, data) => {
   if (district  !== undefined) patch.district  = district;
   if (commune   !== undefined) patch.commune   = commune;
   if (fokontany !== undefined) patch.fokontany = fokontany;
+  if (contactNom       !== undefined) patch.contactNom       = contactNom       || null;
+  if (contactTelephone !== undefined) patch.contactTelephone = contactTelephone || null;
+  if (contactStatut    !== undefined) patch.contactStatut    = contactStatut    || null;
   if (latitude  !== undefined) patch.latitude  = latitude  ? parseFloat(latitude)  : null;
   if (longitude !== undefined) patch.longitude = longitude ? parseFloat(longitude) : null;
   if (altitudeM !== undefined) patch.altitudeM = altitudeM ? parseFloat(altitudeM) : null;

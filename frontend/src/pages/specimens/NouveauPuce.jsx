@@ -8,6 +8,7 @@ import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
 import { Card } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
+import { STADE_OPTIONS_PUCE, formatStade } from '../../utils/stade';
 
 export default function NouveauPuce() {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ export default function NouveauPuce() {
   };
 
   // ── Cascade : Stade larvaire/œuf → Sexe désactivé ──
-  const stadeImmature = form.stade === 'Larve' || form.stade === 'Oeuf';
+  const stadeImmature = form.stade === 'L' || form.stade === 'E';
   const sexeDisabled  = stadeImmature;
   const sexeForce     = stadeImmature ? 'inconnu' : form.sexe;
 
@@ -99,7 +100,7 @@ export default function NouveauPuce() {
   }));
   const solutionOptions  = solutions.map(s => ({ value: s.id, label: `${s.nom}${s.temperature ? ' (' + s.temperature + ')' : ''}` }));
   const sexeOptions  = [{ value:'M', label:'Mâle' }, { value:'F', label:'Femelle' }, { value:'inconnu', label:'Inconnu' }];
-  const stadeOptions = [{ value:'Adulte', label:'Adulte' }, { value:'Nymphe', label:'Nymphe' }, { value:'Larve', label:'Larve' }, { value:'Oeuf', label:'Œuf' }];
+  const stadeOptions = STADE_OPTIONS_PUCE;
 
   const selectedTaxo = taxonomies.find((t) => t.id === parseInt(form.taxonomieId));
   const selectedHote = hotes.find((h) => h.id === parseInt(form.hoteId));
@@ -160,7 +161,7 @@ export default function NouveauPuce() {
           {stadeImmature && (
             <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-xl flex items-start gap-2 text-xs text-info">
               <Info size={13} className="mt-0.5 flex-shrink-0" />
-              <span>Au stade <strong>{form.stade}</strong>, le sexe ne peut pas être déterminé.</span>
+              <span>Au stade <strong>{formatStade(form.stade)}</strong>, le sexe ne peut pas être déterminé.</span>
             </div>
           )}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -236,7 +237,7 @@ export default function NouveauPuce() {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div><p className="text-fg-subtle mb-0.5">Nombre</p><p className="font-semibold text-fg">{form.nombre || '—'}</p></div>
                   <div><p className="text-fg-subtle mb-0.5">Sexe</p><p className="font-semibold text-fg capitalize">{sexeForce === 'inconnu' ? '—' : sexeForce === 'M' ? 'Mâle' : 'Femelle'}</p></div>
-                  {form.stade && <div><p className="text-fg-subtle mb-0.5">Stade</p><p className="font-semibold text-fg">{form.stade}</p></div>}
+                  {form.stade && <div><p className="text-fg-subtle mb-0.5">Stade</p><p className="font-semibold text-fg">{formatStade(form.stade)}</p></div>}
                 </div>
                 {selectedHote && (
                   <div>

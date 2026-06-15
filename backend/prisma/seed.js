@@ -165,6 +165,9 @@ async function main() {
     { nom: 'Azote liquide', description: 'Cryoconservation long terme',     temperature: '-196°C' },
     { nom: 'Sec (épingle)', description: 'Conservation entomologique sèche', temperature: 'Ambiante' },
     { nom: 'Silica gel',    description: 'Dessiccation rapide',             temperature: 'Ambiante' },
+    { nom: 'Trizol', description: 'Stabilisation ARN (code SOP : TZ)', temperature: '-20°C' },
+    { nom: 'Dry',    description: 'Conservation à sec, hors épinglage (code SOP : D)', temperature: 'Ambiante' },
+    { nom: 'Autre',  description: 'Solution non listée (code SOP : Other) — préciser en remarque', temperature: null },
   ];
   for (const s of solutions) {
     await prisma.solutionConservation.upsert({

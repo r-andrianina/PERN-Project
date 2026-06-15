@@ -40,7 +40,7 @@ const getById = async (id) => {
 };
 
 const create = async (data) => {
-  const { ordreMission, projetId, chefMissionId, dateDebut, dateFin, statut, observations, agentIds } = data;
+  const { ordreMission, projetId, chefMissionId, dateDebut, dateFin, statut, objet, observations, agentIds } = data;
 
   if (Array.isArray(agentIds) && agentIds.length > 5)
     throw AppError.badRequest('Maximum 5 agents de terrain par mission');
@@ -59,6 +59,7 @@ const create = async (data) => {
       dateDebut:     new Date(dateDebut),
       dateFin:       dateFin ? new Date(dateFin) : null,
       statut:        statut || 'planifiee',
+      objet:         objet || null,
       observations:  observations || null,
       agents: agentIds?.length ? { create: agentIds.map(uid => ({ userId: parseInt(uid) })) } : undefined,
     },
@@ -67,7 +68,7 @@ const create = async (data) => {
 };
 
 const update = async (id, data) => {
-  const { chefMissionId, dateDebut, dateFin, statut, observations, agentIds } = data;
+  const { chefMissionId, dateDebut, dateFin, statut, objet, observations, agentIds } = data;
 
   if (Array.isArray(agentIds) && agentIds.length > 5)
     throw AppError.badRequest('Maximum 5 agents de terrain par mission');
@@ -77,6 +78,7 @@ const update = async (id, data) => {
   if (dateDebut)                   patch.dateDebut     = new Date(dateDebut);
   if (dateFin !== undefined)       patch.dateFin       = dateFin ? new Date(dateFin) : null;
   if (statut)                      patch.statut        = statut;
+  if (objet !== undefined)         patch.objet         = objet || null;
   if (observations !== undefined)  patch.observations  = observations;
 
   if (agentIds !== undefined) {
