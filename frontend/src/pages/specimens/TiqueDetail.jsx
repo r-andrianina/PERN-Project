@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft, Microscope, MapPin, FlaskConical, FileText,
-  Pencil, Trash2, Save, X, Bird,
+  ChevronLeft, Microscope, FlaskConical, FileText,
+  Pencil, Trash2, Save, X, MapPin, Beaker, Bird,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, CardHeader, CardTitle, Badge, Button, PageHeader, Spinner, Select } from '../../components/ui';
+import { Card, Badge, Button, PageHeader, Spinner, Select } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
@@ -25,6 +25,27 @@ function Field({ label, children }) {
     <div>
       <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-0.5">{label}</p>
       <div className="text-sm text-fg">{children}</div>
+    </div>
+  );
+}
+
+function SidebarRow({ label, children }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-1.5 border-b border-border last:border-0">
+      <span className="text-[11px] text-fg-subtle shrink-0">{label}</span>
+      <span className="text-[11px] text-fg font-medium text-right leading-relaxed">{children}</span>
+    </div>
+  );
+}
+
+function SidebarSection({ icon: Icon, iconClass, label, children }) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        {Icon && <Icon size={12} className={iconClass ?? 'text-fg-subtle'} />}
+        <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">{label}</p>
+      </div>
+      {children}
     </div>
   );
 }
@@ -49,15 +70,15 @@ export default function TiqueDetail() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
 
-  const [specimen, setSpecimen]     = useState(null);
-  const [solutions, setSolutions]   = useState([]);
+  const [specimen,   setSpecimen]   = useState(null);
+  const [solutions,  setSolutions]  = useState([]);
   const [taxonomies, setTaxonomies] = useState([]);
-  const [loadError, setLoadError]   = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [editing, setEditing]       = useState(false);
-  const [saving, setSaving]         = useState(false);
-  const [deleting, setDeleting]     = useState(false);
-  const [editForm, setEditForm]     = useState({});
+  const [loadError,  setLoadError]  = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [editing,    setEditing]    = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [deleting,   setDeleting]   = useState(false);
+  const [editForm,   setEditForm]   = useState({});
 
   useEffect(() => {
     Promise.all([
@@ -77,15 +98,15 @@ export default function TiqueDetail() {
   const startEdit = () => {
     const t = specimen;
     setEditForm({
-      taxonomieId:      String(t.taxonomieId),
-      nombre:           String(t.nombre),
-      sexe:             t.sexe,
-      stade:            t.stade || '',
-      gorge:            t.gorge,
-      partieCorpsHote:  t.partieCorpsHote || '',
-      solutionId:       t.solutionId ? String(t.solutionId) : '',
-      dateCollecte:     t.dateCollecte ? t.dateCollecte.split('T')[0] : '',
-      notes:            t.notes || '',
+      taxonomieId:     String(t.taxonomieId),
+      nombre:          String(t.nombre),
+      sexe:            t.sexe,
+      stade:           t.stade || '',
+      gorge:           t.gorge,
+      partieCorpsHote: t.partieCorpsHote || '',
+      solutionId:      t.solutionId ? String(t.solutionId) : '',
+      dateCollecte:    t.dateCollecte ? t.dateCollecte.split('T')[0] : '',
+      notes:           t.notes || '',
     });
     setEditing(true);
   };
@@ -131,9 +152,7 @@ export default function TiqueDetail() {
   if (loadError || !specimen) return (
     <div className="text-center py-20 space-y-3">
       <p className="text-fg-muted">{loadError || 'Spécimen introuvable.'}</p>
-      <Link to="/specimens/tiques" className="text-primary text-sm hover:underline">
-        ← Retour aux tiques
-      </Link>
+      <Link to="/specimens/tiques" className="text-primary text-sm hover:underline">← Retour aux tiques</Link>
     </div>
   );
 
@@ -143,6 +162,12 @@ export default function TiqueDetail() {
   const solutionOptions = [{ value: '', label: '— Aucune —' }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
   const stadeOptions    = [{ value: '', label: '—' }, ...STADE_OPTIONS_TIQUE];
   const sexeOptions     = [{ value: 'M', label: 'Mâle' }, { value: 'F', label: 'Femelle' }, { value: 'inconnu', label: 'Inconnu' }];
+
+  const loc                = t.methode?.localite;
+  const geoLabel           = [loc?.region, loc?.district, loc?.commune].filter(Boolean).join(' · ');
+  const methodeIdentifiant = t.methode?.typeMethode
+    ? `${t.methode.typeMethode.code}_${t.methode.numero ?? 1}`
+    : null;
 
   return (
     <div className="space-y-5">
@@ -154,25 +179,21 @@ export default function TiqueDetail() {
         icon={() => <SpecimenIcon type="tique" size={18} />}
         iconTone="specimen-tique"
         title={<span className="italic">{taxoLabel(t.taxonomie)}</span>}
-        subtitle={`Tique · #${t.id}`}
-        actions={
-          <div className="flex items-center gap-2">
-            {t.idTerrain && <Badge tone="primary" className="font-mono font-bold">{t.idTerrain}</Badge>}
-            <Badge tone="specimen-tique">Tique</Badge>
-          </div>
-        }
+        subtitle="Tique"
+        actions={null}
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr,220px] gap-5 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr,300px] gap-5 items-start">
 
-        {/* ── Colonne principale ── */}
+        {/* ══ Colonne principale ══ */}
         <div className="space-y-4">
 
           {/* Identification */}
           <Card>
-            <CardHeader>
-              <CardTitle icon={Microscope}>Identification</CardTitle>
-            </CardHeader>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+              <Microscope size={15} className="text-blue-500" />
+              <h2 className="text-sm font-semibold text-fg">Identification</h2>
+            </div>
 
             {editing ? (
               <div className="space-y-4">
@@ -226,12 +247,13 @@ export default function TiqueDetail() {
             )}
           </Card>
 
-          {/* Hôte */}
+          {/* Hôte associé */}
           {t.hote && (
             <Card>
-              <CardHeader>
-                <CardTitle icon={Bird}>Hôte associé</CardTitle>
-              </CardHeader>
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+                <Bird size={15} className="text-amber-500" />
+                <h2 className="text-sm font-semibold text-fg">Hôte associé</h2>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Espèce hôte">{t.hote.taxonomieHote?.nom || '—'}</Field>
                 {t.hote.nom && <Field label="Identifiant hôte">{t.hote.nom}</Field>}
@@ -239,40 +261,13 @@ export default function TiqueDetail() {
             </Card>
           )}
 
-          {/* Localisation */}
-          <Card>
-            <CardHeader>
-              <CardTitle icon={MapPin}>Localisation</CardTitle>
-            </CardHeader>
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-fg-muted">
-                <span className="font-medium text-fg">
-                  {t.methode?.localite?.mission?.projet?.code}
-                </span>
-                <span className="text-fg-subtle">›</span>
-                <span>{t.methode?.localite?.mission?.ordreMission}</span>
-                <span className="text-fg-subtle">›</span>
-                <span className="font-medium text-fg">{t.methode?.localite?.nom}</span>
+          {/* Conservation — mode édition uniquement */}
+          {editing && (
+            <Card>
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+                <FlaskConical size={15} className="text-purple-500" />
+                <h2 className="text-sm font-semibold text-fg">Conservation</h2>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                {t.methode?.localite?.region && (
-                  <Field label="Région">{t.methode.localite.region}</Field>
-                )}
-                {t.methode?.typeMethode && (
-                  <Field label="Méthode de collecte">
-                    {t.methode.typeMethode.code} — {t.methode.typeMethode.nom}
-                  </Field>
-                )}
-              </div>
-            </div>
-          </Card>
-
-          {/* Conservation */}
-          <Card>
-            <CardHeader>
-              <CardTitle icon={FlaskConical}>Conservation</CardTitle>
-            </CardHeader>
-            {editing ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <EditSelect label="Solution de conservation" value={editForm.solutionId}
                   onChange={e => setEditForm(f => ({ ...f, solutionId: e.target.value }))}
@@ -285,28 +280,16 @@ export default function TiqueDetail() {
                   />
                 </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <Field label="Solution">{t.solution?.nom || '—'}</Field>
-                {t.container && (
-                  <Field label="Container">
-                    <span className="font-mono">{t.container.code}</span>
-                    {t.position && <span className="text-fg-muted"> — pos. {t.position}</span>}
-                  </Field>
-                )}
-                <Field label="Date de collecte">
-                  {t.dateCollecte ? new Date(t.dateCollecte).toLocaleDateString('fr-FR') : '—'}
-                </Field>
-              </div>
-            )}
-          </Card>
+            </Card>
+          )}
 
           {/* Notes */}
           {(t.notes || editing) && (
             <Card>
-              <CardHeader>
-                <CardTitle icon={FileText}>Notes et observations</CardTitle>
-              </CardHeader>
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+                <FileText size={15} className="text-gray-400" />
+                <h2 className="text-sm font-semibold text-fg">Notes et observations</h2>
+              </div>
               {editing ? (
                 <textarea rows={4} value={editForm.notes}
                   onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
@@ -321,11 +304,12 @@ export default function TiqueDetail() {
 
         </div>
 
-        {/* ── Sidebar ── */}
-        <aside className="space-y-4 xl:sticky xl:top-4 self-start">
+        {/* ══ Sidebar ══ */}
+        <aside className="space-y-3 xl:sticky xl:top-4 self-start">
 
+          {/* Actions */}
           <Card padding="sm">
-            <p className="text-xs font-semibold text-fg uppercase tracking-wider mb-3">Actions</p>
+            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">Actions</p>
             <div className="space-y-2">
               {editing ? (
                 <>
@@ -336,9 +320,8 @@ export default function TiqueDetail() {
                 </>
               ) : (
                 <>
-                  <Button variant="outline" className="w-full justify-center" icon={Pencil} onClick={startEdit}>
-                    Modifier
-                  </Button>
+                  <Button variant="outline" className="w-full justify-center" icon={Pencil}
+                    onClick={startEdit}>Modifier</Button>
                   {isAdmin && (
                     <Button variant="danger" className="w-full justify-center" icon={Trash2}
                       loading={deleting} onClick={handleDelete}>Supprimer</Button>
@@ -348,25 +331,73 @@ export default function TiqueDetail() {
             </div>
           </Card>
 
-          <Card padding="sm" tone="muted">
-            <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-2">Métadonnées</p>
-            <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-fg-subtle">ID interne</span>
-                <span className="font-mono text-fg">#{t.id}</span>
+          {/* ID terrain */}
+          {t.idTerrain && (
+            <Card padding="sm" tone="primary">
+              <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-1">ID terrain</p>
+              <p className="font-mono font-bold text-primary text-sm">{t.idTerrain}</p>
+            </Card>
+          )}
+
+          {/* Localisation */}
+          <Card padding="sm">
+            <SidebarSection icon={MapPin} iconClass="text-danger" label="Localisation">
+              <div className="flex flex-wrap items-center gap-1 text-[11px] text-fg-muted mb-2">
+                <span className="font-semibold text-fg">
+                  {loc?.mission?.projet?.nom || loc?.mission?.projet?.code || '—'}
+                </span>
+                <span className="text-fg-subtle">›</span>
+                <span>{loc?.mission?.ordreMission || '—'}</span>
+                <span className="text-fg-subtle">›</span>
+                <span className="font-semibold text-fg">{loc?.fokontany || loc?.nom || '—'}</span>
               </div>
-              {t.idTerrain && (
-                <div className="flex justify-between">
-                  <span className="text-fg-subtle">ID terrain</span>
-                  <span className="font-mono font-bold text-primary">{t.idTerrain}</span>
+              {geoLabel && <p className="text-[11px] text-fg-subtle mb-3">{geoLabel}</p>}
+            </SidebarSection>
+
+            <div className="border-t border-border my-2.5" />
+
+            <SidebarSection icon={Beaker} iconClass="text-info" label="Méthode de collecte">
+              {t.methode?.typeMethode ? (
+                <div className="text-[11px] text-fg font-medium">
+                  <span>{t.methode.typeMethode.nom}</span>
+                  {methodeIdentifiant && (
+                    <>
+                      <span className="text-fg-subtle mx-1.5">|</span>
+                      <span className="font-mono text-primary">{methodeIdentifiant}</span>
+                    </>
+                  )}
                 </div>
+              ) : (
+                <span className="text-[11px] text-fg-subtle">—</span>
               )}
-              <div className="flex justify-between">
-                <span className="text-fg-subtle">Nombre</span>
-                <span className="font-medium text-fg">{t.nombre}</span>
-              </div>
-            </div>
+            </SidebarSection>
           </Card>
+
+          {/* Conservation */}
+          <Card padding="sm">
+            <SidebarSection icon={FlaskConical} iconClass="text-purple-500" label="Conservation">
+              <SidebarRow label="Solution">
+                {t.solution?.nom || <span className="text-fg-subtle">—</span>}
+              </SidebarRow>
+              <SidebarRow label="Container">
+                {t.container ? (
+                  <span>
+                    <span className="font-mono">{t.container.code}</span>
+                    {t.position && (
+                      <>
+                        <span className="text-fg-subtle mx-1">|</span>
+                        <span>Position : {t.position}</span>
+                      </>
+                    )}
+                  </span>
+                ) : <span className="text-fg-subtle">—</span>}
+              </SidebarRow>
+              <SidebarRow label="Date">
+                {t.dateCollecte ? new Date(t.dateCollecte).toLocaleDateString('fr-FR') : <span className="text-fg-subtle">—</span>}
+              </SidebarRow>
+            </SidebarSection>
+          </Card>
+
 
         </aside>
       </div>

@@ -86,20 +86,27 @@ export default function MoustiquesPage() {
 
           {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[800px]">
+            <table className="w-full text-sm min-w-[1000px]">
               <thead className="bg-surface-2 border-b border-border">
                 <tr>
-                  {['ID terrain', '#ID', 'Espèce', 'Nb', 'Sexe', 'Stade', 'Parité', 'Repas sang', 'Localité', 'Date'].map(h => (
+                  {['ID terrain', 'Genre / Espèce', 'Nb', 'Sexe', 'Stade', 'Parité', 'Repas sang', 'Échantillon', 'Solution', 'Méthode de collecte', 'Localité', 'Date'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-fg-muted tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {loading ? (
-                  <tr><td colSpan={10} className="text-center py-8 text-fg-subtle text-sm">Chargement…</td></tr>
+                  <tr><td colSpan={12} className="text-center py-8 text-fg-subtle text-sm">Chargement…</td></tr>
                 ) : moustiques.length === 0 ? (
-                  <tr><td colSpan={10} className="text-center py-8 text-fg-subtle text-sm">Aucun résultat pour « {debounced} »</td></tr>
-                ) : moustiques.map(m => (
+                  <tr><td colSpan={12} className="text-center py-8 text-fg-subtle text-sm">Aucun résultat pour « {debounced} »</td></tr>
+                ) : moustiques.map(m => {
+                  const loc = m.methode?.localite;
+                  const localiteLabel = [loc?.region, loc?.district, loc?.commune].filter(Boolean).join(' · ') || loc?.nom || null;
+                  const containerLabel = m.container
+                    ? `${m.container.code}${m.position ? ` · ${m.position}` : ''}`
+                    : null;
+
+                  return (
                   <tr key={m.id} className="hover:bg-primary/5 transition-colors cursor-pointer"
                     onClick={() => navigate(`/specimens/moustiques/${m.id}`)}>
                     <td className="px-4 py-3">
@@ -107,7 +114,6 @@ export default function MoustiquesPage() {
                         ? <Badge tone="primary" size="sm" className="font-mono font-bold">{m.idTerrain}</Badge>
                         : <span className="text-fg-subtle text-xs">—</span>}
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-fg-subtle">#{m.id}</td>
                     <td className="px-4 py-3 font-semibold text-fg italic">
                       {taxoLabel(m.taxonomie) || <span className="text-fg-subtle">—</span>}
                     </td>
@@ -120,14 +126,24 @@ export default function MoustiquesPage() {
                     <td className="px-4 py-3">
                       <Badge tone={['G', 'Gr'].includes(m.repasSang) ? 'danger' : 'default'}>{formatGorgement(m.repasSang)}</Badge>
                     </td>
-                    <td className="px-4 py-3 text-fg-muted text-xs max-w-32 truncate">
-                      {m.methode?.localite?.nom || <span className="text-fg-subtle">—</span>}
+                    <td className="px-4 py-3 font-mono text-xs text-fg-muted">
+                      {containerLabel ?? <span className="text-fg-subtle">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-fg-muted max-w-28 truncate" title={m.solution?.nom}>
+                      {m.solution?.nom ?? <span className="text-fg-subtle">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-fg-muted max-w-32 truncate" title={m.methode?.typeMethode?.nom}>
+                      {m.methode?.typeMethode?.nom ?? <span className="text-fg-subtle">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-fg-muted text-xs max-w-36 truncate" title={localiteLabel}>
+                      {localiteLabel ?? <span className="text-fg-subtle">—</span>}
                     </td>
                     <td className="px-4 py-3 text-fg-subtle text-xs whitespace-nowrap">
                       {m.dateCollecte ? new Date(m.dateCollecte).toLocaleDateString('fr-FR') : <span className="text-fg-subtle">—</span>}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

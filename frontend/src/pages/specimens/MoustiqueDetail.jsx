@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft, Microscope, MapPin, FlaskConical, FileText,
-  Pencil, Trash2, Save, X,
+  ChevronLeft, Microscope, FlaskConical, FileText,
+  Pencil, Trash2, Save, X, MapPin, Beaker,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, CardHeader, CardTitle, Badge, Button, PageHeader, Spinner, Select } from '../../components/ui';
+import { Card, Badge, Button, PageHeader, Spinner, Select } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
@@ -25,6 +25,27 @@ function Field({ label, children }) {
     <div>
       <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-0.5">{label}</p>
       <div className="text-sm text-fg">{children}</div>
+    </div>
+  );
+}
+
+function SidebarRow({ label, children }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-1.5 border-b border-border last:border-0">
+      <span className="text-[11px] text-fg-subtle shrink-0">{label}</span>
+      <span className="text-[11px] text-fg font-medium text-right leading-relaxed">{children}</span>
+    </div>
+  );
+}
+
+function SidebarSection({ icon: Icon, iconClass, label, children }) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        {Icon && <Icon size={12} className={iconClass ?? 'text-fg-subtle'} />}
+        <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">{label}</p>
+      </div>
+      {children}
     </div>
   );
 }
@@ -49,15 +70,15 @@ export default function MoustiqueDetail() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
 
-  const [specimen, setSpecimen]   = useState(null);
-  const [solutions, setSolutions] = useState([]);
+  const [specimen,   setSpecimen]   = useState(null);
+  const [solutions,  setSolutions]  = useState([]);
   const [taxonomies, setTaxonomies] = useState([]);
-  const [loadError, setLoadError] = useState(null);
-  const [loading, setLoading]     = useState(true);
-  const [editing, setEditing]     = useState(false);
-  const [saving, setSaving]       = useState(false);
-  const [deleting, setDeleting]   = useState(false);
-  const [editForm, setEditForm]   = useState({});
+  const [loadError,  setLoadError]  = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [editing,    setEditing]    = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [deleting,   setDeleting]   = useState(false);
+  const [editForm,   setEditForm]   = useState({});
 
   useEffect(() => {
     Promise.all([
@@ -114,13 +135,13 @@ export default function MoustiqueDetail() {
     try {
       const r = await api.put(`/moustiques/${id}`, {
         ...editForm,
-        taxonomieId: parseInt(editForm.taxonomieId),
-        nombre:      parseInt(editForm.nombre),
-        solutionId:  editForm.solutionId ? parseInt(editForm.solutionId) : null,
-        repasSang:   editForm.repasSang,
-        dateCollecte: editForm.dateCollecte || null,
-        stade:       editForm.stade || null,
-        parite:      editForm.parite || null,
+        taxonomieId:   parseInt(editForm.taxonomieId),
+        nombre:        parseInt(editForm.nombre),
+        solutionId:    editForm.solutionId ? parseInt(editForm.solutionId) : null,
+        repasSang:     editForm.repasSang,
+        dateCollecte:  editForm.dateCollecte || null,
+        stade:         editForm.stade || null,
+        parite:        editForm.parite || null,
         organePreleve: editForm.organePreleve || null,
       });
       setSpecimen(r.data.moustique);
@@ -151,9 +172,7 @@ export default function MoustiqueDetail() {
   if (loadError || !specimen) return (
     <div className="text-center py-20 space-y-3">
       <p className="text-fg-muted">{loadError || 'Spécimen introuvable.'}</p>
-      <Link to="/specimens/moustiques" className="text-primary text-sm hover:underline">
-        ← Retour aux moustiques
-      </Link>
+      <Link to="/specimens/moustiques" className="text-primary text-sm hover:underline">← Retour aux moustiques</Link>
     </div>
   );
 
@@ -163,12 +182,19 @@ export default function MoustiqueDetail() {
   const pariteDisabled = stadeImmature || sexeForce !== 'F';
   const repasSangOff   = stadeImmature || sexeForce !== 'F';
 
-  const taxoOptions    = taxonomies.map(t => ({ value: String(t.id), label: t.parent ? `${t.parent.nom} ${t.nom}` : t.nom }));
+  const taxoOptions     = taxonomies.map(t => ({ value: String(t.id), label: t.parent ? `${t.parent.nom} ${t.nom}` : t.nom }));
   const solutionOptions = [{ value: '', label: '— Aucune —' }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
-  const stadeOptions   = [{ value: '', label: '—' }, ...STADE_OPTIONS_MOUSTIQUE];
-  const sexeOptions    = [{ value: 'M', label: 'Mâle' }, { value: 'F', label: 'Femelle' }, { value: 'inconnu', label: 'Inconnu' }];
-  const pariteOptions  = [{ value: '', label: '—' }, ...['Nulle','Paucie','Multi'].map(v => ({ value: v, label: v }))];
-  const organeOptions  = [{ value: '', label: '—' }, ...['Tête','Thorax','Abdomen','Entier'].map(v => ({ value: v, label: v }))];
+  const stadeOptions    = [{ value: '', label: '—' }, ...STADE_OPTIONS_MOUSTIQUE];
+  const sexeOptions     = [{ value: 'M', label: 'Mâle' }, { value: 'F', label: 'Femelle' }, { value: 'inconnu', label: 'Inconnu' }];
+  const pariteOptions   = [{ value: '', label: '—' }, ...['Nulle', 'Paucie', 'Multi'].map(v => ({ value: v, label: v }))];
+  const organeOptions   = [{ value: '', label: '—' }, ...['Tête', 'Thorax', 'Abdomen', 'Entier'].map(v => ({ value: v, label: v }))];
+
+  // Données de localisation
+  const loc      = m.methode?.localite;
+  const geoLabel = [loc?.region, loc?.district, loc?.commune].filter(Boolean).join(' · ');
+  const methodeIdentifiant = m.methode?.typeMethode
+    ? `${m.methode.typeMethode.code}_${m.methode.numero ?? 1}`
+    : null;
 
   return (
     <div className="space-y-5">
@@ -180,27 +206,21 @@ export default function MoustiqueDetail() {
         icon={() => <SpecimenIcon type="moustique" size={18} />}
         iconTone="specimen-moustique"
         title={<span className="italic">{taxoLabel(m.taxonomie)}</span>}
-        subtitle={`Moustique · #${m.id}`}
-        actions={
-          <div className="flex items-center gap-2">
-            {m.idTerrain && (
-              <Badge tone="primary" className="font-mono font-bold">{m.idTerrain}</Badge>
-            )}
-            <Badge tone="specimen-moustique">Moustique</Badge>
-          </div>
-        }
+        subtitle="Moustique"
+        actions={null}
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr,220px] gap-5 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr,300px] gap-5 items-start">
 
-        {/* ── Colonne principale ── */}
+        {/* ══ Colonne principale ══ */}
         <div className="space-y-4">
 
           {/* Identification */}
           <Card>
-            <CardHeader>
-              <CardTitle icon={Microscope}>Identification</CardTitle>
-            </CardHeader>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+              <Microscope size={15} className="text-blue-500" />
+              <h2 className="text-sm font-semibold text-fg">Identification</h2>
+            </div>
 
             {editing ? (
               <div className="space-y-4">
@@ -210,15 +230,13 @@ export default function MoustiqueDetail() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
                     <label className="text-xs text-fg-subtle font-medium block mb-1">Nombre</label>
-                    <input type="number" min="1"
-                      value={editForm.nombre}
+                    <input type="number" min="1" value={editForm.nombre}
                       onChange={e => setEditForm(f => ({ ...f, nombre: e.target.value }))}
                       className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg"
                     />
                   </div>
                   <EditSelect label="Stade" value={editForm.stade}
-                    onChange={e => handleStadeChange(e.target.value)}
-                    options={stadeOptions} />
+                    onChange={e => handleStadeChange(e.target.value)} options={stadeOptions} />
                   <EditSelect label="Sexe" value={sexeForce}
                     onChange={e => handleSexeChange(e.target.value)}
                     options={sexeOptions} disabled={stadeImmature} />
@@ -242,7 +260,9 @@ export default function MoustiqueDetail() {
                     <span className="italic font-semibold text-specimen-moustique">{taxoLabel(m.taxonomie)}</span>
                   </Field>
                 </div>
-                <Field label="Sexe"><Badge tone={SEXE_TONE[m.sexe] ?? 'default'}>{SEXE_LABEL[m.sexe] ?? '—'}</Badge></Field>
+                <Field label="Sexe">
+                  <Badge tone={SEXE_TONE[m.sexe] ?? 'default'}>{SEXE_LABEL[m.sexe] ?? '—'}</Badge>
+                </Field>
                 <Field label="Nombre">{m.nombre}</Field>
                 {m.stade         && <Field label="Stade">{formatStade(m.stade)}</Field>}
                 {m.parite        && <Field label="Parité">{m.parite}</Field>}
@@ -254,79 +274,37 @@ export default function MoustiqueDetail() {
             )}
           </Card>
 
-          {/* Localisation */}
-          <Card>
-            <CardHeader>
-              <CardTitle icon={MapPin}>Localisation</CardTitle>
-            </CardHeader>
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-fg-muted">
-                <span className="font-medium text-fg">
-                  {m.methode?.localite?.mission?.projet?.nom || m.methode?.localite?.mission?.projet?.code}
-                </span>
-                <ChevronRight />
-                <span>{m.methode?.localite?.mission?.ordreMission}</span>
-                <ChevronRight />
-                <span className="font-medium text-fg">{m.methode?.localite?.nom}</span>
+          {/* Conservation — visible en mode édition uniquement */}
+          {editing && (
+            <Card>
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+                <FlaskConical size={15} className="text-purple-500" />
+                <h2 className="text-sm font-semibold text-fg">Conservation</h2>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                {m.methode?.localite?.region && (
-                  <Field label="Région">{m.methode.localite.region}</Field>
-                )}
-                {m.methode?.typeMethode && (
-                  <Field label="Méthode de collecte">
-                    {m.methode.typeMethode.code} — {m.methode.typeMethode.nom}
-                  </Field>
-                )}
-              </div>
-            </div>
-          </Card>
-
-          {/* Conservation */}
-          <Card>
-            <CardHeader>
-              <CardTitle icon={FlaskConical}>Conservation</CardTitle>
-            </CardHeader>
-            {editing ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <EditSelect label="Solution de conservation" value={editForm.solutionId}
                   onChange={e => setEditForm(f => ({ ...f, solutionId: e.target.value }))}
                   options={solutionOptions} />
                 <div>
                   <label className="text-xs text-fg-subtle font-medium block mb-1">Date de collecte</label>
-                  <input type="date"
-                    value={editForm.dateCollecte}
+                  <input type="date" value={editForm.dateCollecte}
                     onChange={e => setEditForm(f => ({ ...f, dateCollecte: e.target.value }))}
                     className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg"
                   />
                 </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <Field label="Solution">{m.solution?.nom || '—'}</Field>
-                {m.container && (
-                  <Field label="Container">
-                    <span className="font-mono">{m.container.code}</span>
-                    {m.position && <span className="text-fg-muted"> — pos. {m.position}</span>}
-                  </Field>
-                )}
-                <Field label="Date de collecte">
-                  {m.dateCollecte ? new Date(m.dateCollecte).toLocaleDateString('fr-FR') : '—'}
-                </Field>
-              </div>
-            )}
-          </Card>
+            </Card>
+          )}
 
           {/* Notes */}
           {(m.notes || editing) && (
             <Card>
-              <CardHeader>
-                <CardTitle icon={FileText}>Notes et observations</CardTitle>
-              </CardHeader>
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+                <FileText size={15} className="text-gray-400" />
+                <h2 className="text-sm font-semibold text-fg">Notes et observations</h2>
+              </div>
               {editing ? (
-                <textarea
-                  rows={4}
-                  value={editForm.notes}
+                <textarea rows={4} value={editForm.notes}
                   onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
                   placeholder="Observations particulières…"
                   className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg resize-none"
@@ -339,67 +317,108 @@ export default function MoustiqueDetail() {
 
         </div>
 
-        {/* ── Sidebar ── */}
-        <aside className="space-y-4 xl:sticky xl:top-4 self-start">
+        {/* ══ Sidebar ══ */}
+        <aside className="space-y-3 xl:sticky xl:top-4 self-start">
 
           {/* Actions */}
           <Card padding="sm">
-            <p className="text-xs font-semibold text-fg uppercase tracking-wider mb-3">Actions</p>
+            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">Actions</p>
             <div className="space-y-2">
               {editing ? (
                 <>
                   <Button variant="primary" className="w-full justify-center" icon={Save}
-                    loading={saving} onClick={handleSave}>
-                    Enregistrer
-                  </Button>
+                    loading={saving} onClick={handleSave}>Enregistrer</Button>
                   <Button variant="secondary" className="w-full justify-center" icon={X}
-                    onClick={() => setEditing(false)} disabled={saving}>
-                    Annuler
-                  </Button>
+                    onClick={() => setEditing(false)} disabled={saving}>Annuler</Button>
                 </>
               ) : (
                 <>
-                  <Button variant="outline" className="w-full justify-center" icon={Pencil} onClick={startEdit}>
-                    Modifier
-                  </Button>
+                  <Button variant="outline" className="w-full justify-center" icon={Pencil}
+                    onClick={startEdit}>Modifier</Button>
                   {isAdmin && (
                     <Button variant="danger" className="w-full justify-center" icon={Trash2}
-                      loading={deleting} onClick={handleDelete}>
-                      Supprimer
-                    </Button>
+                      loading={deleting} onClick={handleDelete}>Supprimer</Button>
                   )}
                 </>
               )}
             </div>
           </Card>
 
-          {/* Métadonnées */}
-          <Card padding="sm" tone="muted">
-            <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-2">Métadonnées</p>
-            <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-fg-subtle">ID interne</span>
-                <span className="font-mono text-fg">#{m.id}</span>
+          {/* ID terrain */}
+          {m.idTerrain && (
+            <Card padding="sm" tone="primary">
+              <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-1">ID terrain</p>
+              <p className="font-mono font-bold text-primary text-sm">{m.idTerrain}</p>
+            </Card>
+          )}
+
+          {/* Localisation */}
+          <Card padding="sm">
+            <SidebarSection icon={MapPin} iconClass="text-danger" label="Localisation">
+              {/* Fil d'Ariane */}
+              <div className="flex flex-wrap items-center gap-1 text-[11px] text-fg-muted mb-2">
+                <span className="font-semibold text-fg">
+                  {loc?.mission?.projet?.nom || loc?.mission?.projet?.code || '—'}
+                </span>
+                <span className="text-fg-subtle">›</span>
+                <span>{loc?.mission?.ordreMission || '—'}</span>
+                <span className="text-fg-subtle">›</span>
+                <span className="font-semibold text-fg">{loc?.fokontany || loc?.nom || '—'}</span>
               </div>
-              {m.idTerrain && (
-                <div className="flex justify-between">
-                  <span className="text-fg-subtle">ID terrain</span>
-                  <span className="font-mono font-bold text-primary">{m.idTerrain}</span>
-                </div>
+              {/* Région · District · Commune */}
+              {geoLabel && (
+                <p className="text-[11px] text-fg-subtle mb-3">{geoLabel}</p>
               )}
-              <div className="flex justify-between">
-                <span className="text-fg-subtle">Nombre</span>
-                <span className="font-medium text-fg">{m.nombre}</span>
-              </div>
-            </div>
+            </SidebarSection>
+
+            <div className="border-t border-border my-2.5" />
+
+            {/* Méthode de collecte */}
+            <SidebarSection icon={Beaker} iconClass="text-info" label="Méthode de collecte">
+              {m.methode?.typeMethode ? (
+                <div className="text-[11px] text-fg font-medium">
+                  <span>{m.methode.typeMethode.nom}</span>
+                  {methodeIdentifiant && (
+                    <>
+                      <span className="text-fg-subtle mx-1.5">|</span>
+                      <span className="font-mono text-primary">{methodeIdentifiant}</span>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <span className="text-[11px] text-fg-subtle">—</span>
+              )}
+            </SidebarSection>
           </Card>
+
+          {/* Conservation */}
+          <Card padding="sm">
+            <SidebarSection icon={FlaskConical} iconClass="text-purple-500" label="Conservation">
+              <SidebarRow label="Solution">
+                {m.solution?.nom || <span className="text-fg-subtle">—</span>}
+              </SidebarRow>
+              <SidebarRow label="Container">
+                {m.container ? (
+                  <span>
+                    <span className="font-mono">{m.container.code}</span>
+                    {m.position && (
+                      <>
+                        <span className="text-fg-subtle mx-1">|</span>
+                        <span>Position : {m.position}</span>
+                      </>
+                    )}
+                  </span>
+                ) : <span className="text-fg-subtle">—</span>}
+              </SidebarRow>
+              <SidebarRow label="Date">
+                {m.dateCollecte ? new Date(m.dateCollecte).toLocaleDateString('fr-FR') : <span className="text-fg-subtle">—</span>}
+              </SidebarRow>
+            </SidebarSection>
+          </Card>
+
 
         </aside>
       </div>
     </div>
   );
-}
-
-function ChevronRight() {
-  return <span className="text-fg-subtle">›</span>;
 }

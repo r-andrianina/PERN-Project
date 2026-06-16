@@ -53,7 +53,7 @@ const getById = async (id) => {
 };
 
 const create = async (data) => {
-  const { localiteId, typeMethodeId, typeHabitatId, typeEnvironnementId, latitude, longitude, dateCollecte, heureDebut, heureFin, notes } = data;
+  const { localiteId, typeMethodeId, numero, typeHabitatId, typeEnvironnementId, latitude, longitude, dateCollecte, heureDebut, heureFin, notes } = data;
 
   const [localite, typeMethode] = await Promise.all([
     prisma.localite.findUnique({ where: { id: parseInt(localiteId) } }),
@@ -67,6 +67,7 @@ const create = async (data) => {
     data: {
       localiteId:          parseInt(localiteId),
       typeMethodeId:       parseInt(typeMethodeId),
+      numero:              numero ? parseInt(numero) : 1,
       typeHabitatId:       typeHabitatId       ? parseInt(typeHabitatId)       : null,
       typeEnvironnementId: typeEnvironnementId ? parseInt(typeEnvironnementId) : null,
       latitude:            latitude     ? parseFloat(latitude)  : null,
@@ -81,9 +82,10 @@ const create = async (data) => {
 };
 
 const update = async (id, data) => {
-  const { typeMethodeId, typeHabitatId, typeEnvironnementId, latitude, longitude, dateCollecte, heureDebut, heureFin, notes } = data;
+  const { typeMethodeId, numero, typeHabitatId, typeEnvironnementId, latitude, longitude, dateCollecte, heureDebut, heureFin, notes } = data;
   const patch = {};
   if (typeMethodeId       !== undefined) patch.typeMethodeId       = typeMethodeId       ? parseInt(typeMethodeId)       : null;
+  if (numero              !== undefined) patch.numero              = numero ? parseInt(numero) : 1;
   if (typeHabitatId       !== undefined) patch.typeHabitatId       = typeHabitatId       ? parseInt(typeHabitatId)       : null;
   if (typeEnvironnementId !== undefined) patch.typeEnvironnementId = typeEnvironnementId ? parseInt(typeEnvironnementId) : null;
   if (latitude            !== undefined) patch.latitude            = latitude     ? parseFloat(latitude)  : null;

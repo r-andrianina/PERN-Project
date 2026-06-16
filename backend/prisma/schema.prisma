@@ -197,6 +197,7 @@ model MethodeCollecte {
   id                  Int       @id @default(autoincrement())
   localiteId          Int       @map("localite_id")
   typeMethodeId       Int       @map("type_methode_id")
+  numero              Int       @default(1)
   typeHabitatId       Int?      @map("type_habitat_id")
   typeEnvironnementId Int?      @map("type_environnement_id")
   latitude            Float?

@@ -14,12 +14,12 @@ const { BLOOD_MEAL, normalizeKey } = require('../utils/importMappings');
 const includeBase = {
   methode: {
     select: {
-      id: true,
+      id: true, numero: true,
       typeMethode: { select: { id: true, code: true, nom: true } },
       localite: {
         select: {
-          id: true, nom: true, region: true,
-          mission: { select: { id: true, ordreMission: true, projet: { select: { code: true } } } },
+          id: true, nom: true, fokontany: true, region: true, district: true, commune: true,
+          mission: { select: { id: true, ordreMission: true, projet: { select: { code: true, nom: true } } } },
         },
       },
     },
