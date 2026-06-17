@@ -51,12 +51,12 @@ services:
       - ./fokontany:/app/fokontany:ro
 
   # ── Nginx : sert React + reverse proxy vers backend ───────────
+  # Le frontend est pré-compilé localement (npm run build) puis transféré
+  # sur le NAS. Dockerfile.dist copie simplement le dist/ dans nginx.
   nginx:
     build:
       context: .
-      dockerfile: frontend/Dockerfile
-      args:
-        VITE_API_URL: /api/v1
+      dockerfile: frontend/Dockerfile.dist
     container_name: sm_nginx
     restart: unless-stopped
     ports:

@@ -16,6 +16,12 @@ COPY . .
 # Générer le Prisma Client (compilation JS, ne touche pas la base)
 RUN npx prisma generate
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
+
+CMD ["/entrypoint.sh"]

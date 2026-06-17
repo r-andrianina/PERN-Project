@@ -51,3 +51,6 @@ uploads/
 # Données géospatiales externes (shapefile fokontany — ~33 MB)
 # Réimport via : node backend/scripts/import-fokontany.js
 fokontany/
+
+# Credentials de déploiement (ne jamais committer)
+deploy.env

@@ -7,6 +7,7 @@ const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
 
+app.set('trust proxy', 1); // derrière nginx
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
 app.use(express.json());
@@ -38,8 +39,6 @@ app.use('/api/v1/dictionnaire/solutions-conservation', require('./routes/diction
 app.use('/api/v1/dictionnaire/types-environnement',    require('./routes/dictionnaire/typesEnvironnement.routes'));
 app.use('/api/v1/dictionnaire/types-habitat',          require('./routes/dictionnaire/typesHabitat.routes'));
 app.use('/api/v1/dictionnaire/audit-logs',             require('./routes/dictionnaire/auditLogs.routes'));
-
-app.use('/api/v1/notifications', require('./routes/notifications.routes'));
 
 app.use('/api/v1/recherche',  require('./routes/recherche.routes'));
 app.use('/api/v1/import',     require('./routes/import.routes'));
