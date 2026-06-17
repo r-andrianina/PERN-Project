@@ -134,13 +134,57 @@ Write-Host "`n=== [3/4] Migrations ===" -ForegroundColor Cyan
 $m1 = @'
 #!/bin/sh
 D=/volume1/docker/specimenmanager/backend/prisma/migrations
+mkdir -p $D/20260613000000_audit_log_notifications
+cat > $D/20260613000000_audit_log_notifications/migration.sql << 'SQL'
+ALTER TYPE "AuditAction" ADD VALUE 'READ';
+ALTER TABLE "audit_logs" ADD COLUMN "is_read" BOOLEAN NOT NULL DEFAULT false;
+CREATE INDEX "audit_logs_is_read_idx" ON "audit_logs"("is_read");
+SQL
+echo "Migration 20260613000000 OK"
+'@
+Invoke-NasScript -Content $m1 -Name "m1.sh"
+
+$m2 = @'
+#!/bin/sh
+D=/volume1/docker/specimenmanager/backend/prisma/migrations
+mkdir -p $D/20260614203725_statut_sanguin_sop
+cat > $D/20260614203725_statut_sanguin_sop/migration.sql << 'SQL'
+ALTER TABLE "moustiques" ALTER COLUMN "repas_sang" DROP DEFAULT;
+ALTER TABLE "moustiques" ALTER COLUMN "repas_sang" TYPE VARCHAR(3) USING (CASE WHEN "repas_sang" THEN 'G' ELSE 'N' END);
+ALTER TABLE "moustiques" ALTER COLUMN "repas_sang" SET DEFAULT 'N';
+ALTER TABLE "tiques" ALTER COLUMN "gorge" DROP DEFAULT;
+ALTER TABLE "tiques" ALTER COLUMN "gorge" TYPE VARCHAR(3) USING (CASE WHEN "gorge" THEN 'G' ELSE 'N' END);
+ALTER TABLE "tiques" ALTER COLUMN "gorge" SET DEFAULT 'N';
+SQL
+echo "Migration 20260614203725 OK"
+'@
+Invoke-NasScript -Content $m2 -Name "m2.sh"
+
+$m3 = @'
+#!/bin/sh
+D=/volume1/docker/specimenmanager/backend/prisma/migrations
+mkdir -p $D/20260614212648_sop_p0_alignment
+cat > $D/20260614212648_sop_p0_alignment/migration.sql << 'SQL'
+ALTER TABLE "missions" ADD COLUMN "objet" TEXT;
+ALTER TABLE "localites" ADD COLUMN "contact_nom" VARCHAR(150), ADD COLUMN "contact_telephone" VARCHAR(50), ADD COLUMN "contact_statut" VARCHAR(100);
+UPDATE "moustiques" SET "stade" = CASE "stade" WHEN 'Adulte' THEN 'A' WHEN 'Nymphe' THEN 'N' WHEN 'Larve' THEN 'L' WHEN 'Oeuf' THEN 'E' ELSE "stade" END WHERE "stade" IS NOT NULL;
+UPDATE "tiques" SET "stade" = CASE "stade" WHEN 'Adulte' THEN 'A' WHEN 'Nymphe' THEN 'N' WHEN 'Larve' THEN 'L' WHEN 'Oeuf' THEN 'E' ELSE "stade" END WHERE "stade" IS NOT NULL;
+UPDATE "puces" SET "stade" = CASE "stade" WHEN 'Adulte' THEN 'A' WHEN 'Nymphe' THEN 'N' WHEN 'Larve' THEN 'L' WHEN 'Oeuf' THEN 'E' ELSE "stade" END WHERE "stade" IS NOT NULL;
+SQL
+echo "Migration 20260614212648 OK"
+'@
+Invoke-NasScript -Content $m3 -Name "m3.sh"
+
+$m4 = @'
+#!/bin/sh
+D=/volume1/docker/specimenmanager/backend/prisma/migrations
 mkdir -p $D/20260616000000_add_numero_methode
 cat > $D/20260616000000_add_numero_methode/migration.sql << 'SQL'
 ALTER TABLE "methodes_collecte" ADD COLUMN "numero" INTEGER NOT NULL DEFAULT 1;
 SQL
 echo "Migration 20260616000000 OK"
 '@
-Invoke-NasScript -Content $m1 -Name "m1.sh"
+Invoke-NasScript -Content $m4 -Name "m4.sh"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. Rebuild Docker + déploiement (migrations appliquées via entrypoint.sh)
