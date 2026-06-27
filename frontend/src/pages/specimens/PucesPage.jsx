@@ -4,6 +4,7 @@ import { Plus, Download, Search, X } from 'lucide-react';
 import { Card, Button, Badge, EmptyState, PageHeader, Spinner, Pagination } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
 import SpecimenIcon from '../../components/SpecimenIcon';
+import { taxoLabel } from '../../utils/taxoLabel';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
@@ -29,7 +30,6 @@ export default function PucesPage() {
   const total = data?.total  ?? 0;
   const pages = data?.pages  ?? 1;
 
-  const taxoLabel = (t) => t ? `${t.parent?.nom ? t.parent.nom + ' ' : ''}${t.nom}` : '';
 
   return (
     <div className="space-y-5">

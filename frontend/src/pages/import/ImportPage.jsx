@@ -32,6 +32,7 @@ const CODE_LABELS = {
   METHODE_MATCHEE_FUZZY:    'Méthode trouvée par nom',
   TYPE_METHODE_INTROUVABLE: 'Type méthode absent du référentiel',
   TEMOIN_H12:               'Témoin H12 (SOP)',
+  TAXO_NIVEAU_GENRE:        'Espèce non trouvée (genre seul)',
 };
 
 function DropZone({ onFile, disabled }) {

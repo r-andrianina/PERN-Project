@@ -423,16 +423,24 @@ const importMoustiques = async (req, res) => {
             parent: { nom: { equals: genus, mode: 'insensitive' }, niveau: 'genre' },
             actif: true,
           },
-          select: { id: true },
+          select: { id: true, niveau: true },
         });
       }
       if (!t && genus) {
         t = await prisma.taxonomieSpecimen.findFirst({
           where: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' }, actif: true },
-          select: { id: true },
+          select: { id: true, niveau: true },
         });
       }
       taxoCache.set(taxoKey, t);
+      // Avertissement unique par nom scientifique quand on tombe au niveau genre
+      if (t?.niveau === 'genre') {
+        logs.push({
+          ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'avertissement',
+          code: 'TAXO_NIVEAU_GENRE',
+          raison: `"${sciName}" résolu au genre uniquement — espèce "${species ?? '(absente)'}" introuvable dans le dictionnaire`,
+        });
+      }
     }
     const taxo = taxoCache.get(taxoKey);
     if (!taxo) {

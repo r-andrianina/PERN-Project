@@ -11,14 +11,11 @@ import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
+import { taxoLabel as _taxoLabel } from '../../utils/taxoLabel';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
-
-function taxoLabel(t) {
-  if (!t) return '—';
-  return `${t.parent?.nom ? t.parent.nom + ' ' : ''}${t.nom}`;
-}
+const taxoLabel  = (t) => t ? _taxoLabel(t) : '—';
 
 function Field({ label, children }) {
   return (
