@@ -33,6 +33,7 @@ const ACTION_VERBS = {
 const FIELD_LABELS = {
   nom: 'nom', code: 'code', actif: 'statut', description: 'description',
   nombre: 'nombre', sexe: 'sexe', stade: 'stade', notes: 'notes',
+  role: 'rôle', capacity: 'capacité', type: 'type',
   taxonomieId: 'taxonomie', solutionId: 'solution', dateCollecte: 'date de collecte',
   region: 'région', district: 'district', commune: 'commune', fokontany: 'fokontany',
   contactNom: 'nom du contact local', contactTelephone: 'téléphone du contact local', contactStatut: 'statut du contact local',
@@ -82,6 +83,31 @@ export function formatNotificationText(item) {
   }
 
   return `${author} ${verb} ${target}${detail}`;
+}
+
+/** Résout l'URL de navigation pour une entrée audit_log.
+ *  Retourne null si l'entité n'a pas de page dédiée. */
+export function resolveEntityUrl(entity, entityId, action) {
+  const isDelete = action === 'DELETE';
+  const urls = {
+    Moustique:            isDelete ? '/specimens/moustiques'  : `/specimens/moustiques/${entityId}`,
+    Tique:                isDelete ? '/specimens/tiques'      : `/specimens/tiques/${entityId}`,
+    Puce:                 isDelete ? '/specimens/puces'       : `/specimens/puces/${entityId}`,
+    Mission:              isDelete ? '/missions'              : `/missions/${entityId}`,
+    Projet:               isDelete ? '/projets'               : `/projets/${entityId}`,
+    Hote:                 '/hotes',
+    Container:            '/missions',
+    MethodeCollecte:      '/methodes',
+    Localite:             '/missions',
+    TaxonomieSpecimen:    '/dictionnaire/taxonomie-specimens',
+    TaxonomieHote:        '/dictionnaire/taxonomie-hotes',
+    TypeMethodeCollecte:  '/dictionnaire/types-methode',
+    SolutionConservation: '/dictionnaire/solutions-conservation',
+    TypeEnvironnement:    '/dictionnaire/types-environnement',
+    TypeHabitat:          '/dictionnaire/types-habitat',
+    User:                 '/utilisateurs',
+  };
+  return urls[entity] ?? null;
 }
 
 /** Formate une date en "Aujourd'hui à 14h32", "Hier à 09h15" ou date complète. */

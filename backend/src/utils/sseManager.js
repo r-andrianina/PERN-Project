@@ -1,0 +1,34 @@
+// backend/src/utils/sseManager.js
+// Registre en mémoire des connexions SSE actives, indexées par userId.
+// Un même utilisateur peut avoir plusieurs onglets ouverts (Set par userId).
+
+const clients = new Map(); // Map<userId, Set<res>>
+
+function addClient(userId, res) {
+  if (!clients.has(userId)) clients.set(userId, new Set());
+  clients.get(userId).add(res);
+}
+
+function removeClient(userId, res) {
+  const set = clients.get(userId);
+  if (!set) return;
+  set.delete(res);
+  if (set.size === 0) clients.delete(userId);
+}
+
+// Envoie un événement SSE à tous les clients connectés sauf l'acteur.
+// excludeUserId = null → tout le monde reçoit l'événement (action système).
+function broadcast(excludeUserId, eventName, data) {
+  const payload = `event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const [userId, responses] of clients) {
+    if (userId === excludeUserId) continue;
+    const dead = [];
+    for (const res of responses) {
+      try { res.write(payload); } catch { dead.push(res); }
+    }
+    // Nettoie les connexions mortes (navigateur fermé sans close event)
+    dead.forEach(res => removeClient(userId, res));
+  }
+}
+
+module.exports = { addClient, removeClient, broadcast };

@@ -3,6 +3,7 @@
 const bcrypt = require('bcryptjs');
 const jwt    = require('jsonwebtoken');
 const prisma = require('../config/prisma');
+const { logAudit, ACTIONS } = require('../utils/audit');
 
 const ROLES_VALIDES     = ['admin', 'chercheur', 'technicien', 'lecteur'];
 const SPECIMENS_VALIDES = ['moustique', 'tique', 'puce'];
@@ -162,6 +163,7 @@ const createUser = async (req, res) => {
       },
       select: USER_SELECT,
     });
+    await logAudit({ req, action: ACTIONS.CREATE, entity: 'User', entityId: user.id, newValues: { nom: user.nom, prenom: user.prenom, email: user.email, role: user.role } });
     return res.status(201).json({ message: 'Utilisateur créé avec succès', user });
   } catch (err) {
     console.error('Erreur createUser :', err.message);
@@ -194,7 +196,9 @@ const updateUser = async (req, res) => {
       const conflict = await prisma.user.findFirst({ where: { email: data.email, NOT: { id } } });
       if (conflict) return res.status(409).json({ error: 'Email déjà utilisé par un autre compte' });
     }
+    const before = await prisma.user.findUnique({ where: { id }, select: { nom: true, prenom: true, email: true, role: true } });
     const user = await prisma.user.update({ where: { id }, data, select: USER_SELECT });
+    await logAudit({ req, action: ACTIONS.UPDATE, entity: 'User', entityId: id, oldValues: before, newValues: { nom: user.nom, prenom: user.prenom, email: user.email, role: user.role } });
     return res.json({ message: 'Utilisateur mis à jour', user });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Utilisateur introuvable' });
@@ -225,7 +229,12 @@ const activateUser = async (req, res) => {
     return res.status(400).json({ error: 'Aucune modification fournie (actif ou role attendu)' });
 
   try {
-    const user = await prisma.user.update({ where: { id }, data, select: USER_SELECT });
+    const before = await prisma.user.findUnique({ where: { id }, select: { actif: true, role: true } });
+    const user   = await prisma.user.update({ where: { id }, data, select: USER_SELECT });
+    const action = typeof actif === 'boolean'
+      ? (actif ? ACTIONS.ACTIVATE : ACTIONS.DEACTIVATE)
+      : ACTIONS.UPDATE;
+    await logAudit({ req, action, entity: 'User', entityId: id, oldValues: before, newValues: { nom: user.nom, prenom: user.prenom, actif: user.actif, role: user.role } });
     return res.json({ message: 'Utilisateur mis à jour avec succès', user });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Utilisateur introuvable' });
@@ -274,7 +283,10 @@ const deleteUser = async (req, res) => {
   if (id === req.user.id)
     return res.status(400).json({ error: 'Vous ne pouvez pas supprimer votre propre compte' });
   try {
+    const before = await prisma.user.findUnique({ where: { id }, select: { nom: true, prenom: true, email: true, role: true } });
+    if (!before) return res.status(404).json({ error: 'Utilisateur introuvable' });
     await prisma.user.delete({ where: { id } });
+    await logAudit({ req, action: ACTIONS.DELETE, entity: 'User', entityId: id, oldValues: { nom: before.nom, prenom: before.prenom, email: before.email, role: before.role } });
     return res.json({ message: 'Utilisateur supprimé' });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Utilisateur introuvable' });

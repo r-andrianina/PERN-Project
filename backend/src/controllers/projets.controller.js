@@ -5,6 +5,10 @@
 //   3. Sérialiser la réponse HTTP
 
 const service = require('../services/projets.service');
+const prisma  = require('../config/prisma');
+const { logAudit, ACTIONS } = require('../utils/audit');
+
+const AUDIT_FIELDS = { nom: true, code: true, statut: true, porteur: true, dateDebut: true, dateFin: true };
 
 const listProjets = async (req, res) => {
   const projets = await service.list(req.query);
@@ -17,18 +21,24 @@ const getProjet = async (req, res) => {
 };
 
 const createProjet = async (req, res) => {
-  // req.body est déjà validé/transformé par Zod via le middleware validate()
   const projet = await service.create(req.body);
+  await logAudit({ req, action: ACTIONS.CREATE, entity: 'Projet', entityId: projet.id, newValues: { nom: projet.nom, code: projet.code, statut: projet.statut } });
   res.status(201).json({ message: 'Projet créé avec succès', projet });
 };
 
 const updateProjet = async (req, res) => {
-  const projet = await service.update(parseInt(req.params.id), req.body);
+  const id     = parseInt(req.params.id);
+  const before = await prisma.projet.findUnique({ where: { id }, select: AUDIT_FIELDS });
+  const projet = await service.update(id, req.body);
+  await logAudit({ req, action: ACTIONS.UPDATE, entity: 'Projet', entityId: id, oldValues: before, newValues: { nom: projet.nom, code: projet.code, statut: projet.statut, porteur: projet.porteur, dateDebut: projet.dateDebut, dateFin: projet.dateFin } });
   res.json({ message: 'Projet mis à jour avec succès', projet });
 };
 
 const deleteProjet = async (req, res) => {
-  await service.remove(parseInt(req.params.id));
+  const id     = parseInt(req.params.id);
+  const before = await prisma.projet.findUnique({ where: { id }, select: AUDIT_FIELDS });
+  await service.remove(id);
+  await logAudit({ req, action: ACTIONS.DELETE, entity: 'Projet', entityId: id, oldValues: before });
   res.json({ message: 'Projet supprimé avec succès' });
 };
 

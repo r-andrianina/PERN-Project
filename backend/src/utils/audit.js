@@ -2,7 +2,8 @@
 // Helper d'historisation générique pour les référentiels (CDC §3 — historisation)
 // Écrit une entrée dans audit_logs à chaque CRUD/activation/désactivation.
 
-const prisma = require('../config/prisma');
+const prisma      = require('../config/prisma');
+const sseManager  = require('./sseManager');
 
 const ACTIONS = {
   CREATE:     'CREATE',
@@ -25,9 +26,10 @@ const ACTIONS = {
  */
 async function logAudit({ req, action, entity, entityId, oldValues, newValues }) {
   try {
+    const actorId = req?.user?.id ?? null;
     await prisma.auditLog.create({
       data: {
-        userId:    req?.user?.id ?? null,
+        userId:    actorId,
         action,
         entity,
         entityId,
@@ -41,6 +43,8 @@ async function logAudit({ req, action, entity, entityId, oldValues, newValues })
         },
       },
     });
+    // Notifie en temps réel tous les utilisateurs connectés sauf l'auteur de l'action
+    sseManager.broadcast(actorId, 'new_activity', { actorId });
   } catch (err) {
     // L'audit ne doit jamais bloquer la requête utilisateur ;
     // on log côté serveur sans relancer.

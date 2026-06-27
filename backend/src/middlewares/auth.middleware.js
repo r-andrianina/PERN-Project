@@ -24,6 +24,23 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+// Variante SSE : EventSource (navigateur) ne peut pas envoyer de headers personnalisés,
+// donc on accepte le token depuis le header Authorization OU depuis ?token= en query param.
+const verifyTokenSSE = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = (authHeader && authHeader.split(' ')[1]) || req.query.token;
+
+  if (!token) return res.status(401).json({ error: 'Accès refusé — token manquant' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Session expirée — veuillez vous reconnecter.' });
+  }
+};
+
 // =============================================================
 //  HIÉRARCHIE DES RÔLES
 //  admin > chercheur > technicien > lecteur
@@ -88,4 +105,4 @@ const checkSpecimenAccess = (type) => (req, res, next) => {
   next();
 };
 
-module.exports = { verifyToken, requireRole, requireMinRole, checkSpecimenAccess };
+module.exports = { verifyToken, verifyTokenSSE, requireRole, requireMinRole, checkSpecimenAccess };

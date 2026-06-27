@@ -39,6 +39,7 @@ import UtilisateursPage         from '../pages/utilisateurs/UtilisateursPage';
 import RecherchePage            from '../pages/recherche/RecherchePage';
 import ImportPage               from '../pages/import/ImportPage';
 import CartePage                from '../pages/carte/CartePage';
+import NotificationsPage        from '../pages/notifications/NotificationsPage';
 
 // eslint-disable-next-line react-refresh/only-export-components
 const ProtectedRoute = ({ children }) => {
@@ -94,6 +95,7 @@ const router = createBrowserRouter([
       { path: 'recherche',                    element: <RecherchePage /> },
       { path: 'carte',                        element: <CartePage /> },
       { path: 'import',                       element: <ImportPage /> },
+      { path: 'notifications',                element: <NotificationsPage /> },
 
       // Spécimens
       { path: 'specimens/moustiques',         element: <MoustiquesPage /> },

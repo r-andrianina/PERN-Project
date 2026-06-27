@@ -40,7 +40,8 @@ app.use('/api/v1/dictionnaire/types-environnement',    require('./routes/diction
 app.use('/api/v1/dictionnaire/types-habitat',          require('./routes/dictionnaire/typesHabitat.routes'));
 app.use('/api/v1/dictionnaire/audit-logs',             require('./routes/dictionnaire/auditLogs.routes'));
 
-app.use('/api/v1/recherche',  require('./routes/recherche.routes'));
+app.use('/api/v1/notifications', require('./routes/notifications.routes'));
+app.use('/api/v1/recherche',     require('./routes/recherche.routes'));
 app.use('/api/v1/import',     require('./routes/import.routes'));
 app.use('/api/v1/carte',      require('./routes/carte.routes'));
 app.use('/api/v1/dashboard',  require('./routes/dashboard.routes'));

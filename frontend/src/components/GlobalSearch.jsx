@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, Loader2, MapPin, FolderOpen, ArrowRight, ChevronDown } from 'lucide-react';
+import { Search, X, Loader2, MapPin, FolderOpen, ArrowRight, ChevronDown, Clock } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import api from '../api/axios';
 import { useT } from '../lib/i18n';
@@ -18,6 +18,36 @@ const STATUT_MISSION = {
   planifiee: 'Planifiée', en_cours: 'En cours', terminee: 'Terminée', annulee: 'Annulée',
 };
 const STATUT_PROJET = { actif: 'Actif', termine: 'Terminé', suspendu: 'Suspendu' };
+
+// Surligne toutes les occurrences de `query` dans `text` (insensible à la casse).
+// Utilise split avec groupe capturant : les indices impairs sont les segments concordants.
+function Highlight({ text, query }) {
+  if (!query?.trim() || !text) return <>{text}</>;
+  const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <mark key={i} className="bg-primary/20 text-primary rounded-[2px] font-semibold" style={{ fontStyle: 'inherit' }}>
+            {part}
+          </mark>
+        ) : part
+      )}
+    </>
+  );
+}
+
+const HISTORY_KEY = 'sm_search_history';
+const HISTORY_MAX = 5;
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+  catch { return []; }
+}
+function persistHistory(entries) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
+}
 
 // Sélecteur de périmètre (style dropdown) — filtre la recherche par type de résultat.
 // Gère son propre état d'ouverture/fermeture, indépendamment de l'instance
@@ -75,6 +105,18 @@ export default function GlobalSearch() {
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(-1); // index résultat sélectionné au clavier
   const [searchError, setSearchError] = useState(false);
+  const [history, setHistory] = useState([]);
+
+  const removeHistoryEntry = (term, e) => {
+    e.stopPropagation();
+    const updated = history.filter(h => h !== term);
+    setHistory(updated);
+    persistHistory(updated);
+  };
+  const clearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem(HISTORY_KEY);
+  };
 
   const inputRef   = useRef(null);
   const debounceRef = useRef(null);
@@ -104,7 +146,7 @@ export default function GlobalSearch() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Focus l'input quand on ouvre
+  // Focus l'input et charge l'historique quand on ouvre
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -112,6 +154,7 @@ export default function GlobalSearch() {
       setResults({ specimens: [], missions: [], projets: [] });
       setFocused(-1);
       setSearchError(false);
+      setHistory(loadHistory());
     }
   }, [open]);
 
@@ -190,6 +233,11 @@ export default function GlobalSearch() {
   };
 
   const navigateTo = ({ type, data }) => {
+    const trimmed = query.trim();
+    if (trimmed.length >= 2) {
+      const updated = [trimmed, ...loadHistory().filter(h => h !== trimmed)].slice(0, HISTORY_MAX);
+      persistHistory(updated);
+    }
     setOpen(false);
     if (type === 'specimen') {
       navigate(`/specimens/${data._type}s/${data.id}`);
@@ -297,9 +345,9 @@ export default function GlobalSearch() {
                         ${focused === idx ? 'bg-primary/5' : ''}`}>
                       <SpecimenIcon type={s._type} size={15} className="flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-fg italic truncate">{taxoNom}</p>
+                        <p className="text-sm font-medium text-fg italic truncate"><Highlight text={taxoNom} query={query} /></p>
                         <p className="text-xs text-fg-subtle truncate">
-                          {s.idTerrain || `#${s.id}`} · {s.methode?.localite?.nom || '—'}
+                          <Highlight text={s.idTerrain || `#${s.id}`} query={query} /> · <Highlight text={s.methode?.localite?.nom || '—'} query={query} />
                         </p>
                       </div>
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0"
@@ -326,8 +374,8 @@ export default function GlobalSearch() {
                         ${focused === idx ? 'bg-primary/5' : ''}`}>
                       <MapPin size={15} className="text-info flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-fg truncate">{m.ordreMission}</p>
-                        <p className="text-xs text-fg-subtle truncate">{m.projet?.nom || m.projet?.code || '—'}</p>
+                        <p className="text-sm font-medium text-fg truncate"><Highlight text={m.ordreMission} query={query} /></p>
+                        <p className="text-xs text-fg-subtle truncate"><Highlight text={m.projet?.nom || m.projet?.code || '—'} query={query} /></p>
                       </div>
                       <span className="text-[10px] text-fg-subtle flex-shrink-0">{STATUT_MISSION[m.statut] || m.statut}</span>
                     </button>
@@ -350,8 +398,8 @@ export default function GlobalSearch() {
                         ${focused === idx ? 'bg-primary/5' : ''}`}>
                       <FolderOpen size={15} className="text-primary flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-fg truncate">{p.nom}</p>
-                        <p className="text-xs text-fg-subtle truncate font-mono">{p.code}</p>
+                        <p className="text-sm font-medium text-fg truncate"><Highlight text={p.nom} query={query} /></p>
+                        <p className="text-xs text-fg-subtle truncate font-mono"><Highlight text={p.code} query={query} /></p>
                       </div>
                       <span className="text-[10px] text-fg-subtle flex-shrink-0">{STATUT_PROJET[p.statut] || p.statut}</span>
                     </button>
@@ -372,9 +420,45 @@ export default function GlobalSearch() {
           </div>
         )}
 
+        {/* Historique des recherches récentes */}
+        {!query.trim() && history.length > 0 && (
+          <div className="py-2">
+            <div className="flex items-center justify-between px-4 py-1.5">
+              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">Récents</p>
+              <button
+                type="button"
+                onClick={clearHistory}
+                className="text-[10px] text-fg-subtle hover:text-danger transition-colors"
+              >
+                Effacer tout
+              </button>
+            </div>
+            {history.map((term) => (
+              <div key={term} className="group flex items-center gap-3 px-4 py-2 hover:bg-surface-2 transition-colors">
+                <Clock size={13} className="text-fg-subtle flex-shrink-0" />
+                <button
+                  type="button"
+                  onClick={() => handleChange(term)}
+                  className="flex-1 text-left text-sm text-fg truncate"
+                >
+                  {term}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => removeHistoryEntry(term, e)}
+                  className="opacity-0 group-hover:opacity-100 text-fg-subtle hover:text-fg transition-all p-0.5 rounded"
+                  aria-label={`Supprimer "${term}" de l'historique`}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Hint clavier */}
         {!hasResults && !showEmpty && (
-          <div className="flex items-center justify-center gap-4 px-4 py-4 text-[11px] text-fg-subtle">
+          <div className={`flex items-center justify-center gap-4 px-4 text-[11px] text-fg-subtle ${!query.trim() && history.length > 0 ? 'pb-3 pt-1 border-t border-border' : 'py-4'}`}>
             <span><kbd className="bg-surface-2 border border-border rounded px-1">↑↓</kbd> Naviguer</span>
             <span><kbd className="bg-surface-2 border border-border rounded px-1">↵</kbd> Ouvrir</span>
             <span><kbd className="bg-surface-2 border border-border rounded px-1">Esc</kbd> Fermer</span>

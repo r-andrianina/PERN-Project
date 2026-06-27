@@ -234,7 +234,7 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
             style={{
               width: 36, height: 36,
               borderRadius: 10,
-              border: activeLayer === key ? '2px solid #1D9E75' : '2px solid rgba(255,255,255,0.9)',
+              border: activeLayer === key ? '2px solid #19a58e' : '2px solid rgba(255,255,255,0.9)',
               background: activeLayer === key ? '#1D9E75' : 'rgba(255,255,255,0.95)',
               backdropFilter: 'blur(4px)',
               color: activeLayer === key ? 'white' : '#374151',

@@ -100,9 +100,16 @@ function buildSpecimenWhere({
     if (params.dateFin)   where.dateCollecte.lte = new Date(params.dateFin);
   }
 
-  // Recherche libre dans les notes
+  // Recherche libre : idTerrain, nom/genre taxonomique, localité, notes
   if (params.search) {
-    where.notes = { contains: params.search, mode: 'insensitive' };
+    const q = { contains: params.search, mode: 'insensitive' };
+    where.OR = [
+      { idTerrain:                         q },
+      { notes:                             q },
+      { taxonomie: { nom:                  q } },
+      { taxonomie: { parent: { nom:        q } } },
+      { methode:   { localite: { nom:      q } } },
+    ];
   }
 
   // Cascade Mission → Localité → Méthode (filtres remontants)
