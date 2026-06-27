@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Download, Search, X } from 'lucide-react';
-import { Card, Button, Badge, EmptyState, PageHeader, Spinner, Pagination } from '../../components/ui';
+import { Card, Button, Badge, EmptyState, PageHeader, Spinner, Pagination, DataTable } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import { formatGorgement } from '../../utils/gorgement';
@@ -9,34 +9,187 @@ import { taxoLabel } from '../../utils/taxoLabel';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
-const LIMIT = 50;
+
+// Tri client-side sur la page courante
+function sortRows(rows, sort) {
+  if (!sort) return rows;
+  return [...rows].sort((a, b) => {
+    let av, bv;
+    switch (sort.key) {
+      case 'idTerrain':    av = a.idTerrain;    bv = b.idTerrain;    break;
+      case 'nombre':       av = a.nombre;       bv = b.nombre;       break;
+      case 'sexe':         av = a.sexe;         bv = b.sexe;         break;
+      case 'dateCollecte':
+        av = a.dateCollecte ? new Date(a.dateCollecte).getTime() : null;
+        bv = b.dateCollecte ? new Date(b.dateCollecte).getTime() : null;
+        break;
+      default: return 0;
+    }
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv), 'fr');
+    return sort.dir === 'asc' ? cmp : -cmp;
+  });
+}
+
+const COLUMNS = [
+  {
+    key: 'idTerrain',
+    label: 'ID terrain',
+    sortable: true,
+    skeletonWidth: '55%',
+    width: '110px',
+    render: (m) => m.idTerrain
+      ? <Badge tone="primary" size="sm" className="font-mono font-bold">{m.idTerrain}</Badge>
+      : null,
+  },
+  {
+    key: 'espece',
+    label: 'Genre / Espèce',
+    skeletonWidth: '80%',
+    render: (m) => (
+      <span className="font-semibold text-fg italic">
+        {taxoLabel(m.taxonomie) || null}
+      </span>
+    ),
+  },
+  {
+    key: 'nombre',
+    label: 'Nb',
+    sortable: true,
+    skeletonWidth: '30%',
+    width: '52px',
+    headerClassName: 'text-right',
+    className: 'text-right',
+    render: (m) => <span className="text-fg-muted font-medium tabular-nums">{m.nombre}</span>,
+  },
+  {
+    key: 'sexe',
+    label: 'Sexe',
+    sortable: true,
+    skeletonWidth: '55%',
+    render: (m) => (
+      <Badge tone={SEXE_TONE[m.sexe] ?? 'default'}>
+        {SEXE_LABEL[m.sexe] ?? 'Inconnu'}
+      </Badge>
+    ),
+  },
+  {
+    key: 'stade',
+    label: 'Stade',
+    skeletonWidth: '60%',
+    hidden: 'hidden md:table-cell',
+    render: (m) => <span className="text-fg-muted text-xs">{m.stade || null}</span>,
+  },
+  {
+    key: 'parite',
+    label: 'Parité',
+    skeletonWidth: '50%',
+    hidden: 'hidden lg:table-cell',
+    render: (m) => <span className="text-fg-muted text-xs">{m.parite || null}</span>,
+  },
+  {
+    key: 'repasSang',
+    label: 'Repas sang',
+    skeletonWidth: '65%',
+    hidden: 'hidden sm:table-cell',
+    render: (m) => (
+      <Badge tone={['G', 'Gr'].includes(m.repasSang) ? 'danger' : 'default'}>
+        {formatGorgement(m.repasSang)}
+      </Badge>
+    ),
+  },
+  {
+    key: 'container',
+    label: 'Échantillon',
+    skeletonWidth: '55%',
+    hidden: 'hidden lg:table-cell',
+    className: 'font-mono text-xs text-fg-muted',
+    render: (m) => {
+      const label = m.container
+        ? `${m.container.code}${m.position ? ` · ${m.position}` : ''}`
+        : null;
+      return label ? <span>{label}</span> : null;
+    },
+  },
+  {
+    key: 'solution',
+    label: 'Solution',
+    skeletonWidth: '70%',
+    hidden: 'hidden xl:table-cell',
+    render: (m) => (
+      <span className="text-xs text-fg-muted max-w-[7rem] truncate block" title={m.solution?.nom}>
+        {m.solution?.nom || null}
+      </span>
+    ),
+  },
+  {
+    key: 'methode',
+    label: 'Méthode',
+    skeletonWidth: '75%',
+    hidden: 'hidden xl:table-cell',
+    render: (m) => (
+      <span className="text-xs text-fg-muted max-w-[8rem] truncate block" title={m.methode?.typeMethode?.nom}>
+        {m.methode?.typeMethode?.nom || null}
+      </span>
+    ),
+  },
+  {
+    key: 'localite',
+    label: 'Localité',
+    skeletonWidth: '80%',
+    hidden: 'hidden md:table-cell',
+    render: (m) => {
+      const loc = m.methode?.localite;
+      const label = [loc?.region, loc?.district, loc?.commune].filter(Boolean).join(' · ') || loc?.nom || null;
+      return label
+        ? <span className="text-fg-muted text-xs max-w-[9rem] truncate block" title={label}>{label}</span>
+        : null;
+    },
+  },
+  {
+    key: 'dateCollecte',
+    label: 'Date',
+    sortable: true,
+    skeletonWidth: '60%',
+    className: 'whitespace-nowrap',
+    render: (m) => (
+      <span className="text-fg-subtle text-xs">
+        {m.dateCollecte ? new Date(m.dateCollecte).toLocaleDateString('fr-FR') : null}
+      </span>
+    ),
+  },
+];
 
 export default function MoustiquesPage() {
   const navigate = useNavigate();
-  const [search,  setSearch]  = useState('');
+  const [search,    setSearch]    = useState('');
   const [debounced, setDebounced] = useState('');
-  const [page,    setPage]    = useState(1);
+  const [page,      setPage]      = useState(1);
+  const [limit,     setLimit]     = useState(50);
+  const [sort,      setSort]      = useState(null);
 
-  // Debounce 300 ms
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(search); setPage(1); }, 300);
     return () => clearTimeout(t);
   }, [search]);
 
   const { data, loading } = useApiQuery('/moustiques', {
-    params: { page, limit: LIMIT, search: debounced || undefined },
-    deps: [page, debounced],
+    params: { page, limit, search: debounced || undefined },
+    deps: [page, limit, debounced],
   });
 
-  const moustiques = data?.moustiques ?? [];
-  const total      = data?.total  ?? 0;
-  const pages      = data?.pages  ?? 1;
+  const total = data?.total ?? 0;
+  const pages = data?.pages ?? 1;
 
+  const rows = useMemo(() => sortRows(data?.moustiques ?? [], sort), [data, sort]);
 
   return (
     <div className="space-y-5">
       <PageHeader
-        icon={() => <SpecimenIcon type="moustique" size={18} />} iconTone="specimen-moustique"
+        icon={() => <SpecimenIcon type="moustique" size={18} />}
+        iconTone="specimen-moustique"
         title="Moustiques"
         subtitle={`${total} spécimen(s) au total`}
         actions={
@@ -59,10 +212,15 @@ export default function MoustiquesPage() {
           icon={() => <SpecimenIcon type="moustique" size={40} />}
           title="Aucun moustique enregistré"
           description="Commencez par enregistrer un premier spécimen."
-          action={{ label: 'Ajouter le premier spécimen', icon: Plus, onClick: () => navigate('/specimens/moustiques/nouveau') }}
+          action={{
+            label: 'Ajouter le premier spécimen',
+            icon: Plus,
+            onClick: () => navigate('/specimens/moustiques/nouveau'),
+          }}
         />
       ) : (
         <Card padding="none" className="overflow-hidden">
+
           {/* Barre de recherche */}
           <div className="px-4 py-3 border-b border-border flex items-center gap-3">
             <div className="flex items-center gap-2.5 flex-1 border border-border-strong rounded-xl px-3.5 py-2 bg-surface-2 focus-within:bg-surface focus-within:border-primary transition-all">
@@ -70,7 +228,8 @@ export default function MoustiquesPage() {
               <input
                 type="text"
                 placeholder="Rechercher par espèce, ID terrain ou notes…"
-                value={search} onChange={e => setSearch(e.target.value)}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 className="flex-1 text-sm bg-transparent border-none outline-none text-fg placeholder-fg-subtle"
               />
               {search && (
@@ -84,71 +243,27 @@ export default function MoustiquesPage() {
             </span>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[1000px]">
-              <thead className="bg-surface-2 border-b border-border">
-                <tr>
-                  {['ID terrain', 'Genre / Espèce', 'Nb', 'Sexe', 'Stade', 'Parité', 'Repas sang', 'Échantillon', 'Solution', 'Méthode de collecte', 'Localité', 'Date'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-fg-muted tracking-wide whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {loading ? (
-                  <tr><td colSpan={12} className="text-center py-8 text-fg-subtle text-sm">Chargement…</td></tr>
-                ) : moustiques.length === 0 ? (
-                  <tr><td colSpan={12} className="text-center py-8 text-fg-subtle text-sm">Aucun résultat pour « {debounced} »</td></tr>
-                ) : moustiques.map(m => {
-                  const loc = m.methode?.localite;
-                  const localiteLabel = [loc?.region, loc?.district, loc?.commune].filter(Boolean).join(' · ') || loc?.nom || null;
-                  const containerLabel = m.container
-                    ? `${m.container.code}${m.position ? ` · ${m.position}` : ''}`
-                    : null;
+          <DataTable
+            columns={COLUMNS}
+            rows={rows}
+            loading={loading}
+            skeletonRows={Math.min(limit, 10)}
+            sort={sort}
+            onSort={(key, dir) => setSort({ key, dir })}
+            onRowClick={(m) => navigate(`/specimens/moustiques/${m.id}`)}
+            minWidth="960px"
+            empty={
+              <span className="text-fg-subtle text-sm">
+                Aucun résultat pour «&nbsp;{debounced}&nbsp;»
+              </span>
+            }
+          />
 
-                  return (
-                  <tr key={m.id} className="hover:bg-primary/5 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/specimens/moustiques/${m.id}`)}>
-                    <td className="px-4 py-3">
-                      {m.idTerrain
-                        ? <Badge tone="primary" size="sm" className="font-mono font-bold">{m.idTerrain}</Badge>
-                        : <span className="text-fg-subtle text-xs">—</span>}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-fg italic">
-                      {taxoLabel(m.taxonomie) || <span className="text-fg-subtle">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-fg-muted font-medium">{m.nombre}</td>
-                    <td className="px-4 py-3">
-                      <Badge tone={SEXE_TONE[m.sexe] ?? 'default'}>{SEXE_LABEL[m.sexe] ?? 'Inconnu'}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-fg-muted text-xs">{m.stade || <span className="text-fg-subtle">—</span>}</td>
-                    <td className="px-4 py-3 text-fg-muted text-xs">{m.parite || <span className="text-fg-subtle">—</span>}</td>
-                    <td className="px-4 py-3">
-                      <Badge tone={['G', 'Gr'].includes(m.repasSang) ? 'danger' : 'default'}>{formatGorgement(m.repasSang)}</Badge>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-fg-muted">
-                      {containerLabel ?? <span className="text-fg-subtle">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-fg-muted max-w-28 truncate" title={m.solution?.nom}>
-                      {m.solution?.nom ?? <span className="text-fg-subtle">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-fg-muted max-w-32 truncate" title={m.methode?.typeMethode?.nom}>
-                      {m.methode?.typeMethode?.nom ?? <span className="text-fg-subtle">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-fg-muted text-xs max-w-36 truncate" title={localiteLabel}>
-                      {localiteLabel ?? <span className="text-fg-subtle">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-fg-subtle text-xs whitespace-nowrap">
-                      {m.dateCollecte ? new Date(m.dateCollecte).toLocaleDateString('fr-FR') : <span className="text-fg-subtle">—</span>}
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <Pagination page={page} pages={pages} total={total} limit={LIMIT} onChange={setPage} />
+          <Pagination
+            page={page} pages={pages} total={total} limit={limit}
+            onChange={setPage}
+            onLimitChange={(n) => { setLimit(n); setPage(1); }}
+          />
         </Card>
       )}
     </div>

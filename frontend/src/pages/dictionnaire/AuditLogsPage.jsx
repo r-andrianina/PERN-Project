@@ -1,8 +1,8 @@
-import { useEffect, useState, Fragment } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { History, ChevronLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, PageHeader, Spinner, Select } from '../../components/ui';
+import { Card, Badge, PageHeader, Spinner, Select, Pagination, DataTable } from '../../components/ui';
 
 const ACTION_TONE = {
   CREATE:     'success',
@@ -20,12 +20,14 @@ const ENTITIES = [
 ];
 
 export default function AuditLogsPage() {
-  const [items, setItems]     = useState([]);
-  const [total, setTotal]     = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [filterEntity, setFE] = useState('');
-  const [filterAction, setFA] = useState('');
-  const [expandedId, setExpId] = useState(null);
+  const [items,       setItems]   = useState([]);
+  const [total,       setTotal]   = useState(0);
+  const [loading,     setLoading] = useState(true);
+  const [filterEntity, setFE]     = useState('');
+  const [filterAction, setFA]     = useState('');
+  const [expandedId,  setExpId]   = useState(null);
+  const [page,        setPage]    = useState(1);
+  const [limit,       setLimit]   = useState(50);
 
   const refresh = async () => {
     setLoading(true);
@@ -38,7 +40,92 @@ export default function AuditLogsPage() {
       setTotal(r.data.total);
     } finally { setLoading(false); }
   };
-  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filterEntity, filterAction]);
+
+  useEffect(() => {
+    refresh();
+    setPage(1);
+    /* eslint-disable-next-line */
+  }, [filterEntity, filterAction]);
+
+  // Pagination côté client sur les items chargés
+  const pageCount = Math.ceil(items.length / limit) || 1;
+  const paged     = items.slice((page - 1) * limit, page * limit);
+
+  // Colonnes — dépendent de expandedId pour l'icône de la 1re colonne
+  const columns = useMemo(() => [
+    {
+      key: '_expand',
+      label: '',
+      width: '32px',
+      className: 'text-fg-subtle pl-3',
+      render: (it) => expandedId === it.id
+        ? <ChevronDown size={14} />
+        : <ChevronRight size={14} />,
+    },
+    {
+      key: 'createdAt',
+      label: 'Date',
+      skeletonWidth: '80%',
+      className: 'font-mono text-xs text-fg-muted whitespace-nowrap',
+      render: (it) => new Date(it.createdAt).toLocaleString('fr-FR'),
+    },
+    {
+      key: 'action',
+      label: 'Action',
+      skeletonWidth: '55%',
+      render: (it) => (
+        <Badge tone={ACTION_TONE[it.action] ?? 'default'}>{it.action}</Badge>
+      ),
+    },
+    {
+      key: 'entity',
+      label: 'Entité',
+      skeletonWidth: '65%',
+      render: (it) => <span className="text-fg font-medium">{it.entity}</span>,
+    },
+    {
+      key: 'entityId',
+      label: 'ID',
+      skeletonWidth: '35%',
+      width: '64px',
+      className: 'font-mono text-xs text-fg-subtle',
+      render: (it) => `#${it.entityId}`,
+    },
+    {
+      key: 'user',
+      label: 'Utilisateur',
+      skeletonWidth: '70%',
+      hidden: 'hidden sm:table-cell',
+      render: (it) => (
+        <span className="text-fg-muted text-xs">
+          {it.user ? `${it.user.prenom} ${it.user.nom}` : null}
+        </span>
+      ),
+    },
+  ], [expandedId]);
+
+  const toggleExpand = (it) =>
+    setExpId((prev) => (prev === it.id ? null : it.id));
+
+  const renderExpanded = (it) => {
+    if (expandedId !== it.id) return null;
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+        <div>
+          <p className="font-semibold text-fg-muted mb-1.5">Avant</p>
+          <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-[11px] text-fg-muted max-h-48">
+            {it.oldValues ? JSON.stringify(it.oldValues, null, 2) : '—'}
+          </pre>
+        </div>
+        <div>
+          <p className="font-semibold text-fg-muted mb-1.5">Après</p>
+          <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-[11px] text-fg-muted max-h-48">
+            {it.newValues ? JSON.stringify(it.newValues, null, 2) : '—'}
+          </pre>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-screen-2xl space-y-5">
@@ -52,16 +139,15 @@ export default function AuditLogsPage() {
         subtitle={`${total} entrée(s) — référentiels et spécimens`}
       />
 
+      {/* Filtres */}
       <Card padding="sm" className="flex flex-wrap gap-2">
         <Select
-          value={filterEntity}
-          onChange={setFE}
+          value={filterEntity} onChange={setFE}
           wrapperClassName="w-56 flex-shrink-0"
           options={ENTITIES.map((e) => ({ value: e, label: e || 'Toutes les entités' }))}
         />
         <Select
-          value={filterAction}
-          onChange={setFA}
+          value={filterAction} onChange={setFA}
           wrapperClassName="w-48 flex-shrink-0"
           options={[
             { value: '', label: 'Toutes les actions' },
@@ -74,62 +160,24 @@ export default function AuditLogsPage() {
         <Card padding="lg" className="text-center text-fg-subtle text-sm">Aucune entrée</Card>
       ) : (
         <Card padding="none" className="overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-2 border-b border-border text-xs text-fg-muted uppercase tracking-wider">
-              <tr>
-                <th className="w-8 px-2"></th>
-                <th className="px-3 py-2 text-left font-semibold">Date</th>
-                <th className="px-3 py-2 text-left font-semibold">Action</th>
-                <th className="px-3 py-2 text-left font-semibold">Entité</th>
-                <th className="px-3 py-2 text-left font-semibold">ID</th>
-                <th className="px-3 py-2 text-left font-semibold">Utilisateur</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => (
-                <Fragment key={it.id}>
-                  <tr className="border-t border-border hover:bg-surface-2 cursor-pointer transition-colors"
-                    onClick={() => setExpId(expandedId === it.id ? null : it.id)}>
-                    <td className="pl-3 text-fg-subtle">
-                      {expandedId === it.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    </td>
-                    <td className="px-3 py-2 text-fg-muted font-mono text-xs">
-                      {new Date(it.createdAt).toLocaleString('fr-FR')}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge tone={ACTION_TONE[it.action] ?? 'default'}>{it.action}</Badge>
-                    </td>
-                    <td className="px-3 py-2 text-fg font-medium">{it.entity}</td>
-                    <td className="px-3 py-2 text-fg-subtle font-mono text-xs">#{it.entityId}</td>
-                    <td className="px-3 py-2 text-fg-muted text-xs">
-                      {it.user ? `${it.user.prenom} ${it.user.nom}` : '—'}
-                    </td>
-                  </tr>
-                  {expandedId === it.id && (
-                    <tr className="bg-surface-2/50">
-                      <td></td>
-                      <td colSpan={5} className="px-3 py-3">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <p className="font-semibold text-fg-muted mb-1">Avant</p>
-                            <pre className="bg-surface p-2 rounded-lg border border-border overflow-auto text-[11px] text-fg-muted">
-                              {it.oldValues ? JSON.stringify(it.oldValues, null, 2) : '—'}
-                            </pre>
-                          </div>
-                          <div>
-                            <p className="font-semibold text-fg-muted mb-1">Après</p>
-                            <pre className="bg-surface p-2 rounded-lg border border-border overflow-auto text-[11px] text-fg-muted">
-                              {it.newValues ? JSON.stringify(it.newValues, null, 2) : '—'}
-                            </pre>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            columns={columns}
+            rows={paged}
+            loading={false}
+            density="compact"
+            onRowClick={toggleExpand}
+            rowClassName={(it) => expandedId === it.id ? 'bg-surface-2/40' : ''}
+            renderExpanded={renderExpanded}
+            minWidth="560px"
+            maxHeight="calc(100vh - 290px)"
+            empty={<span className="text-fg-subtle text-sm">Aucune entrée</span>}
+          />
+
+          <Pagination
+            page={page} pages={pageCount} total={items.length} limit={limit}
+            onChange={setPage}
+            onLimitChange={(n) => { setLimit(n); setPage(1); }}
+          />
         </Card>
       )}
     </div>

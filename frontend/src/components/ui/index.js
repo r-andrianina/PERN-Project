@@ -9,5 +9,6 @@ export { default as EmptyState } from './EmptyState';
 export { default as PageHeader } from './PageHeader';
 export { default as Spinner }     from './Spinner';
 export { default as Pagination }  from './Pagination';
+export { default as DataTable }   from './DataTable';
 export { ToastProvider }          from './Toast';
 export { default as Select }      from './Select';

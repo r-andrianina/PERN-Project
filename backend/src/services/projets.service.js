@@ -88,4 +88,17 @@ const remove = async (id) => {
   await prisma.projet.delete({ where: { id } });
 };
 
-module.exports = { list, getById, create, update, remove };
+const getStats = async (id) => {
+  const where = { methode: { localite: { mission: { projetId: id } } } };
+  const [moustiques, tiques, puces] = await Promise.all([
+    prisma.moustique.count({ where }),
+    prisma.tique.count({ where }),
+    prisma.puce.count({ where }),
+  ]);
+  return {
+    parType: { moustique: moustiques, tique: tiques, puce: puces },
+    total:   moustiques + tiques + puces,
+  };
+};
+
+module.exports = { list, getById, create, update, remove, getStats };

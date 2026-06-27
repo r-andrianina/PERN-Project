@@ -42,4 +42,9 @@ const deleteProjet = async (req, res) => {
   res.json({ message: 'Projet supprimé avec succès' });
 };
 
-module.exports = { listProjets, getProjet, createProjet, updateProjet, deleteProjet };
+const getProjetStats = async (req, res) => {
+  const stats = await service.getStats(parseInt(req.params.id));
+  res.json(stats);
+};
+
+module.exports = { listProjets, getProjet, createProjet, updateProjet, deleteProjet, getProjetStats };

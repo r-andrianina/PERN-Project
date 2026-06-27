@@ -44,7 +44,7 @@ function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, can
 
   return (
     <div>
-      <div className={`group flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-surface-2 ${!node.actif ? 'opacity-50' : ''}`}
+      <div className={`group flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-surface-2 transition-colors duration-100 ${!node.actif ? 'opacity-50' : ''}`}
         style={{ paddingLeft: `${8 + depth * 20}px` }}>
         <button onClick={toggle} className="w-5 h-5 flex items-center justify-center text-fg-subtle hover:text-fg">
           {hasChildren ? (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : null}
@@ -189,14 +189,19 @@ export default function TaxonomieHotesPage() {
       ) : tree.length === 0 ? (
         <div className="card p-12 text-center text-fg-subtle text-sm">Aucune taxonomie</div>
       ) : (
-        <div className="card p-2">
-          {tree.map((n) => (
-            <TreeNode key={n.id} node={n}
-              onAddChild={openCreateChild} onEdit={openEdit}
-              onToggle={toggleActif} onDelete={remove}
-              canEdit={canEdit} canDelete={canDelete}
-              expandedIds={expandedIds} setExpandedIds={setExpandedIds} />
-          ))}
+        <div className="card overflow-hidden">
+          <div
+            className="datatable-scroll overflow-y-auto p-2"
+            style={{ maxHeight: 'calc(100vh - 280px)', minHeight: '200px' }}
+          >
+            {tree.map((n) => (
+              <TreeNode key={n.id} node={n}
+                onAddChild={openCreateChild} onEdit={openEdit}
+                onToggle={toggleActif} onDelete={remove}
+                canEdit={canEdit} canDelete={canDelete}
+                expandedIds={expandedIds} setExpandedIds={setExpandedIds} />
+            ))}
+          </div>
         </div>
       )}
 

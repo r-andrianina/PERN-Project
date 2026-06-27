@@ -10,8 +10,9 @@ const schema       = require('../schemas/projets.schema');
 
 router.use(verifyToken);
 
-router.get('/',    asyncHandler(ctrl.listProjets));
-router.get('/:id', asyncHandler(ctrl.getProjet));
+router.get('/',         asyncHandler(ctrl.listProjets));
+router.get('/:id',      asyncHandler(ctrl.getProjet));
+router.get('/:id/stats', asyncHandler(ctrl.getProjetStats));
 
 router.post('/',   requireRole('admin'), validate(schema.createProjet), asyncHandler(ctrl.createProjet));
 router.put('/:id', requireRole('admin'), validate(schema.updateProjet), asyncHandler(ctrl.updateProjet));

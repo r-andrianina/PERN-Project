@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Users, UserPlus, Search, X, Edit2, Trash2, KeyRound,
   ShieldCheck, ToggleLeft, ToggleRight, Loader2, Check,
@@ -7,7 +7,7 @@ import {
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
-import { Select } from '../../components/ui';
+import { Card, DataTable, Pagination, Select } from '../../components/ui';
 
 // ── Constantes ────────────────────────────────────────────────
 const ROLES = [
@@ -53,16 +53,12 @@ function SpecimenAccessModal({ user, onClose, onSaved }) {
   );
 
   const submit = async () => {
-    setError(null);
-    setLoading(true);
+    setError(null); setLoading(true);
     try {
       await api.patch(`/auth/users/${user.id}/specimens`, { specimensAutorises: selected });
       onSaved();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Erreur');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError(err.response?.data?.error || 'Erreur'); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -82,14 +78,10 @@ function SpecimenAccessModal({ user, onClose, onSaved }) {
           <p className="text-xs text-fg-muted">Sélectionnez les types de spécimens que cet utilisateur peut consulter et saisir.</p>
           <div className="space-y-2">
             {SPECIMENS.map(s => (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => toggle(s.value)}
+              <button key={s.value} type="button" onClick={() => toggle(s.value)}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
                   selected.includes(s.value) ? s.color + ' border-current' : 'border-border text-fg-muted hover:bg-surface-2'
-                }`}
-              >
+                }`}>
                 <span>{s.label}</span>
                 {selected.includes(s.value) && <Check size={15} />}
               </button>
@@ -117,38 +109,23 @@ function SpecimenAccessModal({ user, onClose, onSaved }) {
 function UserModal({ user, onClose, onSaved }) {
   const isEdit = !!user?.id;
   const [form, setForm] = useState({
-    nom:      user?.nom      ?? '',
-    prenom:   user?.prenom   ?? '',
-    email:    user?.email    ?? '',
-    role:     user?.role     ?? 'lecteur',
-    actif:    user?.actif    ?? true,
-    password: '',
+    nom: user?.nom ?? '', prenom: user?.prenom ?? '',
+    email: user?.email ?? '', role: user?.role ?? 'lecteur',
+    actif: user?.actif ?? true, password: '',
   });
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
-
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const submit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+    e.preventDefault(); setError(null); setLoading(true);
     try {
-      if (isEdit) {
-        await api.put(`/auth/users/${user.id}`, {
-          nom: form.nom, prenom: form.prenom,
-          email: form.email, role: form.role,
-        });
-      } else {
-        await api.post('/auth/users', form);
-      }
+      if (isEdit) await api.put(`/auth/users/${user.id}`, { nom: form.nom, prenom: form.prenom, email: form.email, role: form.role });
+      else        await api.post('/auth/users', form);
       onSaved();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Erreur');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError(err.response?.data?.error || 'Erreur'); }
+    finally { setLoading(false); }
   };
 
   const inputCls = 'w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-colors';
@@ -156,7 +133,6 @@ function UserModal({ user, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-md overflow-hidden my-4 sm:my-auto sm:mt-16">
-        {/* Header */}
         <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
@@ -166,21 +142,15 @@ function UserModal({ user, onClose, onSaved }) {
               <h2 className="text-base font-bold text-white">
                 {isEdit ? 'Modifier l\'utilisateur' : 'Nouvel utilisateur'}
               </h2>
-              {isEdit && (
-                <p className="text-xs text-primary-100">{user.prenom} {user.nom}</p>
-              )}
+              {isEdit && <p className="text-xs text-primary-100">{user.prenom} {user.nom}</p>}
             </div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg transition-colors">
             <X size={18} />
           </button>
         </div>
-
         <form onSubmit={submit} className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">{error}</div>
-          )}
-
+          {error && <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">{error}</div>}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-gray-600">Prénom <span className="text-red-400">*</span></label>
@@ -191,65 +161,42 @@ function UserModal({ user, onClose, onSaved }) {
               <input value={form.nom} onChange={(e) => set('nom', e.target.value)} required className={inputCls} placeholder="ex: Andrianina" />
             </div>
           </div>
-
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-gray-600">Email <span className="text-red-400">*</span></label>
             <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} required className={inputCls} placeholder="ex: h.andrianina@pasteur.mg" />
           </div>
-
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-gray-600">Rôle <span className="text-red-400">*</span></label>
             <div className="grid grid-cols-2 gap-2">
               {ROLES.map((r) => (
-                <button
-                  key={r.value}
-                  type="button"
-                  onClick={() => set('role', r.value)}
+                <button key={r.value} type="button" onClick={() => set('role', r.value)}
                   className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-all text-left flex items-center gap-2 ${
-                    form.role === r.value
-                      ? `${r.color} border-2`
-                      : 'border-border-strong text-fg-muted hover:bg-surface-2'
-                  }`}
-                >
+                    form.role === r.value ? `${r.color} border-2` : 'border-border-strong text-fg-muted hover:bg-surface-2'
+                  }`}>
                   {form.role === r.value && <Check size={13} />}
                   {r.label}
                 </button>
               ))}
             </div>
             <p className="text-xs text-fg-subtle">
-              {{
-                admin:      'Accès total — gestion des utilisateurs, référentiels, données',
-                chercheur:  'Création et modification de toutes les données scientifiques',
-                technicien: 'Saisie de spécimens et méthodes de collecte',
-                lecteur:    'Consultation uniquement — aucune modification possible',
-              }[form.role]}
+              {{ admin: 'Accès total — gestion des utilisateurs, référentiels, données', chercheur: 'Création et modification de toutes les données scientifiques', technicien: 'Saisie de spécimens et méthodes de collecte', lecteur: 'Consultation uniquement — aucune modification possible' }[form.role]}
             </p>
           </div>
-
           {!isEdit && (
             <>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-600">Mot de passe <span className="text-red-400">*</span></label>
                 <div className="relative">
-                  <input
-                    type={showPwd ? 'text' : 'password'}
-                    value={form.password} onChange={(e) => set('password', e.target.value)}
-                    required minLength={8}
-                    className={`${inputCls} pr-10`}
-                    placeholder="8 caractères minimum"
-                  />
-                  <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-gray-600">
+                  <input type={showPwd ? 'text' : 'password'} value={form.password} onChange={(e) => set('password', e.target.value)}
+                    required minLength={8} className={`${inputCls} pr-10`} placeholder="8 caractères minimum" />
+                  <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle">
                     {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
               </div>
-
               <div className="flex items-center gap-3 p-3 bg-surface-2 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => set('actif', !form.actif)}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${form.actif ? 'bg-primary-500' : 'bg-gray-300'}`}
-                >
+                <button type="button" onClick={() => set('actif', !form.actif)}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${form.actif ? 'bg-primary-500' : 'bg-gray-300'}`}>
                   <span className={`absolute left-0.5 top-0.5 w-4 h-4 bg-surface rounded-full shadow transition-transform ${form.actif ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
                 <div>
@@ -259,7 +206,6 @@ function UserModal({ user, onClose, onSaved }) {
               </div>
             </>
           )}
-
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
             <button type="submit" disabled={loading} className="btn-primary">
@@ -275,24 +221,17 @@ function UserModal({ user, onClose, onSaved }) {
 
 // ── Modal réinitialisation mot de passe ───────────────────────
 function ResetPasswordModal({ user, onClose }) {
-  const [password,  setPassword]  = useState('');
-  const [showPwd,   setShowPwd]   = useState(false);
-  const [loading,   setLoading]   = useState(false);
-  const [done,      setDone]      = useState(false);
-  const [error,     setError]     = useState(null);
+  const [password, setPassword] = useState('');
+  const [showPwd,  setShowPwd]  = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [done,     setDone]     = useState(false);
+  const [error,    setError]    = useState(null);
 
   const submit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      await api.patch(`/auth/users/${user.id}/reset-password`, { password });
-      setDone(true);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Erreur');
-    } finally {
-      setLoading(false);
-    }
+    e.preventDefault(); setError(null); setLoading(true);
+    try { await api.patch(`/auth/users/${user.id}/reset-password`, { password }); setDone(true); }
+    catch (err) { setError(err.response?.data?.error || 'Erreur'); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -312,7 +251,6 @@ function ResetPasswordModal({ user, onClose }) {
             <X size={18} />
           </button>
         </div>
-
         <div className="p-6">
           {done ? (
             <div className="text-center py-4 space-y-3">
@@ -329,14 +267,11 @@ function ResetPasswordModal({ user, onClose }) {
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-600">Nouveau mot de passe <span className="text-red-400">*</span></label>
                 <div className="relative">
-                  <input
-                    type={showPwd ? 'text' : 'password'}
-                    value={password} onChange={(e) => setPassword(e.target.value)}
+                  <input type={showPwd ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
                     required minLength={8}
                     className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 pr-10"
-                    placeholder="8 caractères minimum"
-                  />
-                  <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-gray-600">
+                    placeholder="8 caractères minimum" />
+                  <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle">
                     {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
@@ -360,23 +295,27 @@ function ResetPasswordModal({ user, onClose }) {
 export default function UtilisateursPage() {
   const { user: me } = useAuthStore();
 
-  const [users,     setUsers]     = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState('');
-  const [filterRole, setFilterRole] = useState('');
+  const [users,       setUsers]       = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [search,      setSearch]      = useState('');
+  const [filterRole,  setFilterRole]  = useState('');
   const [filterActif, setFilterActif] = useState('');
-  const [modal,     setModal]     = useState(null); // { type: 'create'|'edit'|'reset'|'specimens', user? }
+  const [modal,       setModal]       = useState(null);
+  const [page,        setPage]        = useState(1);
+  const [limit,       setLimit]       = useState(25);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const r = await api.get('/auth/users');
       setUsers([...r.data.actifs, ...r.data.en_attente]);
     } finally { setLoading(false); }
-  };
-  useEffect(() => { refresh(); }, []);
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
 
-  // Stats
+  // Réinitialiser la page sur changement de filtre
+  useEffect(() => { setPage(1); }, [search, filterRole, filterActif]);
+
   const stats = {
     total:      users.length,
     actifs:     users.filter((u) => u.actif).length,
@@ -386,10 +325,9 @@ export default function UtilisateursPage() {
   };
   const pending = users.filter((u) => !u.actif);
 
-  // Filtre
   const filtered = users.filter((u) => {
-    if (filterActif === 'actifs'   && !u.actif)  return false;
-    if (filterActif === 'attente'  && u.actif)   return false;
+    if (filterActif === 'actifs'  && !u.actif)  return false;
+    if (filterActif === 'attente' &&  u.actif)   return false;
     if (filterRole && u.role !== filterRole)      return false;
     if (search) {
       const s = search.toLowerCase();
@@ -398,33 +336,158 @@ export default function UtilisateursPage() {
     return true;
   });
 
-  const toggleActif = async (u) => {
-    try {
-      await api.patch(`/auth/users/${u.id}/activate`, { actif: !u.actif });
-      refresh();
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
-  };
+  const pageCount = Math.ceil(filtered.length / limit) || 1;
+  const paged     = filtered.slice((page - 1) * limit, page * limit);
 
-  const changeRole = async (u, role) => {
-    try {
-      await api.patch(`/auth/users/${u.id}/activate`, { role });
-      refresh();
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
-  };
-
-  const remove = async (u) => {
+  const toggleActif = useCallback(async (u) => {
+    try { await api.patch(`/auth/users/${u.id}/activate`, { actif: !u.actif }); refresh(); }
+    catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+  }, [refresh]);
+  const changeRole = useCallback(async (u, role) => {
+    try { await api.patch(`/auth/users/${u.id}/activate`, { role }); refresh(); }
+    catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+  }, [refresh]);
+  const remove = useCallback(async (u) => {
     if (!confirm(`Supprimer le compte de ${u.prenom} ${u.nom} ?`)) return;
-    try {
-      await api.delete(`/auth/users/${u.id}`);
-      refresh();
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
-  };
+    try { await api.delete(`/auth/users/${u.id}`); refresh(); }
+    catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+  }, [refresh]);
 
   const closeModal = () => setModal(null);
   const onSaved    = () => { closeModal(); refresh(); };
 
+  // Colonnes — dépendent de me, toggleActif, changeRole, remove, setModal
+  const columns = useMemo(() => [
+    {
+      key: 'nom',
+      label: 'Utilisateur',
+      skeletonWidth: '70%',
+      render: (u) => (
+        <div className="flex items-center gap-3">
+          <AvatarCircle user={u} />
+          <div>
+            <p className="font-semibold text-fg text-sm">
+              {u.prenom} {u.nom}
+              {u.id === me?.id && (
+                <span className="ml-2 text-[10px] bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded-full font-medium">Vous</span>
+              )}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'email',
+      label: 'Email',
+      skeletonWidth: '80%',
+      hidden: 'hidden md:table-cell',
+      className: 'text-fg-muted text-xs',
+      render: (u) => u.email,
+    },
+    {
+      key: 'role',
+      label: 'Rôle',
+      skeletonWidth: '55%',
+      render: (u) => (
+        <Select
+          value={u.role}
+          onChange={(val) => changeRole(u, val)}
+          disabled={u.id === me?.id}
+          hideChevron={u.id === me?.id}
+          wrapperClassName="inline-block"
+          buttonClassName={`w-full flex items-center justify-between gap-1 text-left text-xs font-semibold pl-2.5 pr-2 py-1.5 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-300 ${roleInfo[u.role]?.color || 'bg-surface-3 text-fg-muted border-border-strong'}`}
+          chevronClassName="text-current opacity-70"
+          options={ROLES.map((r) => ({ value: r.value, label: r.label }))}
+        />
+      ),
+    },
+    {
+      key: 'specimens',
+      label: 'Spécimens',
+      skeletonWidth: '65%',
+      hidden: 'hidden lg:table-cell',
+      render: (u) => (
+        <div className="flex gap-1 flex-wrap">
+          {u.role === 'admin' ? (
+            <span className="text-xs text-fg-subtle italic">Tous</span>
+          ) : (u.specimensAutorises || []).length === 0 ? (
+            <span className="text-xs text-danger">Aucun</span>
+          ) : (
+            (u.specimensAutorises || []).map(s => (
+              <span key={s} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${SPECIMENS.find(x => x.value === s)?.color || ''}`}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </span>
+            ))
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'statut',
+      label: 'Statut',
+      skeletonWidth: '50%',
+      render: (u) => u.actif ? (
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success bg-success/10 border border-success/20 px-2.5 py-0.5 rounded-full">
+          <span className="w-1.5 h-1.5 rounded-full bg-success" /> Actif
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-warning bg-warning/10 border border-role-terrain/20 px-2.5 py-0.5 rounded-full">
+          <Clock size={10} /> En attente
+        </span>
+      ),
+    },
+    {
+      key: 'createdAt',
+      label: 'Inscrit le',
+      skeletonWidth: '60%',
+      hidden: 'hidden lg:table-cell',
+      className: 'text-fg-subtle text-xs whitespace-nowrap',
+      render: (u) => new Date(u.createdAt).toLocaleDateString('fr-FR'),
+    },
+    {
+      key: 'actions',
+      label: '',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (u) => {
+        const isMe = u.id === me?.id;
+        return (
+          <div className="flex items-center justify-end gap-1">
+            {!isMe && (
+              <button onClick={() => toggleActif(u)} title={u.actif ? 'Désactiver' : 'Activer'}
+                className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+                {u.actif ? <ToggleRight size={16} className="text-success" /> : <ToggleLeft size={16} />}
+              </button>
+            )}
+            <button onClick={() => setModal({ type: 'edit', user: u })} title="Modifier"
+              className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+              <Edit2 size={14} />
+            </button>
+            {u.role !== 'admin' && (
+              <button onClick={() => setModal({ type: 'specimens', user: u })} title="Gérer les accès spécimens"
+                className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-specimen-moustique hover:bg-specimen-moustique/10 rounded-lg transition-colors">
+                <ShieldCheck size={14} />
+              </button>
+            )}
+            <button onClick={() => setModal({ type: 'reset', user: u })} title="Réinitialiser le mot de passe"
+              className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-amber-600 hover:bg-warning/10 rounded-lg transition-colors">
+              <KeyRound size={14} />
+            </button>
+            {!isMe && (
+              <button onClick={() => remove(u)} title="Supprimer"
+                className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors">
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
+        );
+      },
+    },
+  ], [me?.id, toggleActif, changeRole, remove, setModal]);
+
   return (
     <div className="max-w-screen-2xl space-y-6">
+
       {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
@@ -441,11 +504,11 @@ export default function UtilisateursPage() {
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
-          { label: 'Total',      value: stats.total,      icon: Users,      bg: 'bg-surface-2',    text: 'text-gray-600'   },
-          { label: 'Actifs',     value: stats.actifs,     icon: UserCheck,  bg: 'bg-success/10', text: 'text-success' },
-          { label: 'En attente', value: stats.enAttente,  icon: Clock,      bg: 'bg-warning/10',   text: 'text-warning'  },
-          { label: 'Admins',     value: stats.admins,     icon: ShieldCheck,bg: 'bg-role-admin/10',  text: 'text-role-admin' },
-          { label: 'Chercheurs', value: stats.chercheurs, icon: Users,      bg: 'bg-role-chercheur/10',    text: 'text-role-chercheur'   },
+          { label: 'Total',      value: stats.total,      icon: Users,       bg: 'bg-surface-2',          text: 'text-gray-600'         },
+          { label: 'Actifs',     value: stats.actifs,     icon: UserCheck,   bg: 'bg-success/10',         text: 'text-success'          },
+          { label: 'En attente', value: stats.enAttente,  icon: Clock,       bg: 'bg-warning/10',         text: 'text-warning'          },
+          { label: 'Admins',     value: stats.admins,     icon: ShieldCheck, bg: 'bg-role-admin/10',      text: 'text-role-admin'       },
+          { label: 'Chercheurs', value: stats.chercheurs, icon: Users,       bg: 'bg-role-chercheur/10',  text: 'text-role-chercheur'   },
         ].map(({ label, value, icon: Icon, bg, text }) => (
           <div key={label} className={`card p-4 flex items-center gap-3 ${bg}`}>
             <Icon size={20} className={text} />
@@ -457,7 +520,7 @@ export default function UtilisateursPage() {
         ))}
       </div>
 
-      {/* Section "En attente de validation" */}
+      {/* Comptes en attente */}
       {pending.length > 0 && (
         <div className="card border-l-4 border-amber-400 overflow-hidden">
           <div className="px-5 py-3 bg-warning/10 border-b border-amber-100 flex items-center gap-2">
@@ -479,22 +542,17 @@ export default function UtilisateursPage() {
                 </p>
                 <div className="flex items-center gap-2">
                   <Select
-                    value={u.role}
-                    onChange={(val) => changeRole(u, val)}
+                    value={u.role} onChange={(val) => changeRole(u, val)}
                     wrapperClassName="w-32"
                     buttonClassName="w-full flex items-center justify-between gap-1 text-left text-xs px-2 py-1.5 rounded-lg border border-border-strong bg-surface text-fg transition-colors focus:outline-none focus:ring-2 focus:ring-primary-300"
                     options={ROLES.map((r) => ({ value: r.value, label: r.label }))}
                   />
-                  <button
-                    onClick={() => toggleActif(u)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-success hover:brightness-110 text-white text-xs font-semibold rounded-lg transition-colors"
-                  >
+                  <button onClick={() => toggleActif(u)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-success hover:brightness-110 text-white text-xs font-semibold rounded-lg transition-colors">
                     <Check size={12} /> Activer
                   </button>
-                  <button
-                    onClick={() => remove(u)}
-                    className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
-                  >
+                  <button onClick={() => remove(u)}
+                    className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -513,185 +571,45 @@ export default function UtilisateursPage() {
             placeholder="Rechercher un utilisateur…"
             className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-border-strong focus:outline-none focus:ring-2 focus:ring-primary-500/30"
           />
-          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle"><X size={13} /></button>}
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle">
+              <X size={13} />
+            </button>
+          )}
         </div>
-
-        <Select
-          value={filterRole}
-          onChange={setFilterRole}
-          wrapperClassName="w-44 flex-shrink-0"
-          options={[
-            { value: '', label: 'Tous les rôles' },
-            ...ROLES.map((r) => ({ value: r.value, label: r.label })),
-          ]}
+        <Select value={filterRole} onChange={setFilterRole} wrapperClassName="w-44 flex-shrink-0"
+          options={[{ value: '', label: 'Tous les rôles' }, ...ROLES.map((r) => ({ value: r.value, label: r.label }))]}
         />
-
-        <Select
-          value={filterActif}
-          onChange={setFilterActif}
-          wrapperClassName="w-44 flex-shrink-0"
-          options={[
-            { value: '', label: 'Tous les statuts' },
-            { value: 'actifs', label: 'Actifs uniquement' },
-            { value: 'attente', label: 'En attente' },
-          ]}
+        <Select value={filterActif} onChange={setFilterActif} wrapperClassName="w-44 flex-shrink-0"
+          options={[{ value: '', label: 'Tous les statuts' }, { value: 'actifs', label: 'Actifs uniquement' }, { value: 'attente', label: 'En attente' }]}
         />
-
         <span className="text-xs text-fg-subtle ml-auto">{filtered.length} utilisateur(s)</span>
       </div>
 
       {/* Table principale */}
-      {loading ? (
-        <div className="flex items-center justify-center h-40 text-fg-subtle text-sm">
-          <Loader2 size={18} className="animate-spin mr-2" /> Chargement…
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="card p-16 text-center text-fg-subtle text-sm">Aucun utilisateur trouvé</div>
-      ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-2 border-b border-border">
-              <tr>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Utilisateur</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Email</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Rôle</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Spécimens</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Statut</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-fg-muted tracking-wide">Inscrit le</th>
-                <th className="px-5 py-3 text-right text-xs font-semibold text-fg-muted tracking-wide">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((u) => {
-                const isMe = u.id === me?.id;
-                return (
-                  <tr key={u.id} className={`hover:bg-surface-2/60 transition-colors ${!u.actif ? 'opacity-60' : ''}`}>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <AvatarCircle user={u} />
-                        <div>
-                          <p className="font-semibold text-fg text-sm">
-                            {u.prenom} {u.nom}
-                            {isMe && <span className="ml-2 text-[10px] bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded-full font-medium">Vous</span>}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-fg-muted text-xs">{u.email}</td>
-                    <td className="px-5 py-3.5">
-                      {/* Dropdown rôle inline */}
-                      <Select
-                        value={u.role}
-                        onChange={(val) => changeRole(u, val)}
-                        disabled={isMe}
-                        hideChevron={isMe}
-                        wrapperClassName="inline-block"
-                        buttonClassName={`w-full flex items-center justify-between gap-1 text-left text-xs font-semibold pl-2.5 pr-2 py-1.5 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-300 ${roleInfo[u.role]?.color || 'bg-surface-3 text-fg-muted border-border-strong'}`}
-                        chevronClassName="text-current opacity-70"
-                        options={ROLES.map((r) => ({ value: r.value, label: r.label }))}
-                      />
-                    </td>
-                    {/* Spécimens autorisés */}
-                    <td className="px-5 py-3.5">
-                      <div className="flex gap-1 flex-wrap">
-                        {u.role === 'admin' ? (
-                          <span className="text-xs text-fg-subtle italic">Tous</span>
-                        ) : (u.specimensAutorises || []).length === 0 ? (
-                          <span className="text-xs text-danger">Aucun</span>
-                        ) : (
-                          (u.specimensAutorises || []).map(s => (
-                            <span key={s} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${SPECIMENS.find(x => x.value === s)?.color || ''}`}>
-                              {s.charAt(0).toUpperCase() + s.slice(1)}
-                            </span>
-                          ))
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      {u.actif ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success bg-success/10 border border-success/20 px-2.5 py-0.5 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-success/100" /> Actif
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-warning bg-warning/10 border border-role-terrain/20 px-2.5 py-0.5 rounded-full">
-                          <Clock size={10} /> En attente
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-fg-subtle text-xs">
-                      {new Date(u.createdAt).toLocaleDateString('fr-FR')}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center justify-end gap-1">
-                        {/* Toggle actif */}
-                        {!isMe && (
-                          <button
-                            onClick={() => toggleActif(u)}
-                            title={u.actif ? 'Désactiver' : 'Activer'}
-                            className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                          >
-                            {u.actif ? <ToggleRight size={16} className="text-success" /> : <ToggleLeft size={16} />}
-                          </button>
-                        )}
-                        {/* Modifier */}
-                        <button
-                          onClick={() => setModal({ type: 'edit', user: u })}
-                          title="Modifier"
-                          className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        {/* Permissions spécimens */}
-                        {u.role !== 'admin' && (
-                          <button
-                            onClick={() => setModal({ type: 'specimens', user: u })}
-                            title="Gérer les accès spécimens"
-                            className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-specimen-moustique hover:bg-specimen-moustique/10 rounded-lg transition-colors"
-                          >
-                            <ShieldCheck size={14} />
-                          </button>
-                        )}
-                        {/* Reset mdp */}
-                        <button
-                          onClick={() => setModal({ type: 'reset', user: u })}
-                          title="Réinitialiser le mot de passe"
-                          className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-amber-600 hover:bg-warning/10 rounded-lg transition-colors"
-                        >
-                          <KeyRound size={14} />
-                        </button>
-                        {/* Supprimer */}
-                        {!isMe && (
-                          <button
-                            onClick={() => remove(u)}
-                            title="Supprimer"
-                            className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <Card padding="none" className="overflow-hidden">
+        <DataTable
+          columns={columns}
+          rows={paged}
+          loading={loading}
+          skeletonRows={8}
+          rowClassName={(u) => !u.actif ? 'opacity-60' : ''}
+          minWidth="680px"
+          maxHeight="calc(100vh - 460px)"
+          empty={<span className="text-fg-subtle text-sm">Aucun utilisateur trouvé</span>}
+        />
+        <Pagination
+          page={page} pages={pageCount} total={filtered.length} limit={limit}
+          onChange={setPage}
+          onLimitChange={(n) => { setLimit(n); setPage(1); }}
+        />
+      </Card>
 
       {/* Modals */}
-      {modal?.type === 'create' && (
-        <UserModal onClose={closeModal} onSaved={onSaved} currentUserId={me?.id} />
-      )}
-      {modal?.type === 'edit' && (
-        <UserModal user={modal.user} onClose={closeModal} onSaved={onSaved} currentUserId={me?.id} />
-      )}
-      {modal?.type === 'reset' && (
-        <ResetPasswordModal user={modal.user} onClose={closeModal} />
-      )}
-      {modal?.type === 'specimens' && (
-        <SpecimenAccessModal user={modal.user} onClose={closeModal} onSaved={onSaved} />
-      )}
+      {modal?.type === 'create' && <UserModal onClose={closeModal} onSaved={onSaved} />}
+      {modal?.type === 'edit'   && <UserModal user={modal.user} onClose={closeModal} onSaved={onSaved} />}
+      {modal?.type === 'reset'  && <ResetPasswordModal user={modal.user} onClose={closeModal} />}
+      {modal?.type === 'specimens' && <SpecimenAccessModal user={modal.user} onClose={closeModal} onSaved={onSaved} />}
     </div>
   );
 }

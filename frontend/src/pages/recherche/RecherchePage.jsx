@@ -4,12 +4,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Search, Download, Filter, ChevronDown, ChevronUp,
+  Search, Download, ChevronDown, ChevronUp, ChevronLeft,
   Bug, Calendar, MapPin, Layers, RotateCcw, FlaskConical, PawPrint,
-  TrendingUp, Hash,
+  TrendingUp, Hash, SlidersHorizontal,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, Button, EmptyState, PageHeader, Spinner, Select } from '../../components/ui';
+import { Card, Badge, Button, EmptyState, PageHeader, Spinner, Select, DataTable } from '../../components/ui';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS } from '../../utils/gorgement';
 
@@ -52,6 +52,110 @@ function FilterSection({ title, icon: Icon, children, defaultOpen = true }) {
 
 const inputCls = 'w-full px-3 py-2 text-sm rounded-lg border border-border-strong bg-surface text-fg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary';
 
+// ── Colonnes résultats ────────────────────────────────────────
+const RESULT_COLUMNS = [
+  {
+    key:          '_type',
+    label:        'Type',
+    skeletonWidth: '55%',
+    render: (s) => <Badge tone={TYPE_TONE[s._type]}>{TYPE_LABEL[s._type]}</Badge>,
+  },
+  {
+    key:          'idTerrain',
+    label:        'ID terrain',
+    skeletonWidth: '65%',
+    render: (s) => s.idTerrain
+      ? <Badge tone="primary" size="sm" className="font-mono font-bold">{s.idTerrain}</Badge>
+      : null,
+  },
+  {
+    key:          'id',
+    label:        '#ID',
+    skeletonWidth: '40%',
+    width:        '64px',
+    hidden:       'hidden sm:table-cell',
+    className:    'font-mono text-xs text-fg-subtle',
+    render: (s) => `#${s.id}`,
+  },
+  {
+    key:          'taxonomie',
+    label:        'Taxonomie',
+    skeletonWidth: '80%',
+    className:    'italic font-medium text-fg',
+    render: (s) => taxoLabel(s.taxonomie),
+  },
+  {
+    key:           'nombre',
+    label:         'Nb',
+    skeletonWidth: '30%',
+    width:         '50px',
+    className:     'text-fg-muted font-semibold',
+    render: (s) => s.nombre,
+  },
+  {
+    key:          'sexe',
+    label:        'Sexe',
+    skeletonWidth: '50%',
+    render: (s) => (
+      <Badge tone={SEXE_TONE[s.sexe || 'inconnu']}>{SEXE_LABEL[s.sexe || 'inconnu']}</Badge>
+    ),
+  },
+  {
+    key:          'stade',
+    label:        'Stade',
+    skeletonWidth: '55%',
+    hidden:       'hidden md:table-cell',
+    className:    'text-xs text-fg-muted',
+    render: (s) => s.stade ? formatStade(s.stade) : null,
+  },
+  {
+    key:          'mission',
+    label:        'Mission',
+    skeletonWidth: '60%',
+    hidden:       'hidden lg:table-cell',
+    className:    'text-xs text-fg-muted font-mono',
+    render: (s) => s.methode?.localite?.mission?.ordreMission ?? null,
+  },
+  {
+    key:          'localite',
+    label:        'Localité',
+    skeletonWidth: '70%',
+    hidden:       'hidden md:table-cell',
+    render: (s) => (
+      <div>
+        <div className="text-xs text-fg-muted">{s.methode?.localite?.nom ?? '—'}</div>
+        {s.methode?.localite?.region && (
+          <div className="text-[10px] text-fg-subtle">{s.methode.localite.region}</div>
+        )}
+      </div>
+    ),
+  },
+  {
+    key:          'methode',
+    label:        'Méthode',
+    skeletonWidth: '60%',
+    hidden:       'hidden lg:table-cell',
+    className:    'text-xs text-fg-muted',
+    render: (s) => s.methode?.typeMethode?.nom ?? null,
+  },
+  {
+    key:          'hote',
+    label:        'Hôte',
+    skeletonWidth: '55%',
+    hidden:       'hidden xl:table-cell',
+    className:    'text-xs text-fg-muted',
+    render: (s) => s.hote?.taxonomieHote?.nom ?? null,
+  },
+  {
+    key:          'dateCollecte',
+    label:        'Date',
+    skeletonWidth: '65%',
+    hidden:       'hidden sm:table-cell',
+    className:    'text-xs text-fg-subtle whitespace-nowrap',
+    render: (s) => s.dateCollecte ? new Date(s.dateCollecte).toLocaleDateString('fr-FR') : null,
+  },
+];
+
 // ── Page ──────────────────────────────────────────────────────
 export default function RecherchePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -70,8 +174,9 @@ export default function RecherchePage() {
   const [items,   setItems]   = useState([]);
   const [stats,   setStats]   = useState(null);
   const [total,   setTotal]   = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading,     setLoading]     = useState(false);
   const [showFilters, setShowFilters] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -106,7 +211,7 @@ export default function RecherchePage() {
     setLoading(true);
     api.get('/recherche/specimens', { params })
       .then((r) => {
-        setItems(r.data.items);
+        setItems(r.data.items.map((s) => ({ ...s, _key: `${s._type}-${s.id}` })));
         setStats(r.data.stats);
         setTotal(r.data.total);
       })
@@ -155,103 +260,101 @@ export default function RecherchePage() {
   const taxonomiesFiltered = taxonomies.filter((t) => !t.type || activeTypes.includes(t.type));
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-4">
 
       <PageHeader
         icon={Search} iconTone="primary"
         title="Explorer les spécimens"
-        subtitle={loading ? 'Recherche…' : `${total} spécimen(s) ${filterCount > 0 ? '— ' + filterCount + ' filtre(s) actif(s)' : ''}`}
+        subtitle={
+          loading
+            ? 'Recherche en cours…'
+            : `${total} spécimen(s)${filterCount > 0 ? ` — ${filterCount} filtre(s) actif(s)` : ''}`
+        }
         actions={
-          <>
+          <div className="flex items-center gap-2">
             {hasActiveFilters && (
-              <Button variant="ghost" size="sm" icon={RotateCcw} onClick={reset}>Réinitialiser</Button>
+              <Button variant="ghost" size="sm" icon={RotateCcw} onClick={reset}>
+                Réinitialiser
+              </Button>
             )}
-            <Button variant="secondary" size="sm" icon={Filter}
+            {/* Toggle filtres — mobile uniquement */}
+            <button
               onClick={() => setShowFilters(!showFilters)}
-              className="lg:hidden">
-              Filtres {filterCount > 0 && <Badge tone="primary" size="xs" className="ml-1">{filterCount}</Badge>}
-            </Button>
+              className="lg:hidden relative inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-border-strong bg-surface hover:bg-surface-2 transition-colors"
+            >
+              <SlidersHorizontal size={13} />
+              Filtres
+              {filterCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
+                  {filterCount}
+                </span>
+              )}
+            </button>
             <Button variant="secondary" size="sm" icon={Download} disabled={total === 0} onClick={handleExport}>
               Export Excel
             </Button>
-          </>
+          </div>
         }
       />
 
-      {/* Stats cards */}
-      {stats && total > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-
-          <Card padding="none" tone="primary" className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Hash size={13} className="text-primary" />
-              <span className="text-xs text-fg-muted">Spécimens</span>
-            </div>
-            <p className="text-2xl font-bold text-primary">{stats.total}</p>
-            <p className="text-xs text-fg-subtle mt-1">{stats.totalIndividus} individu(s)</p>
-          </Card>
-
-          <Card padding="none" className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Bug size={13} className="text-fg-subtle" />
-              <span className="text-xs text-fg-muted">Par type</span>
-            </div>
-            <div className="space-y-1 mt-2">
-              {Object.entries(stats.parType).filter(([, v]) => v > 0).map(([t, count]) => (
-                <div key={t} className="flex items-center justify-between text-xs">
-                  <Badge tone={TYPE_TONE[t]} size="xs">{TYPE_LABEL[t]}</Badge>
-                  <span className="font-semibold text-fg">{count}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          <Card padding="none" className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp size={13} className="text-fg-subtle" />
-              <span className="text-xs text-fg-muted">Top espèces</span>
-            </div>
-            <div className="space-y-1 mt-2">
-              {stats.topEspeces.slice(0, 3).map((e) => (
-                <div key={e.nom} className="flex items-center justify-between text-xs">
-                  <span className="italic text-fg truncate">{e.nom}</span>
-                  <span className="font-semibold text-fg-muted ml-2">{e.count}</span>
-                </div>
-              ))}
-              {stats.topEspeces.length === 0 && <p className="text-xs text-fg-subtle">—</p>}
-            </div>
-          </Card>
-
-          <Card padding="none" className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Calendar size={13} className="text-fg-subtle" />
-              <span className="text-xs text-fg-muted">Période</span>
-            </div>
-            {stats.periode.dateMin ? (
-              <>
-                <p className="text-sm font-semibold text-fg">
-                  {new Date(stats.periode.dateMin).toLocaleDateString('fr-FR')}
-                </p>
-                <p className="text-xs text-fg-subtle mt-0.5">
-                  → {new Date(stats.periode.dateMax).toLocaleDateString('fr-FR')}
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-fg-subtle">Non datée</p>
-            )}
-          </Card>
-        </div>
-      )}
-
       {/* Layout 2 colonnes */}
-      <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-5">
+      <div className="flex flex-col lg:flex-row gap-5 items-start">
 
-        {/* Panneau de filtres */}
-        <Card padding="none" className={`${showFilters ? 'block' : 'hidden'} lg:block self-start lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] overflow-hidden lg:overflow-y-auto`}>
-          <div className="px-4 py-3 border-b border-border bg-surface-2/50 flex items-center gap-2">
-            <Filter size={14} className="text-fg-subtle" />
-            <span className="text-sm font-semibold text-fg">Filtres</span>
-          </div>
+        {/* Panneau de filtres — desktop : sidebar animée */}
+        <div
+          className={`hidden lg:block relative flex-shrink-0 self-start sticky top-4
+            transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
+            ${sidebarOpen ? 'w-[272px]' : 'w-8'}`}
+        >
+          {/* Bouton toggle — flottant à l'arête droite */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            title={sidebarOpen ? 'Masquer les filtres' : 'Afficher les filtres'}
+            className="absolute -right-3 top-3.5 z-30 w-6 h-6
+              flex items-center justify-center rounded-full
+              bg-surface border border-border shadow-md
+              hover:bg-primary/10 hover:border-primary/30 hover:shadow-lg
+              transition-all duration-200"
+          >
+            {/* Badge filtre actif visible quand panel fermé */}
+            {!sidebarOpen && filterCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-white text-[8px] font-bold flex items-center justify-center">
+                {filterCount}
+              </span>
+            )}
+            <ChevronLeft
+              size={12}
+              className={`text-fg-subtle transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
+                ${sidebarOpen ? '' : 'rotate-180'}`}
+            />
+          </button>
+
+          {/* Contenu du panneau */}
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] origin-left
+              ${sidebarOpen ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-90 pointer-events-none'}`}
+          >
+            <Card padding="none" className="max-h-[calc(100vh-210px)] overflow-y-auto datatable-scroll">
+              <div className="px-4 py-3 border-b border-border bg-surface-2/60 flex items-center justify-between sticky top-0 z-10 backdrop-blur-sm">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal size={13} className="text-fg-subtle" />
+                  <span className="text-sm font-semibold text-fg">Filtres</span>
+                  {filterCount > 0 && (
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold">
+                      {filterCount}
+                    </span>
+                  )}
+                </div>
+                {hasActiveFilters && (
+                  <button
+                    onClick={reset}
+                    title="Tout effacer"
+                    className="text-xs text-fg-subtle hover:text-danger transition-colors flex items-center gap-1"
+                  >
+                    <RotateCcw size={11} /> Reset
+                  </button>
+                )}
+              </div>
 
           <FilterSection title="Type" icon={Bug}>
             <div className="grid grid-cols-3 gap-1.5">
@@ -435,69 +538,150 @@ export default function RecherchePage() {
               ]}
             />
           </FilterSection>
-        </Card>
+            </Card>
+          </div>
+        </div>
+
+        {/* Panneau de filtres — mobile uniquement */}
+        {showFilters && (
+          <Card padding="none" className="lg:hidden w-full">
+            <div className="px-4 py-3 border-b border-border bg-surface-2/60 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal size={13} className="text-fg-subtle" />
+                <span className="text-sm font-semibold text-fg">Filtres</span>
+                {filterCount > 0 && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold">
+                    {filterCount}
+                  </span>
+                )}
+              </div>
+              <button onClick={() => setShowFilters(false)} className="text-xs text-fg-subtle hover:text-fg">
+                Masquer
+              </button>
+            </div>
+            {/* Sections filtres — identiques au desktop */}
+            <FilterSection title="Type" icon={Bug}>
+              <div className="grid grid-cols-3 gap-1.5">
+                {Object.entries(TYPE_LABEL).map(([key, label]) => {
+                  const active = activeTypes.includes(key);
+                  return (
+                    <button key={key} type="button" onClick={() => toggleType(key)}
+                      className={`text-xs font-medium px-2 py-1.5 rounded-lg border transition-all ${
+                        active
+                          ? `bg-specimen-${key}/10 text-specimen-${key} border-specimen-${key}`
+                          : 'border-border-strong text-fg-subtle hover:bg-surface-2'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </FilterSection>
+          </Card>
+        )}
 
         {/* Résultats */}
-        <div>
+        <div className="flex-1 min-w-0 flex flex-col gap-3">
+
+          {/* Stats cards — ancrées au-dessus du tableau, ne scrollent jamais */}
+          {stats && total > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Card padding="none" className="p-4 border-l-4 border-l-primary">
+                <p className="text-xs text-fg-muted mb-1 flex items-center gap-1.5">
+                  <Hash size={12} className="text-primary" /> Spécimens
+                </p>
+                <p className="text-2xl font-bold text-primary leading-none">{stats.total}</p>
+                <p className="text-xs text-fg-subtle mt-1.5">{stats.totalIndividus} individu(s)</p>
+              </Card>
+
+              <Card padding="none" className="p-4">
+                <p className="text-xs text-fg-muted mb-2 flex items-center gap-1.5">
+                  <Bug size={12} className="text-fg-subtle" /> Par type
+                </p>
+                <div className="space-y-1.5">
+                  {Object.entries(stats.parType).filter(([, v]) => v > 0).map(([t, count]) => (
+                    <div key={t} className="flex items-center justify-between">
+                      <Badge tone={TYPE_TONE[t]} size="xs">{TYPE_LABEL[t]}</Badge>
+                      <span className="text-xs font-bold text-fg tabular-nums">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card padding="none" className="p-4">
+                <p className="text-xs text-fg-muted mb-2 flex items-center gap-1.5">
+                  <TrendingUp size={12} className="text-fg-subtle" /> Top espèces
+                </p>
+                <div className="space-y-1.5">
+                  {stats.topEspeces.slice(0, 3).map((e, i) => (
+                    <div key={e.nom} className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[10px] font-bold text-fg-subtle w-4 text-right flex-shrink-0">
+                          {i + 1}.
+                        </span>
+                        <span className="italic text-xs text-fg truncate">{e.nom}</span>
+                      </div>
+                      <span className="text-xs font-bold text-fg-muted tabular-nums flex-shrink-0">{e.count}</span>
+                    </div>
+                  ))}
+                  {stats.topEspeces.length === 0 && <p className="text-xs text-fg-subtle">—</p>}
+                </div>
+              </Card>
+
+              <Card padding="none" className="p-4">
+                <p className="text-xs text-fg-muted mb-2 flex items-center gap-1.5">
+                  <Calendar size={12} className="text-fg-subtle" /> Période
+                </p>
+                {stats.periode.dateMin ? (
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-fg">
+                      {new Date(stats.periode.dateMin).toLocaleDateString('fr-FR')}
+                    </p>
+                    <p className="text-xs text-fg-subtle flex items-center gap-1">
+                      <span>→</span>
+                      {new Date(stats.periode.dateMax).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-fg-subtle">Non datée</p>
+                )}
+              </Card>
+            </div>
+          )}
+
+          {/* Tableau de résultats */}
           {loading ? (
-            <Card padding="lg"><Spinner.Block label="Recherche en cours…" height="h-32" /></Card>
+            <Card padding="none" className="overflow-hidden">
+              <DataTable
+                columns={RESULT_COLUMNS}
+                rows={[]}
+                loading={true}
+                skeletonRows={10}
+                minWidth="900px"
+                maxHeight={stats && total > 0 ? 'calc(100vh - 320px)' : 'calc(100vh - 200px)'}
+              />
+            </Card>
           ) : items.length === 0 ? (
             <EmptyState
               icon={Search}
               title="Aucun spécimen ne correspond aux critères"
-              description={hasActiveFilters ? 'Essayez d\'élargir les critères ou de réinitialiser.' : 'Aucune donnée n\'est encore enregistrée.'}
+              description={hasActiveFilters ? "Essayez d'élargir les critères ou de réinitialiser." : "Aucune donnée n'est encore enregistrée."}
               action={hasActiveFilters ? { label: 'Réinitialiser', icon: RotateCcw, onClick: reset, variant: 'secondary' } : undefined}
             />
           ) : (
             <Card padding="none" className="overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[900px]">
-                  <thead className="bg-surface-2 border-b border-border">
-                    <tr>
-                      {['Type', 'ID terrain', '#ID', 'Taxonomie', 'Nb', 'Sexe', 'Stade', 'Mission', 'Localité', 'Méthode', 'Hôte', 'Date'].map((h) => (
-                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-fg-muted tracking-wide whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {items.map((s) => (
-                      <tr key={`${s._type}-${s.id}`} className="hover:bg-surface-2 transition-colors">
-                        <td className="px-4 py-3"><Badge tone={TYPE_TONE[s._type]}>{TYPE_LABEL[s._type]}</Badge></td>
-                        <td className="px-4 py-3">
-                          {s.idTerrain
-                            ? <Badge tone="primary" size="sm" className="font-mono font-bold">{s.idTerrain}</Badge>
-                            : <span className="text-fg-subtle text-xs">—</span>}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-xs text-fg-subtle">#{s.id}</td>
-                        <td className="px-4 py-3 italic font-medium text-fg">{taxoLabel(s.taxonomie)}</td>
-                        <td className="px-4 py-3 text-fg-muted font-semibold">{s.nombre}</td>
-                        <td className="px-4 py-3"><Badge tone={SEXE_TONE[s.sexe || 'inconnu']}>{SEXE_LABEL[s.sexe || 'inconnu']}</Badge></td>
-                        <td className="px-4 py-3 text-xs text-fg-muted">{s.stade ? formatStade(s.stade) : <span className="text-fg-subtle">—</span>}</td>
-                        <td className="px-4 py-3 text-xs text-fg-muted font-mono">{s.methode?.localite?.mission?.ordreMission || '—'}</td>
-                        <td className="px-4 py-3 text-xs text-fg-muted">
-                          <div>{s.methode?.localite?.nom || '—'}</div>
-                          {s.methode?.localite?.region && (
-                            <div className="text-[10px] text-fg-subtle">{s.methode.localite.region}</div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-fg-muted">{s.methode?.typeMethode?.nom || '—'}</td>
-                        <td className="px-4 py-3 text-xs text-fg-muted">
-                          {s.hote?.taxonomieHote?.nom || <span className="text-fg-subtle">—</span>}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-fg-subtle whitespace-nowrap">
-                          {s.dateCollecte ? new Date(s.dateCollecte).toLocaleDateString('fr-FR') : <span className="text-fg-subtle">—</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
+              <DataTable
+                columns={RESULT_COLUMNS}
+                rows={items}
+                keyField="_key"
+                loading={false}
+                minWidth="900px"
+                maxHeight={stats && total > 0 ? 'calc(100vh - 320px)' : 'calc(100vh - 200px)'}
+              />
               {total > items.length && (
                 <div className="px-4 py-3 border-t border-border bg-surface-2/50 text-xs text-fg-muted text-center">
-                  Affichage de {items.length} / {total} résultats — précisez vos filtres pour réduire le nombre
+                  Affichage de {items.length} / {total} — précisez les filtres pour réduire
                 </div>
               )}
             </Card>
