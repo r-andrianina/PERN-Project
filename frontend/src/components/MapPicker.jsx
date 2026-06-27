@@ -4,6 +4,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BASE_LAYERS, createBaseLayer } from '../lib/mapLayers';
 
+// Wraps a callback prop in a ref so the Leaflet click handler always calls
+// the latest version without needing to be re-registered.
+function useLatestRef(fn) {
+  const ref = useRef(fn);
+  useEffect(() => { ref.current = fn; });
+  return ref;
+}
+
 // Icône personnalisée — cercle primaire avec halo
 const createCustomIcon = () =>
   L.divIcon({
@@ -25,13 +33,23 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
   const instanceRef = useRef(null);
   const markerRef   = useRef(null);
   const tileRef     = useRef(null);
+  const onChangeRef = useLatestRef(onChange);
 
   const [activeLayer, setActiveLayer] = useState('satellite');
   const [query,       setQuery]       = useState('');
   const [results,     setResults]     = useState([]);
   const [searching,   setSearching]   = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const debounceRef = useRef(null);
+  const debounceRef  = useRef(null);
+  const mountedRef   = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const defaultLat = latitude  || -18.9137;
   const defaultLng = longitude || 47.5361;
@@ -63,11 +81,11 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
       markerRef.current = L.marker([latitude, longitude], { icon: createCustomIcon() }).addTo(map);
     }
 
-    // Clic sur la carte
+    // Clic sur la carte — utilise onChangeRef pour toujours appeler la version courante
     map.on('click', (e) => {
       const { lat, lng } = e.latlng;
       placeMarker(map, lat, lng);
-      onChange({ latitude: lat.toFixed(6), longitude: lng.toFixed(6) });
+      onChangeRef.current({ latitude: lat.toFixed(6), longitude: lng.toFixed(6) });
     });
 
     // Force le recalcul de taille après mount (utile quand height="100%")
@@ -113,6 +131,7 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
     if (!value.trim()) { setResults([]); setShowResults(false); return; }
 
     debounceRef.current = setTimeout(async () => {
+      if (!mountedRef.current) return;
       setSearching(true);
       try {
         const params = new URLSearchParams({
@@ -125,10 +144,11 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
           headers: { 'Accept-Language': 'fr' },
         });
         const data = await r.json();
+        if (!mountedRef.current) return;
         setResults(data);
         setShowResults(true);
       } catch { /* silently fail */ }
-      finally { setSearching(false); }
+      finally { if (mountedRef.current) setSearching(false); }
     }, 400);
   }, []);
 
@@ -139,7 +159,7 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
     if (!map) return;
     placeMarker(map, lat, lng);
     map.setView([lat, lng], 14, { animate: true });
-    onChange({ latitude: lat.toFixed(6), longitude: lng.toFixed(6) });
+    onChangeRef.current({ latitude: lat.toFixed(6), longitude: lng.toFixed(6) });
     setQuery(item.display_name.split(',')[0]);
     setShowResults(false);
     setResults([]);
@@ -150,7 +170,7 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
       instanceRef.current.removeLayer(markerRef.current);
       markerRef.current = null;
     }
-    onChange({ latitude: '', longitude: '' });
+    onChangeRef.current({ latitude: '', longitude: '' });
     setQuery('');
     setResults([]);
     setShowResults(false);
