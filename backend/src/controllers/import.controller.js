@@ -1,18 +1,17 @@
 // backend/src/controllers/import.controller.js
 // Import de spécimens moustiques depuis un fichier Excel au format IPM.
 //
-// Stratégie (recommandations validées) :
-//   - SERIES             → idTerrain conservé tel quel
-//   - MISSION_ORDER_NUMBER → mission existante requise
-//   - WHAT_3_WORDS        → localité.code (requise dans la mission)
-//   - COLLECTION_METHOD   → méthode cherchée par typeMethode.code
-//   - BOX_PLATE_ID        → container créé automatiquement si absent
-//   - SCIENTIFIC_NAME     → taxonomie résolue par genus+species
-//   - Lignes inconnues    → reportées dans errors[], non bloquantes
+// Stratégie :
+//   - PROJET               → projet trouvé par code/nom ou créé automatiquement
+//   - MISSION_ORDER_NUMBER → mission trouvée ou créée automatiquement (rattachée au projet)
+//   - WHAT_3_WORDS         → localité cherchée par code, puis par GPS (seuil 2 km), puis créée
+//   - COLLECTION_METHOD    → méthode cherchée par typeMethode.code
+//   - BOX_PLATE_ID         → container créé automatiquement si absent
+//   - SCIENTIFIC_NAME      → taxonomie résolue par genus+species
+//   - Lignes inconnues     → reportées dans logs[], non bloquantes
 
 const ExcelJS  = require('exceljs');
 const prisma   = require('../config/prisma');
-const AppError = require('../utils/AppError');
 const {
   LIFESTAGE, SEX, COLLECTION_METHOD, PRESERVATIVE, ORGANISM_PART, BLOOD_MEAL,
   normalizeKey, parseScientificName, buildHeaderMap, cellValue,
@@ -28,9 +27,35 @@ const toDate = (v) => {
 
 const toString = (v) => (v === null || v === undefined ? null : String(v).trim() || null);
 
+const toFloat = (v) => {
+  if (v === null || v === undefined) return null;
+  const n = parseFloat(v);
+  return isNaN(n) ? null : n;
+};
+
+/** Distance Haversine en kilomètres entre deux points GPS. */
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Seuil GPS pour rattacher un spécimen à une localité existante (2 km)
+const GPS_THRESHOLD_KM = 2;
+
 /**
- * Résout la solution de conservation par son nom (recherche floue).
+ * Extrait le nom de localité depuis la colonne COLLECTION_LOCATION.
+ * "Mahajanga | Boeny | Marovoay | Tsararano" → "Tsararano"
  */
+function parseLocationNom(raw) {
+  if (!raw) return null;
+  const parts = String(raw).split('|').map(p => p.trim()).filter(Boolean);
+  return parts[parts.length - 1]?.slice(0, 200) ?? null;
+}
+
 async function resolveSolution(rawValue) {
   if (!rawValue) return null;
   const key = normalizeKey(rawValue);
@@ -43,9 +68,6 @@ async function resolveSolution(rawValue) {
   return sol?.id ?? null;
 }
 
-/**
- * Résout ou crée le container selon BOX_PLATE_ID (ex: P_0079_202603_1).
- */
 async function resolveContainer(boxId, missionId, createdById) {
   if (!boxId) return null;
   const existing = await prisma.container.findUnique({
@@ -54,8 +76,7 @@ async function resolveContainer(boxId, missionId, createdById) {
   });
   if (existing) return existing;
 
-  // Détermine le type depuis le préfixe du code
-  const type = /^P_/i.test(boxId) ? 'PLAQUE' : 'BOITE';
+  const type     = /^P_/i.test(boxId) ? 'PLAQUE' : 'BOITE';
   const capacity = type === 'PLAQUE' ? 96 : 81;
 
   return prisma.container.create({
@@ -64,9 +85,210 @@ async function resolveContainer(boxId, missionId, createdById) {
   });
 }
 
+/**
+ * Trouve ou crée un projet à partir du nom extrait de la colonne PROJET.
+ */
+async function findOrCreateProjet(projetNom, logs) {
+  const nomNettoye = (projetNom || 'IMPORT_AUTO').trim().slice(0, 200);
+  const code = nomNettoye.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_-]/g, '').slice(0, 50) || 'IMPORT_AUTO';
+
+  let projet = await prisma.projet.findUnique({ where: { code }, select: { id: true, nom: true } });
+  if (!projet) {
+    projet = await prisma.projet.findFirst({
+      where: { nom: { equals: nomNettoye, mode: 'insensitive' } },
+      select: { id: true, nom: true },
+    });
+  }
+  if (projet) return { projet, created: false };
+
+  projet = await prisma.projet.create({
+    data: { code, nom: nomNettoye },
+    select: { id: true, nom: true },
+  });
+  logs.push({ ligne: 0, idTerrain: null, niveau: 'info', code: 'PROJET_CREE', raison: `Projet "${nomNettoye}" (code: ${code}) créé automatiquement` });
+  return { projet, created: true };
+}
+
+/**
+ * Trouve ou crée une mission pour un ordre de mission donné.
+ */
+async function findOrCreateMission(ordreMission, projetId, dateDebut, logs) {
+  let mission = await prisma.mission.findUnique({
+    where: { ordreMission },
+    select: { id: true, dateDebut: true },
+  });
+  if (mission) return { mission, created: false };
+
+  const debut = dateDebut ?? new Date();
+  mission = await prisma.mission.create({
+    data: { ordreMission, projetId, dateDebut: debut, statut: 'planifiee' },
+    select: { id: true, dateDebut: true },
+  });
+  logs.push({
+    ligne: 0, idTerrain: null, niveau: 'info', code: 'MISSION_CREEE',
+    raison: `Mission "${ordreMission}" créée automatiquement (dateDebut: ${debut.toISOString().split('T')[0]})`,
+  });
+  return { mission, created: true };
+}
+
+/**
+ * Trouve ou crée une localité.
+ *
+ * Ordre de résolution :
+ *   1. Par code WHAT_3_WORDS dans la même mission
+ *   2. Par proximité GPS dans la même mission (seuil GPS_THRESHOLD_KM)
+ *   3. Création avec le code, le nom, et les coordonnées disponibles
+ *      (si le code est déjà pris dans une autre mission → création sans code)
+ */
+async function findOrCreateLocalite({ missionId, code3w, lat, lon, nomCandidat, altitudeM, logs, rn, idTerrain }) {
+  // 1. Matching par code dans la même mission
+  if (code3w) {
+    const loc = await prisma.localite.findFirst({
+      where: { missionId, code: code3w.toUpperCase() },
+      select: { id: true },
+    });
+    if (loc) return { localite: loc, created: false };
+  }
+
+  // 2. Matching par GPS dans la même mission
+  if (lat != null && lon != null) {
+    const candidates = await prisma.localite.findMany({
+      where: { missionId, latitude: { not: null }, longitude: { not: null } },
+      select: { id: true, nom: true, latitude: true, longitude: true },
+    });
+    let best = null;
+    let bestDist = Infinity;
+    for (const c of candidates) {
+      const d = haversineKm(lat, lon, c.latitude, c.longitude);
+      if (d < bestDist) { bestDist = d; best = c; }
+    }
+    if (best && bestDist <= GPS_THRESHOLD_KM) {
+      logs.push({
+        ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
+        code: 'LOCALITE_MATCHEE_GPS',
+        raison: `Localité "${best.nom}" trouvée par GPS à ${(bestDist * 1000).toFixed(0)} m`,
+      });
+      return { localite: { id: best.id }, created: false };
+    }
+  }
+
+  // 3. Création
+  const codeToUse = code3w ? code3w.toUpperCase().slice(0, 10) : null;
+  const nomToUse  = (nomCandidat || codeToUse || 'Localité import').slice(0, 200);
+
+  let localite;
+  try {
+    localite = await prisma.localite.create({
+      data: { missionId, code: codeToUse, nom: nomToUse, latitude: lat, longitude: lon, altitudeM },
+      select: { id: true },
+    });
+    logs.push({
+      ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
+      code: 'LOCALITE_CREEE',
+      raison: `Localité "${nomToUse}" (code: ${codeToUse ?? 'sans code'}) créée automatiquement`,
+    });
+  } catch (err) {
+    if (err.code === 'P2002') {
+      // Le code est déjà utilisé dans une autre mission → créer sans code
+      localite = await prisma.localite.create({
+        data: { missionId, code: null, nom: nomToUse, latitude: lat, longitude: lon, altitudeM },
+        select: { id: true },
+      });
+      logs.push({
+        ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'avertissement',
+        code: 'LOCALITE_CREEE_SANS_CODE',
+        raison: `Localité "${nomToUse}" créée sans code (code "${codeToUse}" déjà utilisé dans une autre mission)`,
+      });
+    } else {
+      throw err;
+    }
+  }
+  return { localite, created: true };
+}
+
+/**
+ * Trouve ou crée une MethodeCollecte pour une localité donnée.
+ *
+ * Le TypeMethodeCollecte (référentiel CDC-LT, MHT…) doit déjà exister en base.
+ * La MethodeCollecte (instance localité+date) est créée si absente.
+ *
+ * Ordre de résolution :
+ *   1. Par (localiteId, typeMethodeId, dateCollecte exacte)
+ *   2. Par (localiteId, typeMethodeId) — la plus récente
+ *   3. Création
+ */
+async function findOrCreateMethode({ localiteId, methodCode, rawMethod, dateCol, lat, lon, logs, rn, idTerrain }) {
+  const logCtx = { ligne: rn, idTerrain: idTerrain || `ligne_${rn}` };
+
+  // ── Résoudre le TypeMethodeCollecte ──
+  let typeMethode = null;
+
+  if (methodCode) {
+    // Chemin nominal : mapping JS → code exact en base
+    typeMethode = await prisma.typeMethodeCollecte.findUnique({
+      where: { code: methodCode },
+      select: { id: true, nom: true },
+    });
+  }
+
+  if (!typeMethode && rawMethod) {
+    // Fallback : recherche floue sur le nom du référentiel
+    typeMethode = await prisma.typeMethodeCollecte.findFirst({
+      where: { nom: { contains: rawMethod, mode: 'insensitive' }, actif: true },
+      select: { id: true, nom: true },
+    });
+    if (typeMethode) {
+      logs.push({
+        ...logCtx, niveau: 'avertissement', code: 'METHODE_MATCHEE_FUZZY',
+        raison: `Méthode "${rawMethod}" non mappée — rattachée à "${typeMethode.nom}" par recherche floue`,
+      });
+    }
+  }
+
+  if (!typeMethode) {
+    logs.push({
+      ...logCtx, niveau: 'erreur', code: 'TYPE_METHODE_INTROUVABLE',
+      raison: `Méthode "${rawMethod ?? methodCode}" introuvable dans le référentiel — ajoutez-la dans le dictionnaire`,
+    });
+    return null;
+  }
+
+  // Cherche une méthode existante
+  let methode = null;
+  if (dateCol) {
+    methode = await prisma.methodeCollecte.findFirst({
+      where: { localiteId, typeMethodeId: typeMethode.id, dateCollecte: dateCol },
+      select: { id: true },
+    });
+  }
+  if (!methode) {
+    methode = await prisma.methodeCollecte.findFirst({
+      where: { localiteId, typeMethodeId: typeMethode.id },
+      orderBy: { dateCollecte: 'desc' },
+      select: { id: true },
+    });
+  }
+  if (methode) return { methode, created: false };
+
+  // Créer la méthode de collecte
+  methode = await prisma.methodeCollecte.create({
+    data: { localiteId, typeMethodeId: typeMethode.id, dateCollecte: dateCol, latitude: lat, longitude: lon },
+    select: { id: true },
+  });
+  const dateLabel = dateCol ? dateCol.toISOString().split('T')[0] : 'sans date';
+  logs.push({
+    ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
+    code: 'METHODE_CREEE',
+    raison: `Méthode "${typeMethode.nom}" créée automatiquement (${dateLabel})`,
+  });
+  return { methode, created: true };
+}
+
 // ── Contrôleur principal ─────────────────────────────────────
 const importMoustiques = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier fourni' });
+
+  const startTime = Date.now();
 
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(req.file.buffer);
@@ -74,7 +296,6 @@ const importMoustiques = async (req, res) => {
   const ws = wb.worksheets[0];
   if (!ws) return res.status(400).json({ error: 'Fichier Excel vide ou format invalide' });
 
-  // En-têtes
   const hMap = buildHeaderMap(ws.getRow(1));
   const requiredHeaders = ['SERIES', 'MISSION_ORDER_NUMBER', 'SCIENTIFIC_NAME'];
   for (const h of requiredHeaders) {
@@ -85,62 +306,90 @@ const importMoustiques = async (req, res) => {
     }
   }
 
-  // Cache des résolutions pour éviter les requêtes répétées
+  // Pré-scan : nom de projet et date de collecte depuis la 1ère ligne de données
+  let projetNomCandidat = null;
+  let dateDebutCandidat = null;
+  ws.eachRow((row, rn) => {
+    if (rn > 1 && projetNomCandidat === null) {
+      projetNomCandidat = toString(cellValue(row, hMap, 'PROJET')) ?? 'IMPORT_AUTO';
+      dateDebutCandidat = toDate(cellValue(row, hMap, 'DATE_OF_COLLECTION'));
+    }
+  });
+
+  // Logs structurés (tous niveaux)
+  const logs  = [];
+  const crees = { projets: [], missions: [], localites: [] };
+
+  // Caches pour éviter les requêtes répétées
+  const projetCache    = new Map();
   const missionCache   = new Map();
   const localiteCache  = new Map();
   const methodeCache   = new Map();
   const taxoCache      = new Map();
   const containerCache = new Map();
 
-  const results = { total: 0, imported: 0, skipped: 0, errors: [] };
-  const userId  = req.user?.id ?? null;
+  const counts = { total: 0, imported: 0, skipped: 0 };
+  const userId = req.user?.id ?? null;
 
-  // ── Parcours des lignes (skip en-tête, ligne 1) ──
   const rows = [];
   ws.eachRow((row, rn) => { if (rn > 1) rows.push({ row, rn }); });
 
   for (const { row, rn } of rows) {
-    results.total++;
+    counts.total++;
     const idTerrain    = toString(cellValue(row, hMap, 'SERIES', 'COLLECTOR_SAMPLE_ID'));
     const ordreMission = toString(cellValue(row, hMap, 'MISSION_ORDER_NUMBER'));
 
-    const addError = (reason) => {
-      results.skipped++;
-      results.errors.push({ ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, raison: reason });
+    const addLog = (niveau, code, raison) => {
+      if (niveau === 'erreur') counts.skipped++;
+      logs.push({ ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau, code, raison });
     };
 
-    // ── 1. Mission ──
-    if (!ordreMission) { addError('MISSION_ORDER_NUMBER manquant'); continue; }
+    // ── 1. Projet + Mission ──
+    if (!ordreMission) { addLog('erreur', 'MISSION_MANQUANTE', 'MISSION_ORDER_NUMBER manquant'); continue; }
+
     if (!missionCache.has(ordreMission)) {
-      const m = await prisma.mission.findUnique({
-        where: { ordreMission },
-        select: { id: true, dateDebut: true },
-      });
-      missionCache.set(ordreMission, m);
+      const projetNomLigne = toString(cellValue(row, hMap, 'PROJET')) ?? projetNomCandidat ?? 'IMPORT_AUTO';
+      const projetCacheKey = projetNomLigne.toUpperCase().replace(/\s+/g, '_');
+      const dateColLigne   = toDate(cellValue(row, hMap, 'DATE_OF_COLLECTION')) ?? dateDebutCandidat;
+
+      if (!projetCache.has(projetCacheKey)) {
+        const { projet, created } = await findOrCreateProjet(projetNomLigne, logs);
+        projetCache.set(projetCacheKey, projet);
+        if (created) crees.projets.push({ nom: projet.nom });
+      }
+      const projet = projetCache.get(projetCacheKey);
+
+      const { mission, created } = await findOrCreateMission(ordreMission, projet.id, dateColLigne, logs);
+      missionCache.set(ordreMission, mission);
+      if (created) crees.missions.push({ ordreMission });
     }
     const mission = missionCache.get(ordreMission);
-    if (!mission) {
-      addError(`Mission "${ordreMission}" introuvable — créez-la d'abord dans SpécimenManager`);
-      continue;
-    }
 
-    // ── 2. Localité (par code 3 lettres) ──
-    const code3w = toString(cellValue(row, hMap, 'WHAT_3_WORDS'));
-    const locKey = `${mission.id}_${code3w}`;
-    if (!localiteCache.has(locKey)) {
-      if (!code3w) {
-        localiteCache.set(locKey, null);
-      } else {
-        const loc = await prisma.localite.findFirst({
-          where: { missionId: mission.id, code: code3w.toUpperCase() },
-          select: { id: true },
-        });
-        localiteCache.set(locKey, loc);
-      }
+    // ── 2. Localité ──
+    const code3w     = toString(cellValue(row, hMap, 'WHAT_3_WORDS'));
+    const lat        = toFloat(cellValue(row, hMap, 'DECIMAL_LATITUDE'));
+    const lon        = toFloat(cellValue(row, hMap, 'DECIMAL_LONGITUDE'));
+    const altitudeM  = toFloat(cellValue(row, hMap, 'ELEVATION'));
+    const nomLoc     = parseLocationNom(toString(cellValue(row, hMap, 'COLLECTION_LOCATION')));
+
+    // Clé de cache : code si disponible, sinon GPS arrondi
+    const locCacheKey = code3w
+      ? `${mission.id}_CODE_${code3w.toUpperCase()}`
+      : `${mission.id}_GPS_${lat?.toFixed(4) ?? 'x'}_${lon?.toFixed(4) ?? 'x'}`;
+
+    if (!localiteCache.has(locCacheKey)) {
+      const { localite, created } = await findOrCreateLocalite({
+        missionId: mission.id, code3w, lat, lon,
+        nomCandidat: nomLoc, altitudeM,
+        logs, rn, idTerrain,
+      });
+      localiteCache.set(locCacheKey, localite);
+      if (created) crees.localites.push({ nom: nomLoc || code3w || 'Localité' });
     }
-    const localite = localiteCache.get(locKey);
+    const localite = localiteCache.get(locCacheKey);
+
     if (!localite) {
-      addError(`Localité avec code "${code3w}" introuvable dans la mission "${ordreMission}" — créez-la d'abord`);
+      addLog('erreur', 'LOCALITE_INTROUVABLE', `Localité code "${code3w}" introuvable et impossible à créer`);
       continue;
     }
 
@@ -151,34 +400,14 @@ const importMoustiques = async (req, res) => {
     const methKey    = `${localite.id}_${methodCode}_${dateCol?.toISOString().split('T')[0] ?? 'nodate'}`;
 
     if (!methodeCache.has(methKey)) {
-      let m = null;
-      if (methodCode) {
-        const where = {
-          localiteId: localite.id,
-          typeMethode: { code: methodCode },
-        };
-        // Cherche par code méthode + date si dispo, sinon prend le plus récent du même type
-        if (dateCol) {
-          m = await prisma.methodeCollecte.findFirst({
-            where: { ...where, dateCollecte: dateCol },
-            select: { id: true },
-          });
-        }
-        if (!m) {
-          m = await prisma.methodeCollecte.findFirst({
-            where,
-            orderBy: { dateCollecte: 'desc' },
-            select: { id: true },
-          });
-        }
-      }
-      methodeCache.set(methKey, m);
+      const result = await findOrCreateMethode({
+        localiteId: localite.id, methodCode, rawMethod, dateCol,
+        lat, lon, logs, rn, idTerrain,
+      });
+      methodeCache.set(methKey, result?.methode ?? null);
     }
     const methode = methodeCache.get(methKey);
-    if (!methode) {
-      addError(`Méthode "${methodCode ?? rawMethod}" introuvable dans la localité — créez-la d'abord`);
-      continue;
-    }
+    if (!methode) { counts.skipped++; continue; }
 
     // ── 4. Taxonomie ──
     const sciName = toString(cellValue(row, hMap, 'SCIENTIFIC_NAME'));
@@ -187,7 +416,6 @@ const importMoustiques = async (req, res) => {
     if (!taxoCache.has(taxoKey)) {
       let t = null;
       if (genus && species) {
-        // Cherche espèce
         t = await prisma.taxonomieSpecimen.findFirst({
           where: {
             niveau: 'espece',
@@ -199,7 +427,6 @@ const importMoustiques = async (req, res) => {
         });
       }
       if (!t && genus) {
-        // Fallback : genre uniquement
         t = await prisma.taxonomieSpecimen.findFirst({
           where: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' }, actif: true },
           select: { id: true },
@@ -209,67 +436,74 @@ const importMoustiques = async (req, res) => {
     }
     const taxo = taxoCache.get(taxoKey);
     if (!taxo) {
-      addError(`Taxonomie "${sciName}" introuvable dans le dictionnaire (genre: ${genus}, espèce: ${species})`);
+      addLog('erreur', 'TAXONOMIE_INTROUVABLE', `Taxonomie "${sciName}" introuvable dans le dictionnaire (genre: ${genus}, espèce: ${species})`);
       continue;
     }
 
     // ── 5. Container (créé automatiquement si absent) ──
-    const boxId    = toString(cellValue(row, hMap, 'BOX_PLATE_ID'));
-    const position = toString(cellValue(row, hMap, 'TUBE_OR_WELL_ID'));
+    const boxId = toString(cellValue(row, hMap, 'BOX_PLATE_ID'));
+    let position = toString(cellValue(row, hMap, 'TUBE_OR_WELL_ID'));
     let containerId = null;
 
     if (boxId) {
       if (!containerCache.has(boxId)) {
         const c = await resolveContainer(boxId, mission.id, userId);
-        containerCache.set(boxId, c?.id ?? null);
+        containerCache.set(boxId, c ?? null);
       }
-      containerId = containerCache.get(boxId);
+      const container = containerCache.get(boxId);
+      containerId = container?.id ?? null;
+
+      // H12 = témoin négatif SOP sur les plaques — importer sans position
+      if (container?.type === 'PLAQUE' && position === 'H12') {
+        addLog('avertissement', 'TEMOIN_H12',
+          `Position H12 réservée au témoin négatif (SOP) — spécimen importé sans position assignée`);
+        position = null;
+      }
     }
 
-    // Vérification unicité de position dans la plaque (une seule fois par puit)
     if (containerId && position) {
       const occupied = await prisma.moustique.findFirst({
         where: { containerId, position },
         select: { id: true, idTerrain: true },
       });
       if (occupied) {
-        addError(`Position "${position}" déjà occupée dans le container "${boxId}" par ${occupied.idTerrain}`);
+        addLog('erreur', 'POSITION_OCCUPEE', `Position "${position}" déjà occupée dans le container "${boxId}" par ${occupied.idTerrain}`);
         continue;
       }
     }
 
-    // ── 6. Vérifier unicité de l'idTerrain ──
+    // ── 6. Unicité idTerrain ──
     if (idTerrain) {
       const dupl = await prisma.moustique.findUnique({ where: { idTerrain }, select: { id: true } });
       if (dupl) {
-        addError(`idTerrain "${idTerrain}" déjà utilisé — ligne ignorée (doublon potentiel)`);
+        addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" déjà présent en base — ligne ignorée`);
         continue;
       }
     }
 
     // ── 7. Mapper les autres champs ──
-    const rawStade   = normalizeKey(cellValue(row, hMap, 'LIFESTAGE'));
-    const rawSexe    = normalizeKey(cellValue(row, hMap, 'SEX'));
-    const rawBlood   = normalizeKey(cellValue(row, hMap, 'BLOOD_MEAL'));
-    const rawOrgane  = normalizeKey(cellValue(row, hMap, 'ORGANISM_PART'));
-    const rawPres    = normalizeKey(cellValue(row, hMap, 'PRESERVATIVE_SOLUTION'));
+    const rawStade  = normalizeKey(cellValue(row, hMap, 'LIFESTAGE'));
+    const rawSexe   = normalizeKey(cellValue(row, hMap, 'SEX'));
+    const rawBlood  = normalizeKey(cellValue(row, hMap, 'BLOOD_MEAL'));
+    const rawOrgane = normalizeKey(cellValue(row, hMap, 'ORGANISM_PART'));
+    const rawPres   = normalizeKey(cellValue(row, hMap, 'PRESERVATIVE_SOLUTION'));
 
-    const stade        = LIFESTAGE[rawStade]  ?? null;
-    const sexe         = SEX[rawSexe]         ?? 'inconnu';
-    const repasSang    = BLOOD_MEAL[rawBlood]  ?? 'NC';
+    const stade         = LIFESTAGE[rawStade]      ?? null;
+    const sexe          = SEX[rawSexe]             ?? 'inconnu';
+    const repasSang     = BLOOD_MEAL[rawBlood]     ?? 'NC';
     const organePreleve = ORGANISM_PART[rawOrgane] ?? null;
-    const solutionId   = await resolveSolution(rawPres);
+    const solutionId    = await resolveSolution(rawPres);
 
-    const nombre     = parseInt(cellValue(row, hMap, 'NUMBER') ?? 1) || 1;
-    const notes      = toString(cellValue(row, hMap, 'REMARKS', 'OTHER_INFORMATIONS', 'MISC_METADATA'));
+    const nombre = parseInt(cellValue(row, hMap, 'NUMBER') ?? 1) || 1;
+    const notes  = toString(cellValue(row, hMap, 'REMARKS', 'OTHER_INFORMATIONS', 'MISC_METADATA'));
 
     // ── 8. Créer le moustique ──
     try {
       await prisma.moustique.create({
         data: {
-          idTerrain:     idTerrain,
-          methodeId:     methode.id,
-          taxonomieId:   taxo.id,
+          idTerrain,
+          methodeId:    methode.id,
+          taxonomieId:  taxo.id,
           nombre,
           sexe,
           stade,
@@ -278,23 +512,44 @@ const importMoustiques = async (req, res) => {
           solutionId,
           containerId,
           position,
-          dateCollecte:  dateCol,
+          dateCollecte: dateCol,
           notes,
         },
       });
-      results.imported++;
+      counts.imported++;
     } catch (err) {
       if (err.code === 'P2002') {
-        addError(`Doublon de contrainte unique (idTerrain ou position déjà prise)`);
+        addLog('erreur', 'DOUBLON', `Doublon de contrainte unique (idTerrain ou position déjà prise)`);
       } else {
-        addError(`Erreur base de données : ${err.message}`);
+        addLog('erreur', 'ERREUR_BDD', `Erreur base de données : ${err.message}`);
       }
     }
   }
 
+  // ── Résumé final ──
+  const dureeSec = ((Date.now() - startTime) / 1000).toFixed(1);
+
+  const resume = {};
+  for (const log of logs) {
+    if (log.niveau === 'erreur') {
+      resume[log.code] = (resume[log.code] ?? 0) + 1;
+    }
+  }
+
+  const errors = logs
+    .filter(l => l.niveau === 'erreur')
+    .map(l => ({ ligne: l.ligne, idTerrain: l.idTerrain, raison: l.raison }));
+
   return res.json({
-    message: `Import terminé — ${results.imported} spécimen(s) importé(s), ${results.skipped} ignoré(s)`,
-    ...results,
+    message: `Import terminé — ${counts.imported} spécimen(s) importé(s), ${counts.skipped} ignoré(s) sur ${counts.total}`,
+    total:    counts.total,
+    imported: counts.imported,
+    skipped:  counts.skipped,
+    dureeSec,
+    resume,
+    crees,
+    logs,
+    errors,
   });
 };
 

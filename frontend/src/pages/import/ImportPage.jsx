@@ -1,9 +1,9 @@
 // Page d'import de données spécimens depuis un fichier Excel au format IPM.
-// Actuellement supporté : Moustiques (feuille 1 = données, feuille 2 = GPS).
+// Supporté : Moustiques. Tiques/Puces à venir.
 
 import { useState, useRef } from 'react';
 import { Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle,
-         ChevronDown, ChevronRight, Info } from 'lucide-react';
+         ChevronDown, ChevronRight, Info, Clock, PlusCircle } from 'lucide-react';
 import api from '../../api/axios';
 import { Card, PageHeader, Badge, Spinner } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
@@ -13,6 +13,26 @@ const TYPES = [
   { key: 'tique',     label: 'Tiques',     endpoint: '/import/tiques',     available: false },
   { key: 'puce',      label: 'Puces',      endpoint: '/import/puces',      available: false },
 ];
+
+// Labels lisibles pour chaque code de log
+const CODE_LABELS = {
+  DOUBLON:                  'Doublon',
+  TAXONOMIE_INTROUVABLE:    'Taxonomie inconnue',
+  LOCALITE_INTROUVABLE:     'Localité inconnue',
+  METHODE_INTROUVABLE:      'Méthode inconnue',
+  POSITION_OCCUPEE:         'Position occupée',
+  MISSION_MANQUANTE:        'Mission manquante',
+  ERREUR_BDD:               'Erreur base de données',
+  PROJET_CREE:              'Projet créé auto',
+  MISSION_CREEE:            'Mission créée auto',
+  LOCALITE_CREEE:           'Localité créée auto',
+  LOCALITE_MATCHEE_GPS:     'Localité trouvée par GPS',
+  LOCALITE_CREEE_SANS_CODE: 'Localité créée (sans code)',
+  METHODE_CREEE:            'Méthode créée auto',
+  METHODE_MATCHEE_FUZZY:    'Méthode trouvée par nom',
+  TYPE_METHODE_INTROUVABLE: 'Type méthode absent du référentiel',
+  TEMOIN_H12:               'Témoin H12 (SOP)',
+};
 
 function DropZone({ onFile, disabled }) {
   const [drag, setDrag] = useState(false);
@@ -47,43 +67,105 @@ function DropZone({ onFile, disabled }) {
   );
 }
 
-function ResultTable({ errors }) {
+// ── Tableau de logs filtrable ────────────────────────────────
+const TAB_FILTERS = [
+  { key: 'erreur',        label: 'Erreurs',        tone: 'danger'  },
+  { key: 'avertissement', label: 'Avertissements', tone: 'warning' },
+  { key: 'info',          label: 'Infos',          tone: 'success' },
+  { key: 'all',           label: 'Tout',           tone: 'default' },
+];
+
+const NIVEAU_STYLE = {
+  erreur:        'text-danger',
+  avertissement: 'text-warning',
+  info:          'text-success',
+};
+
+function LogTable({ logs }) {
+  const [tab, setTab]       = useState('erreur');
   const [expanded, setExpanded] = useState(false);
-  if (!errors?.length) return null;
-  const preview = expanded ? errors : errors.slice(0, 5);
+
+  if (!logs?.length) return null;
+
+  const filtered = tab === 'all' ? logs : logs.filter(l => l.niveau === tab);
+  const preview  = expanded ? filtered : filtered.slice(0, 5);
+
+  const countByNiveau = (n) => logs.filter(l => l.niveau === n).length;
+
   return (
     <div className="mt-4">
-      <button type="button" onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-xs text-fg-muted hover:text-fg mb-2">
-        {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        {expanded ? 'Masquer' : 'Voir'} les {errors.length} ligne(s) ignorée(s)
-      </button>
-      {expanded && (
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full text-xs">
-            <thead className="bg-surface-2 border-b border-border">
-              <tr>
-                {['Ligne', 'ID terrain', 'Raison'].map(h => (
-                  <th key={h} className="text-left px-3 py-2 font-semibold text-fg-muted">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {preview.map((e, i) => (
-                <tr key={i} className="hover:bg-surface-2">
-                  <td className="px-3 py-2 font-mono text-fg-subtle">#{e.ligne}</td>
-                  <td className="px-3 py-2 font-mono text-danger">{e.idTerrain}</td>
-                  <td className="px-3 py-2 text-fg-muted">{e.raison}</td>
+      {/* Onglets */}
+      <div className="flex items-center gap-1 mb-3">
+        {TAB_FILTERS.map(t => {
+          const count = t.key === 'all' ? logs.length : countByNiveau(t.key);
+          if (count === 0 && t.key !== 'all') return null;
+          return (
+            <button key={t.key} type="button"
+              onClick={() => { setTab(t.key); setExpanded(false); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                tab === t.key
+                  ? 'bg-surface-3 text-fg shadow-sm'
+                  : 'text-fg-muted hover:text-fg hover:bg-surface-2'
+              }`}
+            >
+              {t.label}
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                t.key === 'erreur'        ? 'bg-danger/10 text-danger' :
+                t.key === 'avertissement' ? 'bg-warning/10 text-warning' :
+                t.key === 'info'          ? 'bg-success/10 text-success' :
+                'bg-surface-3 text-fg-muted'
+              }`}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-xs text-fg-subtle text-center py-3">Aucun élément dans cette catégorie.</p>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full text-xs">
+              <thead className="bg-surface-2 border-b border-border">
+                <tr>
+                  {['Ligne', 'ID terrain', 'Type', 'Détail'].map(h => (
+                    <th key={h} className="text-left px-3 py-2 font-semibold text-fg-muted">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {preview.map((e, i) => (
+                  <tr key={i} className="hover:bg-surface-2">
+                    <td className="px-3 py-2 font-mono text-fg-subtle whitespace-nowrap">
+                      {e.ligne > 0 ? `#${e.ligne}` : '—'}
+                    </td>
+                    <td className={`px-3 py-2 font-mono whitespace-nowrap ${NIVEAU_STYLE[e.niveau] ?? 'text-fg-muted'}`}>
+                      {e.idTerrain ?? '—'}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-fg-subtle">
+                      {CODE_LABELS[e.code] ?? e.code}
+                    </td>
+                    <td className="px-3 py-2 text-fg-muted">{e.raison}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {filtered.length > 5 && (
+            <button type="button" onClick={() => setExpanded(!expanded)}
+              className="flex items-center gap-1.5 text-xs text-fg-muted hover:text-fg mt-2">
+              {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+              {expanded ? 'Masquer' : `Voir les ${filtered.length - 5} entrée(s) suivante(s)`}
+            </button>
+          )}
+        </>
       )}
     </div>
   );
 }
 
+// ── Page principale ──────────────────────────────────────────
 export default function ImportPage() {
   const [activeType, setActiveType] = useState('moustique');
   const [file, setFile]             = useState(null);
@@ -116,6 +198,15 @@ export default function ImportPage() {
 
   const reset = () => { setFile(null); setResult(null); setError(null); };
 
+  // Prépare les logs pour affichage (backward-compat si logs absent)
+  const allLogs = result?.logs
+    ?? result?.errors?.map(e => ({ ...e, niveau: 'erreur', code: 'ERREUR', raison: e.raison }))
+    ?? [];
+
+  const nbCrees = (result?.crees?.projets?.length ?? 0)
+    + (result?.crees?.missions?.length ?? 0)
+    + (result?.crees?.localites?.length ?? 0);
+
   return (
     <div className="space-y-6 max-w-6xl">
       <PageHeader
@@ -130,12 +221,14 @@ export default function ImportPage() {
           <Info size={16} className="text-warning flex-shrink-0 mt-0.5" />
           <div className="text-xs text-fg-muted space-y-1">
             <p className="font-semibold text-fg">Avant d'importer, vérifiez que ces éléments existent dans SpécimenManager :</p>
+            <p className="font-semibold text-fg">Ces éléments sont créés automatiquement si absents :</p>
             <ul className="list-disc ml-4 space-y-0.5">
-              <li>La <strong>mission</strong> (colonne <code className="font-mono bg-surface-3 px-1 rounded">MISSION_ORDER_NUMBER</code>) avec son ordre de mission exact</li>
-              <li>La <strong>localité</strong> (code 3 lettres depuis colonne <code className="font-mono bg-surface-3 px-1 rounded">WHAT_3_WORDS</code>) dans cette mission</li>
-              <li>La <strong>méthode de collecte</strong> (colonne <code className="font-mono bg-surface-3 px-1 rounded">COLLECTION_METHOD</code>) dans cette localité</li>
+              <li><strong>Projet</strong> (colonne <code className="font-mono bg-surface-3 px-1 rounded">PROJET</code>)</li>
+              <li><strong>Mission</strong> (colonne <code className="font-mono bg-surface-3 px-1 rounded">MISSION_ORDER_NUMBER</code>)</li>
+              <li><strong>Localité</strong> — cherchée par code (<code className="font-mono bg-surface-3 px-1 rounded">WHAT_3_WORDS</code>) puis par GPS (seuil 2 km)</li>
+              <li><strong>Méthode de collecte</strong> — le type (<code className="font-mono bg-surface-3 px-1 rounded">COLLECTION_METHOD</code>) doit exister dans le référentiel</li>
+              <li><strong>Container</strong> (<code className="font-mono bg-surface-3 px-1 rounded">BOX_PLATE_ID</code>)</li>
             </ul>
-            <p className="mt-1">Le <strong>container</strong> (BOX_PLATE_ID) est créé automatiquement si absent.</p>
           </div>
         </div>
       </Card>
@@ -163,7 +256,7 @@ export default function ImportPage() {
 
           {result ? (
             <Card padding="md">
-              {/* Succès */}
+              {/* En-tête résultat */}
               <div className="flex items-start gap-4 mb-4">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${result.skipped === 0 ? 'bg-success/10' : 'bg-warning/10'}`}>
                   {result.skipped === 0
@@ -171,9 +264,9 @@ export default function ImportPage() {
                     : <AlertTriangle size={24} className="text-warning" />
                   }
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="font-bold text-fg">{result.message}</p>
-                  <div className="flex items-center gap-3 mt-2">
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
                     <span className="text-xs px-2 py-1 rounded-lg bg-success/10 text-success font-semibold">
                       ✓ {result.imported} importé(s)
                     </span>
@@ -183,11 +276,48 @@ export default function ImportPage() {
                       </span>
                     )}
                     <span className="text-xs text-fg-subtle">{result.total} lignes au total</span>
+                    {result.dureeSec && (
+                      <span className="flex items-center gap-1 text-xs text-fg-subtle">
+                        <Clock size={11} /> {result.dureeSec}s
+                      </span>
+                    )}
                   </div>
+
+                  {/* Créations automatiques */}
+                  {nbCrees > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {result.crees?.projets?.map((p, i) => (
+                        <span key={i} className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-info/10 text-info font-medium">
+                          <PlusCircle size={10} /> Projet «{p.nom}» créé
+                        </span>
+                      ))}
+                      {result.crees?.missions?.map((m, i) => (
+                        <span key={i} className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-info/10 text-info font-medium">
+                          <PlusCircle size={10} /> Mission «{m.ordreMission}» créée
+                        </span>
+                      ))}
+                      {result.crees?.localites?.map((l, i) => (
+                        <span key={i} className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-info/10 text-info font-medium">
+                          <PlusCircle size={10} /> Localité «{l.nom}» créée
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Résumé erreurs par catégorie */}
+                  {result.resume && Object.keys(result.resume).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {Object.entries(result.resume).map(([code, n]) => (
+                        <span key={code} className="text-[10px] px-1.5 py-0.5 rounded bg-danger/8 text-danger font-mono">
+                          {CODE_LABELS[code] ?? code}: {n}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <ResultTable errors={result.errors} />
+              <LogTable logs={allLogs} />
 
               <div className="flex gap-2 mt-4 pt-4 border-t border-border">
                 <button onClick={reset} className="btn-secondary text-sm">Importer un autre fichier</button>
@@ -245,18 +375,19 @@ export default function ImportPage() {
             </p>
             <div className="space-y-1.5 text-[11px]">
               {[
-                { col: 'SERIES',                  champ: 'ID terrain',    req: true  },
-                { col: 'MISSION_ORDER_NUMBER',     champ: 'Mission',       req: true  },
-                { col: 'WHAT_3_WORDS',             champ: 'Code localité', req: true  },
-                { col: 'SCIENTIFIC_NAME',          champ: 'Taxonomie',     req: true  },
-                { col: 'COLLECTION_METHOD',        champ: 'Méthode',       req: true  },
-                { col: 'BOX_PLATE_ID',             champ: 'Container',     req: false },
-                { col: 'TUBE_OR_WELL_ID',          champ: 'Position',      req: false },
-                { col: 'SEX',                      champ: 'Sexe',          req: false },
-                { col: 'LIFESTAGE',                champ: 'Stade',         req: false },
-                { col: 'BLOOD_MEAL',               champ: 'Repas sang',    req: false },
-                { col: 'PRESERVATIVE_SOLUTION',    champ: 'Solution',      req: false },
-                { col: 'DATE_OF_COLLECTION',       champ: 'Date collecte', req: false },
+                { col: 'SERIES',               champ: 'ID terrain',    req: true  },
+                { col: 'MISSION_ORDER_NUMBER',  champ: 'Mission',       req: true  },
+                { col: 'PROJET',               champ: 'Projet',        req: false },
+                { col: 'WHAT_3_WORDS',          champ: 'Code localité', req: true  },
+                { col: 'SCIENTIFIC_NAME',        champ: 'Taxonomie',     req: true  },
+                { col: 'COLLECTION_METHOD',     champ: 'Méthode',       req: true  },
+                { col: 'BOX_PLATE_ID',          champ: 'Container',     req: false },
+                { col: 'TUBE_OR_WELL_ID',       champ: 'Position',      req: false },
+                { col: 'SEX',                   champ: 'Sexe',          req: false },
+                { col: 'LIFESTAGE',             champ: 'Stade',         req: false },
+                { col: 'BLOOD_MEAL',            champ: 'Repas sang',    req: false },
+                { col: 'PRESERVATIVE_SOLUTION', champ: 'Solution',      req: false },
+                { col: 'DATE_OF_COLLECTION',    champ: 'Date collecte', req: false },
               ].map(({ col, champ, req }) => (
                 <div key={col} className="flex items-center justify-between gap-2">
                   <code className="font-mono text-fg-subtle bg-surface-3 px-1 rounded truncate">{col}</code>
@@ -271,8 +402,10 @@ export default function ImportPage() {
           <Card padding="sm">
             <p className="text-xs font-semibold text-fg uppercase tracking-wider mb-2">Comportement</p>
             <ul className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
-              <li>• Espèce inconnue → ligne ignorée (listée dans les erreurs)</li>
+              <li>• Projet / Mission / Localité / Méthode absents → créés automatiquement</li>
+              <li>• Localité cherchée par code 3W puis par GPS (2 km)</li>
               <li>• Container absent → créé automatiquement</li>
+              <li>• Espèce inconnue → ligne ignorée (listée dans les erreurs)</li>
               <li>• idTerrain déjà présent → ligne ignorée (doublon)</li>
               <li>• Position plaque déjà occupée → ligne ignorée</li>
               <li>• L'import peut être relancé sans risque si interrompu</li>
