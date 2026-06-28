@@ -26,4 +26,8 @@ router.patch('/users/:id/activate',       verifyToken, requireRole('admin'), val
 router.patch('/users/:id/specimens',      verifyToken, requireRole('admin'), validate(schema.updateSpecimens), asyncHandler(authCtrl.updateSpecimenAccess));
 router.patch('/users/:id/reset-password', verifyToken, requireRole('admin'), validate(schema.resetPassword),   asyncHandler(authCtrl.resetPassword));
 
+// Présence & gestion de session
+router.get('/users/presence',         verifyToken, requireRole('admin'), asyncHandler(authCtrl.getPresence));
+router.delete('/users/:id/session',   verifyToken, requireRole('admin'), asyncHandler(authCtrl.kickUser));
+
 module.exports = router;

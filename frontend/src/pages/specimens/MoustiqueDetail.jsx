@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft, Microscope, FlaskConical, FileText,
+  Microscope, FlaskConical, FileText,
   Pencil, Trash2, Save, X, MapPin, Beaker,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, Button, PageHeader, Spinner, Select } from '../../components/ui';
+import { Card, Badge, Button, PageHeader, Spinner, Select, Breadcrumb } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
+import { dialog } from '../../lib/dialog';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
 import { taxoLabel as _taxoLabel } from '../../utils/taxoLabel';
@@ -152,7 +153,11 @@ export default function MoustiqueDetail() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Supprimer le moustique ${specimen.idTerrain || '#' + id} ? Cette action est irréversible.`)) return;
+    const ok = await dialog.confirm({
+      title: 'Supprimer ce moustique ?',
+      message: `${specimen.idTerrain ? `« ${specimen.idTerrain} »` : `Le spécimen #${id}`} sera définitivement supprimé. Cette action est irréversible.`,
+    });
+    if (!ok) return;
     setDeleting(true);
     try {
       await api.delete(`/moustiques/${id}`);
@@ -195,9 +200,10 @@ export default function MoustiqueDetail() {
 
   return (
     <div className="space-y-5">
-      <Link to="/specimens/moustiques" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
-        <ChevronLeft size={16} /> Moustiques
-      </Link>
+      <Breadcrumb items={[
+        { label: 'Moustiques', to: '/specimens/moustiques' },
+        { label: m.idTerrain ?? `#${m.id}` },
+      ]} />
 
       <PageHeader
         icon={() => <SpecimenIcon type="moustique" size={18} />}
@@ -221,7 +227,7 @@ export default function MoustiqueDetail() {
 
             {editing ? (
               <div className="space-y-4">
-                <EditSelect label="Espèce" value={editForm.taxonomieId}
+                <EditSelect label="Genre / Espèce" value={editForm.taxonomieId}
                   onChange={e => setEditForm(f => ({ ...f, taxonomieId: e.target.value }))}
                   options={taxoOptions} />
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -253,7 +259,7 @@ export default function MoustiqueDetail() {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="col-span-2 md:col-span-3">
-                  <Field label="Espèce">
+                  <Field label="Genre / Espèce">
                     <span className="italic font-semibold text-specimen-moustique">{taxoLabel(m.taxonomie)}</span>
                   </Field>
                 </div>

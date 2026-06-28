@@ -65,31 +65,24 @@ const list = async (req, res) => {
 const tree = async (req, res) => {
   try {
     const { type } = req.query;
-    const where = { parentId: null };
+    const where = {};
     if (type) where.type = type;
 
-    const buildSubtree = async (parentId) => {
-      const enfants = await prisma.taxonomieSpecimen.findMany({
-        where: { parentId },
-        orderBy: [{ niveau: 'asc' }, { nom: 'asc' }],
-      });
-      return Promise.all(enfants.map(async (e) => ({
-        ...e,
-        enfants: await buildSubtree(e.id),
-      })));
-    };
-
-    const racines = await prisma.taxonomieSpecimen.findMany({
+    // Un seul aller-retour BD — plus de N+1 récursif qui épuise le pool
+    const all = await prisma.taxonomieSpecimen.findMany({
       where,
       orderBy: [{ niveau: 'asc' }, { nom: 'asc' }],
     });
 
-    const arbre = await Promise.all(racines.map(async (r) => ({
-      ...r,
-      enfants: await buildSubtree(r.id),
-    })));
+    const byId = {};
+    all.forEach((n) => { byId[n.id] = { ...n, enfants: [] }; });
+    const roots = [];
+    all.forEach((n) => {
+      if (n.parentId === null) roots.push(byId[n.id]);
+      else if (byId[n.parentId]) byId[n.parentId].enfants.push(byId[n.id]);
+    });
 
-    return res.json({ tree: arbre });
+    return res.json({ tree: roots });
   } catch (err) {
     console.error('Erreur tree taxoSpecimens :', err.message);
     return res.status(500).json({ error: 'Erreur serveur' });

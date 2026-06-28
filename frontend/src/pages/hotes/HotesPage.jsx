@@ -4,6 +4,7 @@ import { PawPrint, Plus, Search, X, MapPin, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
+import { dialog } from '../../lib/dialog';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner, Pagination, DataTable } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
 
@@ -34,7 +35,11 @@ export default function HotesPage() {
   useEffect(() => { setPage(1); }, [search]);
 
   const remove = useCallback(async (h) => {
-    if (!confirm(`Supprimer l'hôte #${h.id} ?`)) return;
+    const ok = await dialog.confirm({
+      title: "Supprimer cet hôte ?",
+      message: `L'hôte #${h.id} sera définitivement supprimé.`,
+    });
+    if (!ok) return;
     try { await api.delete(`/hotes/${h.id}`); refresh(); }
     catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   }, [refresh]);

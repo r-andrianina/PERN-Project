@@ -1,11 +1,11 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import {
-  ChevronLeft, FolderOpen, MapPin, Tag, ChevronRight, User, Calendar,
+  FolderOpen, MapPin, Tag, ChevronRight, User, Calendar,
   Clock, Target, Bug, Activity, Layers,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, EmptyState, Spinner } from '../../components/ui';
+import { Card, Badge, EmptyState, Spinner, Breadcrumb } from '../../components/ui';
 
 const STATUT_TONE  = { actif: 'success', termine: 'default', suspendu: 'warning' };
 const STATUT_LABEL = { actif: 'Actif', termine: 'Terminé', suspendu: 'Suspendu' };
@@ -56,6 +56,7 @@ export default function ProjetDetail() {
   // ── Calculs dérivés ────────────────────────────────────────────
   const progress = useMemo(() => {
     if (!projet?.dateDebut || !projet?.dateFin) return null;
+    // eslint-disable-next-line react-hooks/purity
     const now   = Date.now();
     const start = new Date(projet.dateDebut).getTime();
     const end   = new Date(projet.dateFin).getTime();
@@ -95,9 +96,10 @@ export default function ProjetDetail() {
 
   return (
     <div className="max-w-screen-xl space-y-5">
-      <Link to="/projets" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
-        <ChevronLeft size={16} /> Projets
-      </Link>
+      <Breadcrumb items={[
+        { label: 'Projets', to: '/projets' },
+        { label: projet.nom },
+      ]} />
 
       {/* Layout 2 colonnes */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr,300px] gap-5 items-start">

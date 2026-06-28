@@ -113,9 +113,18 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
   // H12 = puits témoin (SOP) : jamais utilisable pour un spécimen
   const isTemoin   = (pos) => isPlaque && pos === 'H12';
 
+  const allPositions  = buildPositions(type);
+  const totalCount    = allPositions.length;
+  const temoinCount   = isPlaque ? 1 : 0;
+  const occupiedCount = occupied.size;
+  const freeCount     = totalCount - occupiedCount - temoinCount;
+  const pct           = totalCount > 0 ? Math.round((occupiedCount / totalCount) * 100) : 0;
+
   return (
-    <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-border-strong p-4 overflow-x-auto">
-      <div className="inline-block">
+    <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-border-strong p-4 flex gap-5 overflow-x-auto">
+
+      {/* ── Grille ── */}
+      <div className="flex-shrink-0">
         {/* En-tête colonnes */}
         <div className="flex items-center gap-1 ml-7 mb-1">
           {Array.from({ length: cols }, (_, i) => (
@@ -160,26 +169,81 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
             })}
           </div>
         ))}
+      </div>
+
+      {/* ── Panneau latéral ── */}
+      <div className="flex-1 min-w-[160px] flex flex-col gap-4 border-l border-border-strong/40 pl-5">
+
+        {/* Position sélectionnée */}
+        {selectedPosition && (
+          <div>
+            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-1">Position choisie</p>
+            <p className="text-3xl font-bold font-mono" style={{ color: 'rgb(var(--primary))' }}>{selectedPosition}</p>
+          </div>
+        )}
+
+        {/* Auto-positions (mode split) */}
+        {autoPositions.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2">
+              Auto-affectées ({autoPositions.length})
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {autoPositions.map(p => (
+                <span key={p} className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono rounded border border-emerald-300">
+                  {p}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Occupation */}
+        <div>
+          <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2">Occupation</p>
+          <div className="space-y-1.5 mb-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-fg-muted">Libres</span>
+              <span className="font-bold text-fg tabular-nums">{freeCount}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-fg-muted">Occupés</span>
+              <span className="font-bold text-fg tabular-nums">{occupiedCount}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs border-t border-border pt-1.5">
+              <span className="text-fg-muted">Total utiles</span>
+              <span className="font-bold text-fg tabular-nums">{totalCount - temoinCount}</span>
+            </div>
+          </div>
+          <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-[width] duration-700 ease-out"
+              style={{ width: `${pct}%`, backgroundColor: 'rgb(var(--primary))' }}
+            />
+          </div>
+          <p className="text-[10px] text-fg-subtle mt-1.5">{pct}% utilisé</p>
+        </div>
 
         {/* Légende */}
-        <div className="flex items-center gap-4 mt-3 text-[10px] text-fg-subtle">
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-sm bg-surface border border-border-strong" /> Libre
+        <div className="mt-auto border-t border-border-strong/40 pt-3 space-y-1.5">
+          <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2">Légende</p>
+          <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
+            <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-surface border border-border-strong inline-block" /> Libre
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-sm bg-primary-600 border border-primary-700" /> Sélectionné
+          <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
+            <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-primary-600 border border-primary-700 inline-block" /> Sélectionné
           </span>
           {autoPositions.length > 0 && (
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-sm bg-emerald-200 border border-emerald-400" /> Auto-affecté ({autoPositions.length})
+            <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
+              <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-emerald-200 border border-emerald-400 inline-block" /> Auto ({autoPositions.length})
             </span>
           )}
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-sm bg-gray-300 border border-gray-400" /> Occupé
+          <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
+            <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-gray-300 border border-gray-400 inline-block" /> Occupé
           </span>
           {isPlaque && (
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-sm bg-amber-100 border border-amber-300" /> Témoin (réservé)
+            <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
+              <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-amber-100 border border-amber-300 inline-block" /> Témoin H12
             </span>
           )}
         </div>

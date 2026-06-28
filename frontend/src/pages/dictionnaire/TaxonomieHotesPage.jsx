@@ -10,6 +10,7 @@ import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
+import { dialog } from '../../lib/dialog';
 
 const ROLES = { admin: 4, chercheur: 3, terrain: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
@@ -157,7 +158,11 @@ export default function TaxonomieHotesPage() {
     } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   };
   const remove = async (n) => {
-    if (!confirm(`Supprimer "${n.nom}" ?`)) return;
+    const ok = await dialog.confirm({
+      title: `Supprimer « ${n.nom} » ?`,
+      message: 'Cette entrée et ses sous-niveaux seront définitivement supprimés.',
+    });
+    if (!ok) return;
     try { await api.delete(`/dictionnaire/taxonomie-hotes/${n.id}`); refresh(); }
     catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   };

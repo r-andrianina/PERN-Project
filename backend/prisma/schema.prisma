@@ -128,8 +128,9 @@ model Mission {
   id            Int           @id @default(autoincrement())
   ordreMission  String        @unique @map("ordre_mission") @db.VarChar(50)
   projetId      Int           @map("projet_id")
-  chefMissionId Int?          @map("chef_mission_id")
-  dateDebut     DateTime      @map("date_debut") @db.Date
+  chefMissionId  Int?          @map("chef_mission_id")
+  chefMissionNom String?       @db.VarChar(200) @map("chef_mission_nom")
+  dateDebut      DateTime      @map("date_debut") @db.Date
   dateFin       DateTime?     @map("date_fin") @db.Date
   statut        StatutMission @default(planifiee)
   objet         String?       @db.Text

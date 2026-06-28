@@ -9,7 +9,7 @@ import {
 } from 'recharts';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, EmptyState, Spinner } from '../../components/ui';
-import { useApiQueries, useApiQuery } from '../../hooks';
+import { useApiQuery } from '../../hooks';
 import SpecimenIcon from '../../components/SpecimenIcon';
 
 const STATUT_TONE  = { planifiee: 'info', en_cours: 'success', terminee: 'default', annulee: 'danger' };
@@ -68,24 +68,17 @@ function DashboardStat({ label, value, icon: Icon, iconNode, iconColor, iconBg, 
 export default function DashboardPage() {
   const { user } = useAuthStore();
 
-  const { results, loading: isLoading } = useApiQueries([
-    { url: '/projets',    key: 'projets',    select: (r) => r },
-    { url: '/missions',   key: 'missions',   select: (r) => r },
-    { url: '/moustiques', key: 'moustiques', select: (r) => r },
-    { url: '/tiques',     key: 'tiques',     select: (r) => r },
-    { url: '/puces',      key: 'puces',      select: (r) => r },
-  ]);
+  const { data: stats, loading: isLoading } = useApiQuery('/dashboard/stats');
 
-  const { data: stats, loading: statsLoading } = useApiQuery('/dashboard/stats');
-
-  const totalMoustiques = results.moustiques?.total ?? null;
-  const totalTiques     = results.tiques?.total     ?? null;
-  const totalPuces      = results.puces?.total      ?? null;
+  const totaux          = stats?.totaux          ?? {};
+  const totalMoustiques = totaux.moustiques      ?? null;
+  const totalTiques     = totaux.tiques          ?? null;
+  const totalPuces      = totaux.puces           ?? null;
   const totalSpecimens  = (totalMoustiques !== null && totalTiques !== null && totalPuces !== null)
     ? totalMoustiques + totalTiques + totalPuces
     : null;
 
-  const missions = (results.missions?.missions ?? []).slice(0, 6);
+  const missions = stats?.missionsRecentes ?? [];
 
   const canSee = (type) => user?.role === 'admin' || (user?.specimensAutorises || []).includes(type);
 
@@ -121,9 +114,9 @@ export default function DashboardPage() {
 
       {/* Stats principales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <DashboardStat label="Projets"  value={results.projets?.total}  to="/projets"
+        <DashboardStat label="Projets"  value={totaux.projets}  to="/projets"
           icon={FolderOpen} iconColor="text-primary" iconBg="bg-primary/10" />
-        <DashboardStat label="Missions" value={results.missions?.total} to="/missions"
+        <DashboardStat label="Missions" value={totaux.missions} to="/missions"
           icon={MapPin} iconColor="text-info" iconBg="bg-info/10" />
         <DashboardStat label="Spécimens total" value={totalSpecimens} to="/recherche"
           icon={Microscope} iconColor="text-role-admin" iconBg="bg-role-admin/10" />
@@ -154,7 +147,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Graphiques ─────────────────────────────────────────── */}
-      {statsLoading ? (
+      {isLoading ? (
         <Spinner.Block label="Chargement des statistiques…" height="h-24" />
       ) : !hasChartData && donutData.length === 0 ? null : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

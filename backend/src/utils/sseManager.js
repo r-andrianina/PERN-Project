@@ -31,4 +31,23 @@ function broadcast(excludeUserId, eventName, data) {
   }
 }
 
-module.exports = { addClient, removeClient, broadcast };
+function getOnlineUserIds() {
+  return [...clients.keys()];
+}
+
+function getTabCount(userId) {
+  return clients.get(userId)?.size ?? 0;
+}
+
+// Ferme toutes les connexions SSE d'un utilisateur (kick de session).
+function disconnectUser(userId) {
+  const set = clients.get(userId);
+  if (!set) return false;
+  for (const res of set) {
+    try { res.end(); } catch { /* connexion déjà morte */ }
+  }
+  clients.delete(userId);
+  return true;
+}
+
+module.exports = { addClient, removeClient, broadcast, getOnlineUserIds, getTabCount, disconnectUser };

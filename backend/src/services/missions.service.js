@@ -40,7 +40,7 @@ const getById = async (id) => {
 };
 
 const create = async (data) => {
-  const { ordreMission, projetId, chefMissionId, dateDebut, dateFin, statut, objet, observations, agentIds } = data;
+  const { ordreMission, projetId, chefMissionId, chefMissionNom, dateDebut, dateFin, statut, objet, observations, agentIds } = data;
 
   if (Array.isArray(agentIds) && agentIds.length > 5)
     throw AppError.badRequest('Maximum 5 agents de terrain par mission');
@@ -55,8 +55,9 @@ const create = async (data) => {
     data: {
       ordreMission:  ordreMission.trim(),
       projetId:      parseInt(projetId),
-      chefMissionId: chefMissionId ? parseInt(chefMissionId) : null,
-      dateDebut:     new Date(dateDebut),
+      chefMissionId:  chefMissionId ? parseInt(chefMissionId) : null,
+      chefMissionNom: chefMissionNom || null,
+      dateDebut:      new Date(dateDebut),
       dateFin:       dateFin ? new Date(dateFin) : null,
       statut:        statut || 'planifiee',
       objet:         objet || null,
@@ -68,13 +69,14 @@ const create = async (data) => {
 };
 
 const update = async (id, data) => {
-  const { chefMissionId, dateDebut, dateFin, statut, objet, observations, agentIds } = data;
+  const { chefMissionId, chefMissionNom, dateDebut, dateFin, statut, objet, observations, agentIds } = data;
 
   if (Array.isArray(agentIds) && agentIds.length > 5)
     throw AppError.badRequest('Maximum 5 agents de terrain par mission');
 
   const patch = {};
-  if (chefMissionId !== undefined) patch.chefMissionId = chefMissionId ? parseInt(chefMissionId) : null;
+  if (chefMissionId  !== undefined) patch.chefMissionId  = chefMissionId ? parseInt(chefMissionId) : null;
+  if (chefMissionNom !== undefined) patch.chefMissionNom = chefMissionNom || null;
   if (dateDebut)                   patch.dateDebut     = new Date(dateDebut);
   if (dateFin !== undefined)       patch.dateFin       = dateFin ? new Date(dateFin) : null;
   if (statut)                      patch.statut        = statut;

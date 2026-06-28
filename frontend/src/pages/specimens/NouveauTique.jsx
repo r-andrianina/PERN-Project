@@ -150,7 +150,7 @@ export default function NouveauTique() {
               onChange={(v) => setForm((f) => ({ ...f, idTerrain: v }))}
               error={errors.idTerrain}
             />
-            <FormField label="Espèce (référentiel)" name="taxonomieId" type="select"
+            <FormField label="Genre / Espèce (référentiel)" name="taxonomieId" type="select"
               value={form.taxonomieId} onChange={handleChange}
               options={taxonomieOptions} required error={errors.taxonomieId} />
           </div>

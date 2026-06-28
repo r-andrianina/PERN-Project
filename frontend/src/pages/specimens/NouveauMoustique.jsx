@@ -164,7 +164,7 @@ export default function NouveauMoustique() {
               error={errors.idTerrain}
             />
             <FormField
-              label="Espèce (référentiel)" name="taxonomieId" type="select"
+              label="Genre / Espèce (référentiel)" name="taxonomieId" type="select"
               value={form.taxonomieId} onChange={handleChange}
               options={taxonomieOptions} required error={errors.taxonomieId}
               hint="Sélection obligatoire depuis le dictionnaire"
@@ -339,7 +339,7 @@ export default function NouveauMoustique() {
             <Card padding="sm">
               <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
                 <span className="block font-semibold text-fg mb-1">Conseils</span>
-                <span className="block">• La <strong>taxonomie</strong> est obligatoire — choisissez au niveau espèce.</span>
+                <span className="block">• La <strong>taxonomie</strong> est obligatoire — choisissez au niveau genre / espèce.</span>
                 <span className="block">• Le <strong>stade</strong> détermine le sexe : une larve est toujours « inconnu ».</span>
                 <span className="block">• Un <strong>mâle</strong> n'effectue pas de repas sang.</span>
                 <span className="block">• L'ID terrain (<code className="font-mono text-[10px]">AKZ_n</code>) est généré automatiquement.</span>

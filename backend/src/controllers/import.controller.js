@@ -561,4 +561,83 @@ const importMoustiques = async (req, res) => {
   });
 };
 
-module.exports = { importMoustiques };
+// GET /api/v1/import/template/moustiques
+// Génère un fichier Excel prêt à remplir avec les colonnes attendues + exemples + notes.
+const getTemplateMoustiques = async (req, res) => {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator  = 'SpécimenManager — Institut Pasteur Madagascar';
+  workbook.created  = new Date();
+
+  const ws = workbook.addWorksheet('Import Moustiques');
+
+  const COLS = [
+    { header: 'SERIES',                 key: 'series',   width: 22, note: 'Identifiant terrain unique — ex : MPM-2024-0001'          },
+    { header: 'MISSION_ORDER_NUMBER',   key: 'mission',  width: 24, note: 'Numéro d\'ordre de mission — ex : OM-2024-001'             },
+    { header: 'PROJET',                 key: 'projet',   width: 20, note: 'Nom ou code projet (optionnel — créé si absent)'           },
+    { header: 'WHAT_3_WORDS',           key: 'w3w',      width: 20, note: 'Code localité 3 mots ou code court — ex : ///a.b.c'        },
+    { header: 'SCIENTIFIC_NAME',        key: 'taxo',     width: 28, note: 'Genre Espèce — ex : Anopheles gambiae'                     },
+    { header: 'COLLECTION_METHOD',      key: 'method',   width: 22, note: 'CDC-LT | BG-SENT | HLC | DRAGGING | GITES | HLC | …'      },
+    { header: 'BOX_PLATE_ID',           key: 'box',      width: 18, note: 'Code container (BX_001 = boîte, P_001 = plaque 96 puits)'  },
+    { header: 'TUBE_OR_WELL_ID',        key: 'pos',      width: 16, note: 'Position dans le container — ex : T001 ou A1'              },
+    { header: 'SEX',                    key: 'sex',      width: 12, note: 'FEMALE | MALE | UNKNOWN'                                   },
+    { header: 'LIFESTAGE',              key: 'stage',    width: 14, note: 'ADULT | LARVA | NYMPH | EGG'                               },
+    { header: 'BLOOD_MEAL',             key: 'blood',    width: 14, note: 'Y | N | G | Gr | SGr | NC'                                 },
+    { header: 'PRESERVATIVE_SOLUTION',  key: 'preserv',  width: 24, note: '95%_ETHANOL | RNALATER | 70%_ETHANOL | DRY | SILICA'      },
+    { header: 'DATE_OF_COLLECTION',     key: 'date',     width: 20, note: 'Format YYYY-MM-DD — ex : 2024-03-15'                       },
+  ];
+
+  ws.columns = COLS.map(({ header, key, width }) => ({ header, key, width }));
+
+  // ── En-tête coloré vert IPM ───────────────────────────────────
+  const headerRow       = ws.getRow(1);
+  headerRow.font        = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+  headerRow.fill        = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D9E75' } };
+  headerRow.alignment   = { horizontal: 'center', vertical: 'middle' };
+  headerRow.height      = 22;
+
+  // ── Lignes d'exemples ─────────────────────────────────────────
+  const EXAMPLES = [
+    { series: 'MPM-2024-0001', mission: 'OM-2024-001', projet: 'ARBO-MHG',
+      w3w: 'LOC-MHG-001', taxo: 'Anopheles gambiae',     method: 'CDC-LT',
+      box: 'BX_001', pos: 'T001', sex: 'FEMALE', stage: 'ADULT', blood: 'Y',
+      preserv: '95%_ETHANOL', date: '2024-03-15' },
+    { series: 'MPM-2024-0002', mission: 'OM-2024-001', projet: 'ARBO-MHG',
+      w3w: 'LOC-MHG-001', taxo: 'Culex quinquefasciatus', method: 'BG-SENT',
+      box: 'BX_001', pos: 'T002', sex: 'FEMALE', stage: 'ADULT', blood: 'N',
+      preserv: 'RNALATER', date: '2024-03-15' },
+    { series: 'MPM-2024-0003', mission: 'OM-2024-002', projet: 'ARBO-MHG',
+      w3w: 'LOC-ANT-005', taxo: 'Aedes albopictus',       method: 'HLC',
+      box: '',     pos: '',     sex: 'MALE',   stage: 'ADULT', blood: 'N',
+      preserv: '70%_ETHANOL', date: '2024-03-20' },
+  ];
+
+  EXAMPLES.forEach((row, i) => {
+    const wsRow = ws.addRow(row);
+    wsRow.fill  = {
+      type: 'pattern', pattern: 'solid',
+      fgColor: { argb: i % 2 === 0 ? 'FFF0FFF8' : 'FFFFFFFF' },
+    };
+    wsRow.alignment = { horizontal: 'left' };
+  });
+
+  // ── Ligne de notes (grisée) ───────────────────────────────────
+  ws.addRow({});
+  const noteRow = ws.getRow(5);
+  COLS.forEach((col, i) => {
+    const cell       = noteRow.getCell(i + 1);
+    cell.value       = col.note;
+    cell.font        = { italic: true, color: { argb: 'FF888888' }, size: 9 };
+    cell.alignment   = { wrapText: true, vertical: 'top' };
+    cell.fill        = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9F9F9' } };
+  });
+  noteRow.height = 42;
+
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename="template_import_moustiques.xlsx"');
+  await workbook.xlsx.write(res);
+  res.end();
+};
+
+module.exports = { importMoustiques, getTemplateMoustiques };

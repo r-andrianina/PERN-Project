@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, MapPin, ClipboardList, Plus, Trash2, Check, Loader2, Tag, Calendar, User, Navigation } from 'lucide-react';
+import { ChevronLeft, MapPin, ClipboardList, Plus, Trash2, Check, Loader2, Tag, Calendar, User, Navigation, UserCheck, UserX } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import MapPicker from '../../components/MapPicker';
@@ -17,10 +17,11 @@ export default function NouvelleMission() {
   const navigate = useNavigate();
 
   const [mission, setMission] = useState({
-    ordreMission: '', projetId: '', chefMissionId: '',
+    ordreMission: '', projetId: '', chefMissionId: '', chefMissionNom: '',
     dateDebut: '', dateFin: '', statut: 'planifiee', objet: '', observations: '',
     agentIds: [],
   });
+  const [chefMode, setChefMode] = useState('systeme'); // 'systeme' | 'externe'
   const [localites, setLocalites]   = useState([defaultLocalite()]);
   const [projets, setProjets]       = useState([]);
   const [users, setUsers]           = useState([]);
@@ -151,9 +152,10 @@ export default function NouvelleMission() {
     try {
       const missionRes = await api.post('/missions', {
         ...mission,
-        projetId:      parseInt(mission.projetId),
-        chefMissionId: mission.chefMissionId ? parseInt(mission.chefMissionId) : null,
-        agentIds:      mission.agentIds.map((id) => parseInt(id)),
+        projetId:       parseInt(mission.projetId),
+        chefMissionId:  chefMode === 'systeme' && mission.chefMissionId ? parseInt(mission.chefMissionId) : null,
+        chefMissionNom: chefMode === 'externe' ? mission.chefMissionNom || null : null,
+        agentIds:       mission.agentIds.map((id) => parseInt(id)),
       });
       const missionId = missionRes.data.mission.id;
       await Promise.all(
@@ -181,9 +183,10 @@ export default function NouvelleMission() {
     { value: 'terminee',  label: 'Terminée'  },
     { value: 'annulee',   label: 'Annulée'   },
   ];
-  const selectedProjet = projets.find((p) => p.id === parseInt(mission.projetId));
-  const selectedChef   = users.find((u) => u.id === parseInt(mission.chefMissionId));
-  const selectedAgents = users.filter((u) => mission.agentIds.includes(u.id));
+  const selectedProjet   = projets.find((p) => p.id === parseInt(mission.projetId));
+  const selectedChef     = chefMode === 'systeme' ? users.find((u) => u.id === parseInt(mission.chefMissionId)) : null;
+  const chefLabel        = chefMode === 'systeme' ? (selectedChef ? `${selectedChef.prenom} ${selectedChef.nom}` : null) : (mission.chefMissionNom || null);
+  const selectedAgents   = users.filter((u) => mission.agentIds.includes(u.id));
 
   return (
     <div className="space-y-5">
@@ -222,11 +225,50 @@ export default function NouvelleMission() {
               value={mission.projetId} onChange={handleMissionChange}
               options={projetOptions} required error={errors.projetId}
             />
-            <FormField
-              label="Chef de mission" name="chefMissionId" type="select"
-              value={mission.chefMissionId} onChange={handleMissionChange}
-              options={userOptions}
-            />
+            {/* Chef de mission — utilisateur du système ou personne externe */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
+                <User size={12} /> Chef de mission
+              </p>
+              <div className="flex gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => { setChefMode('systeme'); setMission((m) => ({ ...m, chefMissionNom: '' })); }}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                    chefMode === 'systeme'
+                      ? 'bg-primary text-white border-primary-600'
+                      : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'
+                  }`}
+                >
+                  <UserCheck size={12} /> Utilisateur du système
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setChefMode('externe'); setMission((m) => ({ ...m, chefMissionId: '' })); }}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                    chefMode === 'externe'
+                      ? 'bg-primary text-white border-primary-600'
+                      : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'
+                  }`}
+                >
+                  <UserX size={12} /> Personne externe
+                </button>
+              </div>
+              {chefMode === 'systeme' ? (
+                <FormField
+                  name="chefMissionId" type="select"
+                  value={mission.chefMissionId} onChange={handleMissionChange}
+                  options={userOptions}
+                />
+              ) : (
+                <FormField
+                  name="chefMissionNom"
+                  value={mission.chefMissionNom} onChange={handleMissionChange}
+                  placeholder="Nom et prénom du chef de mission (personne externe)"
+                  hint="Cette personne n'a pas de compte dans l'application"
+                />
+              )}
+            </div>
             <FormField
               label="Statut" name="statut" type="select"
               value={mission.statut} onChange={handleMissionChange}
@@ -482,10 +524,13 @@ export default function NouvelleMission() {
                     </p>
                   </div>
                 )}
-                {selectedChef && (
+                {chefLabel && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><User size={9} /> Chef</p>
-                    <p className="text-xs text-fg">{selectedChef.prenom} {selectedChef.nom}</p>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                      <User size={9} /> Chef
+                      {chefMode === 'externe' && <span className="ml-1 text-warning">(externe)</span>}
+                    </p>
+                    <p className="text-xs text-fg">{chefLabel}</p>
                   </div>
                 )}
                 {selectedAgents.length > 0 && (

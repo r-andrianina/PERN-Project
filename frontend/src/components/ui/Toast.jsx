@@ -16,31 +16,35 @@ import { toastEmitter } from '../../lib/toast';
 // ── Config par type ───────────────────────────────────────────
 const TYPE_CFG = {
   success: {
-    icon: CheckCircle,
-    bar:  'bg-success',
-    bg:   'bg-surface border-success/30',
-    icon_cls: 'text-success',
+    icon:      CheckCircle,
+    bar:       'bg-success',
+    bg:        'bg-surface border border-success/20',
+    icon_bg:   'bg-success/10',
+    icon_cls:  'text-success',
     title_cls: 'text-success',
   },
   error: {
-    icon: XCircle,
-    bar:  'bg-danger',
-    bg:   'bg-surface border-danger/30',
-    icon_cls: 'text-danger',
+    icon:      XCircle,
+    bar:       'bg-danger',
+    bg:        'bg-surface border border-danger/20',
+    icon_bg:   'bg-danger/10',
+    icon_cls:  'text-danger',
     title_cls: 'text-danger',
   },
   warning: {
-    icon: AlertTriangle,
-    bar:  'bg-warning',
-    bg:   'bg-surface border-warning/30',
-    icon_cls: 'text-warning',
+    icon:      AlertTriangle,
+    bar:       'bg-warning',
+    bg:        'bg-surface border border-warning/20',
+    icon_bg:   'bg-warning/10',
+    icon_cls:  'text-warning',
     title_cls: 'text-warning',
   },
   info: {
-    icon: Info,
-    bar:  'bg-info',
-    bg:   'bg-surface border-info/30',
-    icon_cls: 'text-info',
+    icon:      Info,
+    bar:       'bg-info',
+    bg:        'bg-surface border border-info/20',
+    icon_bg:   'bg-info/10',
+    icon_cls:  'text-info',
     title_cls: 'text-info',
   },
 };
@@ -87,23 +91,31 @@ function ToastItem({ id, type, message, title, duration, onRemove }) {
   return (
     <div
       className={`
-        relative w-80 max-w-[calc(100vw-2rem)]
-        rounded-2xl border shadow-card-lg overflow-hidden
+        relative w-[340px] max-w-[calc(100vw-2rem)]
+        rounded-2xl shadow-xl overflow-hidden
         transition-all duration-300 ease-out
         ${visible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
         ${cfg.bg}
       `}
     >
-      {/* Barre de progression */}
-      <div
-        className={`absolute top-0 left-0 h-0.5 transition-none ${cfg.bar}`}
-        style={{ width: `${progress}%` }}
-      />
+      {/* Bande colorée gauche */}
+      <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${cfg.bar}`} />
 
-      <div className="flex items-start gap-3 px-4 py-3.5 pt-4">
-        <Icon size={18} className={`flex-shrink-0 mt-0.5 ${cfg.icon_cls}`} />
+      {/* Barre de progression en bas */}
+      <div className="absolute bottom-0 left-[3px] right-0 h-[2px] bg-border/40">
+        <div
+          className={`h-full transition-none ${cfg.bar} opacity-40`}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
 
-        <div className="flex-1 min-w-0">
+      <div className="flex items-start gap-3 pl-5 pr-4 py-3.5">
+        {/* Icône dans un cercle coloré */}
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${cfg.icon_bg}`}>
+          <Icon size={15} className={cfg.icon_cls} />
+        </div>
+
+        <div className="flex-1 min-w-0 pt-0.5">
           {title && (
             <p className={`text-xs font-bold mb-0.5 ${cfg.title_cls}`}>{title}</p>
           )}
@@ -112,9 +124,9 @@ function ToastItem({ id, type, message, title, duration, onRemove }) {
 
         <button
           onClick={dismiss}
-          className="flex-shrink-0 p-0.5 -mr-1 text-fg-subtle hover:text-fg transition-colors rounded"
+          className="flex-shrink-0 p-0.5 -mr-0.5 mt-0.5 text-fg-subtle hover:text-fg transition-colors rounded"
         >
-          <X size={14} />
+          <X size={13} />
         </button>
       </div>
     </div>

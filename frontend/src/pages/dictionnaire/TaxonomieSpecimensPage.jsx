@@ -11,6 +11,7 @@ import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
+import { dialog } from '../../lib/dialog';
 
 const ROLES = { admin: 4, chercheur: 3, terrain: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
@@ -167,7 +168,8 @@ export default function TaxonomieSpecimensPage() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filterType]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { refresh(); }, [filterType]);
 
   const openCreateRoot = () => {
     setEditing({ niveau: 'ordre', nom: '', type: filterType || 'moustique', auteur: '', annee: '', nomCommun: '', description: '', parentId: null });
@@ -218,7 +220,11 @@ export default function TaxonomieSpecimensPage() {
     } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   };
   const remove = async (node) => {
-    if (!confirm(`Supprimer "${node.nom}" ?`)) return;
+    const ok = await dialog.confirm({
+      title: `Supprimer « ${node.nom} » ?`,
+      message: 'Cette entrée et ses sous-niveaux seront définitivement supprimés.',
+    });
+    if (!ok) return;
     try {
       await api.delete(`/dictionnaire/taxonomie-specimens/${node.id}`);
       refresh();
@@ -296,80 +302,116 @@ export default function TaxonomieSpecimensPage() {
 
       {editing && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
-          <form onSubmit={submit} className="bg-surface rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4 my-4 sm:mt-16">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-fg">
-                {editing.id ? 'Modifier la taxonomie' : 'Nouvelle taxonomie'}
-              </h2>
-              <button type="button" onClick={() => setEditing(null)} className="p-1 text-fg-subtle hover:text-fg">
-                <X size={18} />
+          <form onSubmit={submit} className="bg-surface rounded-2xl shadow-xl w-full max-w-lg my-4 sm:mt-16 overflow-hidden">
+
+            {/* En-tête */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-specimen-moustique/10 flex items-center justify-center">
+                  <Bug size={15} className="text-specimen-moustique" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-fg">
+                    {editing.id ? 'Modifier la taxonomie' : 'Nouvelle entrée taxonomique'}
+                  </h2>
+                  {editing.parentLabel && (
+                    <p className="text-[10px] text-fg-subtle mt-0.5">
+                      Enfant de <span className="font-semibold text-fg">{editing.parentLabel}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button type="button" onClick={() => setEditing(null)}
+                className="p-1.5 text-fg-subtle hover:text-fg hover:bg-surface-2 rounded-lg transition-colors">
+                <X size={16} />
               </button>
             </div>
 
-            {submitErr && (
-              <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-xs text-danger">{submitErr}</div>
-            )}
-
-            {editing.parentLabel && (
-              <div className="text-xs text-fg-muted bg-surface-2 px-3 py-2 rounded-lg">
-                Parent : <span className="font-medium text-fg">{editing.parentLabel}</span>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                label="Niveau" name="niveau" type="select"
-                value={editing.niveau}
-                onChange={(e) => setEditing({ ...editing, niveau: e.target.value })}
-                options={niveauxAutorises} required disabled={!!editing.id}
-              />
-              {editing.niveau === 'ordre' && (
-                <FormField
-                  label="Type spécimen" name="type" type="select"
-                  value={editing.type || ''}
-                  onChange={(e) => setEditing({ ...editing, type: e.target.value })}
-                  options={TYPES} required
-                />
+            <div className="px-6 py-5 space-y-5">
+              {submitErr && (
+                <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-xs text-danger">{submitErr}</div>
               )}
+
+              {/* Section Classification */}
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-widest">Classification</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    label="Niveau" name="niveau" type="select"
+                    value={editing.niveau}
+                    onChange={(e) => setEditing({ ...editing, niveau: e.target.value })}
+                    options={niveauxAutorises} required disabled={!!editing.id}
+                  />
+                  <FormField
+                    label="Type spécimen" name="type" type="select"
+                    value={editing.type || ''}
+                    onChange={(e) => setEditing({ ...editing, type: e.target.value })}
+                    options={[{ value: '', label: '— Sélectionner —' }, ...TYPES]}
+                    required={editing.niveau === 'ordre'}
+                    disabled={!!editing.id && editing.niveau !== 'ordre'}
+                  />
+                </div>
+              </div>
+
+              {/* Section Nom scientifique */}
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-widest">Nomenclature</p>
+                <FormField
+                  label="Nom scientifique" name="nom" required
+                  value={editing.nom}
+                  onChange={(e) => setEditing({ ...editing, nom: e.target.value })}
+                  placeholder={editing.niveau === 'genre' ? 'ex: Anopheles' : editing.niveau === 'espece' ? 'ex: gambiae' : 'ex: Culicidae'}
+                  hint={['genre', 'sous_genre', 'espece', 'sous_espece'].includes(editing.niveau) ? 'Affiché en italique dans les listes' : undefined}
+                />
+
+                {/* Preview */}
+                {editing.nom && (
+                  <div className="px-3 py-2 bg-surface-2 border border-border rounded-xl text-xs text-fg-muted">
+                    <span className="text-[10px] uppercase tracking-wide text-fg-subtle mr-2">{NIVEAU_LABEL[editing.niveau]}</span>
+                    <span className={['genre', 'sous_genre', 'espece', 'sous_espece'].includes(editing.niveau) ? 'italic font-semibold text-fg' : 'font-semibold text-fg'}>
+                      {editing.nom}
+                    </span>
+                    {editing.auteur && <span className="text-fg-subtle ml-1.5">{editing.auteur}{editing.annee ? `, ${editing.annee}` : ''}</span>}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    label="Auteur" name="auteur"
+                    value={editing.auteur}
+                    onChange={(e) => setEditing({ ...editing, auteur: e.target.value })}
+                    placeholder="ex: Giles"
+                  />
+                  <FormField
+                    label="Année" name="annee" type="number"
+                    value={editing.annee}
+                    onChange={(e) => setEditing({ ...editing, annee: e.target.value })}
+                    placeholder="ex: 1902"
+                  />
+                </div>
+                <FormField
+                  label="Nom commun" name="nomCommun"
+                  value={editing.nomCommun}
+                  onChange={(e) => setEditing({ ...editing, nomCommun: e.target.value })}
+                  placeholder="ex: Moustique tigre"
+                />
+              </div>
+
+              {/* Description optionnelle */}
+              <FormField
+                label="Description (optionnel)" name="description" type="textarea"
+                value={editing.description}
+                onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+                placeholder="Notes, caractéristiques, répartition géographique…"
+              />
             </div>
 
-            <FormField
-              label="Nom" name="nom" required
-              value={editing.nom}
-              onChange={(e) => setEditing({ ...editing, nom: e.target.value })}
-              placeholder="ex: Anopheles, gambiae"
-            />
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                label="Auteur" name="auteur"
-                value={editing.auteur}
-                onChange={(e) => setEditing({ ...editing, auteur: e.target.value })}
-                placeholder="ex: Giles"
-              />
-              <FormField
-                label="Année" name="annee" type="number"
-                value={editing.annee}
-                onChange={(e) => setEditing({ ...editing, annee: e.target.value })}
-                placeholder="ex: 1902"
-              />
-            </div>
-
-            <FormField
-              label="Nom commun" name="nomCommun"
-              value={editing.nomCommun}
-              onChange={(e) => setEditing({ ...editing, nomCommun: e.target.value })}
-            />
-
-            <FormField
-              label="Description" name="description" type="textarea"
-              value={editing.description}
-              onChange={(e) => setEditing({ ...editing, description: e.target.value })}
-            />
-
-            <div className="flex justify-end gap-2 pt-2">
+            {/* Footer */}
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-border bg-surface-2">
               <button type="button" onClick={() => setEditing(null)} className="btn-secondary">Annuler</button>
-              <button type="submit" className="btn-primary">{editing.id ? 'Enregistrer' : 'Créer'}</button>
+              <button type="submit" className="btn-primary">
+                {editing.id ? 'Enregistrer les modifications' : 'Créer la taxonomie'}
+              </button>
             </div>
           </form>
         </div>

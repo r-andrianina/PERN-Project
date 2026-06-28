@@ -86,6 +86,7 @@ const stream = async (req, res) => {
 
   const userId = req.user.id;
   sseManager.addClient(userId, res);
+  sseManager.broadcast(userId, 'presence_update', {});
 
   // Envoie le unreadCount actuel dès l'établissement de la connexion
   try {
@@ -103,6 +104,7 @@ const stream = async (req, res) => {
   req.on('close', () => {
     clearInterval(ping);
     sseManager.removeClient(userId, res);
+    sseManager.broadcast(null, 'presence_update', {});
   });
 };
 

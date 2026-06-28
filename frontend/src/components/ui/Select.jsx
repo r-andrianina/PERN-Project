@@ -188,7 +188,7 @@ export default function Select({
             minWidth: coords.minWidth,
             maxWidth: coords.maxWidth,
           }}
-          className="z-[100] w-max bg-surface border border-border rounded-xl shadow-card-lg overflow-hidden"
+          className="z-[9999] w-max bg-surface border border-border rounded-xl shadow-card-lg overflow-hidden"
         >
           {showSearch && (
             <div className="p-2 border-b border-border">

@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Beaker, Trees, Map as MapIcon, Calendar, Hash, Info } from 'lucide-react';
+import { ChevronLeft, Beaker, Trees, Map as MapIcon, Calendar, Hash, Info, Clock, Timer } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import MapPicker from '../../components/MapPicker';
@@ -65,7 +65,11 @@ export default function NouvelleMethode() {
     }
   }, [form.localiteId, localites]); // eslint-disable-line
 
-  const localiteOptions    = localites.map((l)    => ({ value: l.id, label: `${l.nom}${l.mission?.ordreMission ? ' — ' + l.mission.ordreMission : ''}` }));
+  const localiteOptions    = localites.map((l) => {
+    const geo = [l.region, l.district, l.commune, l.fokontany].filter(Boolean).join(' / ');
+    const suffix = l.mission?.ordreMission ? ` — ${l.mission.ordreMission}` : '';
+    return { value: l.id, label: `${geo || l.nom}${suffix}` };
+  });
   const typeMethodeOptions = typesMethode.map((t) => ({ value: t.id, label: `${t.code} — ${t.nom}` }));
   const typeHabitatOptions = typesHabitat.map((t) => ({ value: t.id, label: t.nom }));
   const typeEnvOptions     = typesEnv.map((t)     => ({ value: t.id, label: t.nom }));
@@ -75,6 +79,17 @@ export default function NouvelleMethode() {
   const selectedHabitat  = typesHabitat.find((t) => t.id === parseInt(form.typeHabitatId));
   const selectedEnv      = typesEnv.find((t)     => t.id === parseInt(form.typeEnvironnementId));
   const identifiant      = selectedType ? `${selectedType.code}_${form.numero || 1}` : null;
+
+  const duree = useMemo(() => {
+    if (!form.heureDebut || !form.heureFin) return null;
+    const [h1, m1] = form.heureDebut.split(':').map(Number);
+    const [h2, m2] = form.heureFin.split(':').map(Number);
+    const total = (h2 * 60 + m2) - (h1 * 60 + m1);
+    if (total <= 0) return null;
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    return h > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${m} min`;
+  }, [form.heureDebut, form.heureFin]);
 
   return (
     <div className="space-y-5">
@@ -136,15 +151,65 @@ export default function NouvelleMethode() {
 
             <div className="card p-6">
               <h2 className="section-title"><Calendar size={17} className="text-warning" /> Date et horaires</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField label="Date de collecte" name="dateCollecte" type="date" value={form.dateCollecte} onChange={handleChange} />
-                <FormField label="Heure de début"   name="heureDebut"   type="time" value={form.heureDebut}   onChange={handleChange} />
-                <FormField label="Heure de fin"     name="heureFin"     type="time" value={form.heureFin}     onChange={handleChange} />
+
+              {/* Ligne date + horaires */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                {/* Date */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
+                    <Calendar size={11} className="text-warning" /> Date de collecte
+                  </label>
+                  <input
+                    type="date" name="dateCollecte" value={form.dateCollecte}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface text-fg
+                      hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                  />
+                </div>
+
+                {/* Heure début */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
+                    <Clock size={11} className="text-info" /> Heure de début
+                  </label>
+                  <input
+                    type="time" name="heureDebut" value={form.heureDebut}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface text-fg
+                      hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                  />
+                </div>
+
+                {/* Heure fin */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
+                    <Clock size={11} className="text-danger" /> Heure de fin
+                  </label>
+                  <input
+                    type="time" name="heureFin" value={form.heureFin}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface text-fg
+                      hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                  />
+                </div>
+
+                {/* Durée calculée */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
+                    <Timer size={11} className="text-success" /> Durée
+                  </label>
+                  <div className={`w-full px-3.5 py-2.5 text-sm rounded-xl border transition-colors ${
+                    duree
+                      ? 'border-success/40 bg-success/5 text-success font-semibold'
+                      : 'border-border bg-surface-2 text-fg-subtle italic'
+                  }`}>
+                    {duree ?? '— calculée automatiquement —'}
+                  </div>
+                </div>
               </div>
-              <div className="mt-4">
-                <FormField label="Notes" name="notes" type="textarea" value={form.notes} onChange={handleChange}
-                  placeholder="Conditions de terrain, observations particulières..." />
-              </div>
+
+              <FormField label="Notes" name="notes" type="textarea" value={form.notes} onChange={handleChange}
+                placeholder="Conditions de terrain, observations particulières..." />
             </div>
 
             <div className="flex items-center justify-end gap-3">

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Search, ChevronLeft, X } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from '../../lib/toast';
+import { dialog } from '../../lib/dialog';
 import FormField from '../../components/FormField';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, Button, PageHeader, Spinner, DataTable, Pagination, Select } from '../../components/ui';
@@ -68,7 +69,11 @@ export default function ReferentielSimplePage({ config }) {
   }, [endpoint, refresh]);
 
   const remove = useCallback(async (item) => {
-    if (!confirm(`Supprimer "${item.nom}" ?`)) return;
+    const ok = await dialog.confirm({
+      title: `Supprimer « ${item.nom} » ?`,
+      message: 'Cette entrée sera définitivement supprimée du référentiel.',
+    });
+    if (!ok) return;
     try { await api.delete(`/dictionnaire/${endpoint}/${item.id}`); refresh(); }
     catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   }, [endpoint, refresh]);

@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft, Microscope, FlaskConical, FileText,
+  Microscope, FlaskConical, FileText,
   Pencil, Trash2, Save, X, MapPin, Beaker, Bird,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, Button, PageHeader, Spinner, Select } from '../../components/ui';
+import { Card, Badge, Button, PageHeader, Spinner, Select, Breadcrumb } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
+import { dialog } from '../../lib/dialog';
 import { STADE_OPTIONS_PUCE, formatStade } from '../../utils/stade';
 import { taxoLabel as _taxoLabel } from '../../utils/taxoLabel';
 
@@ -126,7 +127,11 @@ export default function PuceDetail() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Supprimer la puce ${specimen.idTerrain || '#' + id} ? Cette action est irréversible.`)) return;
+    const ok = await dialog.confirm({
+      title: 'Supprimer cette puce ?',
+      message: `${specimen.idTerrain ? `« ${specimen.idTerrain} »` : `La puce #${id}`} sera définitivement supprimée. Cette action est irréversible.`,
+    });
+    if (!ok) return;
     setDeleting(true);
     try {
       await api.delete(`/puces/${id}`);
@@ -162,9 +167,10 @@ export default function PuceDetail() {
 
   return (
     <div className="space-y-5">
-      <Link to="/specimens/puces" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
-        <ChevronLeft size={16} /> Puces
-      </Link>
+      <Breadcrumb items={[
+        { label: 'Puces', to: '/specimens/puces' },
+        { label: p.idTerrain ?? `#${p.id}` },
+      ]} />
 
       <PageHeader
         icon={() => <SpecimenIcon type="puce" size={18} />}
@@ -188,7 +194,7 @@ export default function PuceDetail() {
 
             {editing ? (
               <div className="space-y-4">
-                <EditSelect label="Espèce" value={editForm.taxonomieId}
+                <EditSelect label="Genre / Espèce" value={editForm.taxonomieId}
                   onChange={e => setEditForm(f => ({ ...f, taxonomieId: e.target.value }))}
                   options={taxoOptions} />
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -210,7 +216,7 @@ export default function PuceDetail() {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="col-span-2 md:col-span-3">
-                  <Field label="Espèce">
+                  <Field label="Genre / Espèce">
                     <span className="italic font-semibold text-specimen-puce">{taxoLabel(p.taxonomie)}</span>
                   </Field>
                 </div>

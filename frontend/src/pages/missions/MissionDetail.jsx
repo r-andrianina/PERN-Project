@@ -1,11 +1,11 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import {
-  ChevronLeft, MapPin, Loader2, Navigation, Hash, Plus, Edit2, X, Check, Tag,
+  MapPin, Loader2, Navigation, Hash, Plus, Edit2, X, Check, Tag,
   Clock, Layers, Bug, Users,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card } from '../../components/ui';
+import { Card, Breadcrumb } from '../../components/ui';
 import FormField from '../../components/FormField';
 import MapPicker from '../../components/MapPicker';
 import useAuthStore from '../../store/authStore';
@@ -278,11 +278,13 @@ export default function MissionDetail() {
   const refresh = () => {
     api.get(`/missions/${id}`).then((r) => setMission(r.data.mission));
   };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { refresh(); }, [id]);
 
   // ── Calculs dérivés ────────────────────────────────────────────
   const progress = useMemo(() => {
     if (!mission?.dateDebut || !mission?.dateFin) return null;
+    // eslint-disable-next-line react-hooks/purity
     const now   = Date.now();
     const start = new Date(mission.dateDebut).getTime();
     const end   = new Date(mission.dateFin).getTime();
@@ -331,9 +333,12 @@ export default function MissionDetail() {
 
   return (
     <div className="max-w-screen-xl space-y-5">
-      <Link to="/missions" className="inline-flex items-center gap-1.5 text-sm text-fg-subtle hover:text-fg transition-colors">
-        <ChevronLeft size={16} /> Missions
-      </Link>
+      <Breadcrumb items={[
+        { label: 'Projets',              to: '/projets' },
+        { label: mission.projet?.nom,    to: `/projets/${mission.projet?.id}` },
+        { label: 'Missions',             to: '/missions' },
+        { label: mission.ordreMission },
+      ]} />
 
       {/* Layout 2 colonnes */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr,300px] gap-5 items-start">
@@ -362,10 +367,17 @@ export default function MissionDetail() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {mission.chefMission && (
+              {(mission.chefMission || mission.chefMissionNom) && (
                 <div className="text-xs">
                   <p className="text-fg-subtle font-medium mb-0.5">Chef de mission</p>
-                  <p className="text-fg">{mission.chefMission.prenom} {mission.chefMission.nom}</p>
+                  <p className="text-fg">
+                    {mission.chefMission
+                      ? `${mission.chefMission.prenom} ${mission.chefMission.nom}`
+                      : mission.chefMissionNom}
+                  </p>
+                  {mission.chefMissionNom && !mission.chefMission && (
+                    <p className="text-[10px] text-fg-subtle mt-0.5">Personne externe</p>
+                  )}
                 </div>
               )}
               {mission.dateDebut && (
@@ -566,25 +578,35 @@ export default function MissionDetail() {
           </Card>
 
           {/* Équipe */}
-          {(mission.chefMission || agents.length > 0) && (
+          {(mission.chefMission || mission.chefMissionNom || agents.length > 0) && (
             <Card padding="md">
               <div className="flex items-center gap-2 mb-3">
                 <Users size={14} className="text-fg-subtle" />
                 <span className="text-xs font-semibold text-fg uppercase tracking-wider">Équipe</span>
               </div>
               <div className="space-y-2">
-                {mission.chefMission && (
+                {(mission.chefMission || mission.chefMissionNom) && (
                   <div className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg bg-primary/5 border border-primary/10">
                     <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-bold text-primary">
-                        {mission.chefMission.prenom?.[0]}{mission.chefMission.nom?.[0]}
-                      </span>
+                      {mission.chefMission ? (
+                        <span className="text-[10px] font-bold text-primary">
+                          {mission.chefMission.prenom?.[0]}{mission.chefMission.nom?.[0]}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-primary">
+                          {mission.chefMissionNom?.split(' ').map((w) => w[0]).slice(0, 2).join('')}
+                        </span>
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-fg truncate">
-                        {mission.chefMission.prenom} {mission.chefMission.nom}
+                        {mission.chefMission
+                          ? `${mission.chefMission.prenom} ${mission.chefMission.nom}`
+                          : mission.chefMissionNom}
                       </p>
-                      <p className="text-[10px] text-primary">Chef de mission</p>
+                      <p className="text-[10px] text-primary">
+                        Chef de mission{mission.chefMissionNom && !mission.chefMission ? ' — externe' : ''}
+                      </p>
                     </div>
                   </div>
                 )}

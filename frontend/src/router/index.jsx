@@ -36,6 +36,7 @@ import TypesEnvironnementPage   from '../pages/dictionnaire/TypesEnvironnementPa
 import TypesHabitatPage         from '../pages/dictionnaire/TypesHabitatPage';
 import AuditLogsPage            from '../pages/dictionnaire/AuditLogsPage';
 import UtilisateursPage         from '../pages/utilisateurs/UtilisateursPage';
+import AdminPresencePage        from '../pages/admin/AdminPresencePage';
 import RecherchePage            from '../pages/recherche/RecherchePage';
 import ImportPage               from '../pages/import/ImportPage';
 import CartePage                from '../pages/carte/CartePage';
@@ -108,8 +109,9 @@ const router = createBrowserRouter([
       { path: 'specimens/puces/nouveau',      element: <NouveauPuce /> },
       { path: 'specimens/puces/:id',          element: <PuceDetail /> },
 
-      // Utilisateurs (admin)
+      // Administration
       { path: 'utilisateurs',                          element: <AdminRoute><UtilisateursPage /></AdminRoute> },
+      { path: 'admin/presence',                        element: <AdminRoute><AdminPresencePage /></AdminRoute> },
 
       // Dictionnaire de données
       { path: 'dictionnaire',                          element: <DictionnairePage /> },

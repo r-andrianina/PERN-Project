@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FolderOpen, MapPin, BookOpen, Beaker, PawPrint, Users, Upload,
-  Menu, X, LogOut, FlaskConical, Map,
+  Menu, X, LogOut, FlaskConical, Map, Radio,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import ThemeToggle from '../ThemeToggle';
@@ -156,6 +156,8 @@ export default function MainLayout() {
               <NavSection>{t('nav.admin')}</NavSection>
               <NavItem to="/utilisateurs" label={t('nav.utilisateurs')} icon={Users}
                 iconColorIdle="text-role-admin" onClick={closeSidebar} />
+              <NavItem to="/admin/presence" label={t('nav.presence')} icon={Radio}
+                iconColorIdle="text-success" onClick={closeSidebar} />
             </>
           )}
         </nav>

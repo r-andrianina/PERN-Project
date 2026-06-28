@@ -7,6 +7,7 @@ import {
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
+import { dialog } from '../../lib/dialog';
 import { Card, DataTable, Pagination, Select } from '../../components/ui';
 
 // ── Constantes ────────────────────────────────────────────────
@@ -348,7 +349,11 @@ export default function UtilisateursPage() {
     catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   }, [refresh]);
   const remove = useCallback(async (u) => {
-    if (!confirm(`Supprimer le compte de ${u.prenom} ${u.nom} ?`)) return;
+    const ok = await dialog.confirm({
+      title: 'Supprimer ce compte ?',
+      message: `Le compte de ${u.prenom} ${u.nom} sera définitivement supprimé.`,
+    });
+    if (!ok) return;
     try { await api.delete(`/auth/users/${u.id}`); refresh(); }
     catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
   }, [refresh]);

@@ -27,8 +27,47 @@ const getStats = async (req, res) => {
     ? ['moustique', 'tique', 'puce']
     : (req.user.specimensAutorises || []);
 
+  // ── Totaux scalaires + missions récentes (toujours fetchés) ──
+  const [
+    totalProjets,
+    totalMissions,
+    aggMoustiques,
+    aggTiques,
+    aggPuces,
+    missionsRecentes,
+  ] = await Promise.all([
+    prisma.projet.count(),
+    prisma.mission.count(),
+    autorises.includes('moustique')
+      ? prisma.moustique.aggregate({ _sum: { nombre: true } })
+      : null,
+    autorises.includes('tique')
+      ? prisma.tique.aggregate({ _sum: { nombre: true } })
+      : null,
+    autorises.includes('puce')
+      ? prisma.puce.aggregate({ _sum: { nombre: true } })
+      : null,
+    prisma.mission.findMany({
+      take:    6,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, ordreMission: true, statut: true,
+        projet: { select: { nom: true } },
+        _count: { select: { localites: true } },
+      },
+    }),
+  ]);
+
+  const totaux = {
+    projets:    totalProjets,
+    missions:   totalMissions,
+    moustiques: autorises.includes('moustique') ? Number(aggMoustiques._sum.nombre ?? 0) : null,
+    tiques:     autorises.includes('tique')     ? Number(aggTiques._sum.nombre     ?? 0) : null,
+    puces:      autorises.includes('puce')      ? Number(aggPuces._sum.nombre      ?? 0) : null,
+  };
+
   if (autorises.length === 0) {
-    return res.json({ parMois: [], topEspeces: [], autorises: [] });
+    return res.json({ parMois: [], topEspeces: [], autorises: [], totaux, missionsRecentes });
   }
 
   const mois    = derniersMois(6);
@@ -139,7 +178,90 @@ const getStats = async (req, res) => {
     .sort((a, b) => b.total - a.total)
     .slice(0, 8);
 
-  return res.json({ parMois, topEspeces, autorises });
+  return res.json({ parMois, topEspeces, autorises, totaux, missionsRecentes });
 };
 
-module.exports = { getStats };
+// GET /api/v1/dashboard/admin-stats  (admin uniquement)
+// Métriques d'usage par utilisateur + totaux globaux.
+const getAdminStats = async (req, res) => {
+  const SPECIMEN_ENTITIES = ['Moustique', 'Tique', 'Puce'];
+  const now       = new Date();
+  const debut7j   = new Date(now - 7  * 86400000);
+  const debut30j  = new Date(now - 30 * 86400000);
+  const debutJour = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const [
+    saisies7j, saisies30j, derniereAction,
+    totalMoustiques, totalTiques, totalPuces,
+    nbAujourdHui, nbSemaine, nbMois,
+  ] = await Promise.all([
+    // Créations de spécimens par userId sur 7j
+    prisma.auditLog.groupBy({
+      by: ['userId'],
+      _count: { id: true },
+      where: { action: 'CREATE', entity: { in: SPECIMEN_ENTITIES }, createdAt: { gte: debut7j }, userId: { not: null } },
+    }),
+    // Créations de spécimens par userId sur 30j
+    prisma.auditLog.groupBy({
+      by: ['userId'],
+      _count: { id: true },
+      where: { action: 'CREATE', entity: { in: SPECIMEN_ENTITIES }, createdAt: { gte: debut30j }, userId: { not: null } },
+    }),
+    // Dernière action toutes entités confondues
+    prisma.auditLog.groupBy({
+      by: ['userId'],
+      _max: { createdAt: true },
+      where: { userId: { not: null } },
+    }),
+    // Totaux spécimens (somme nombre)
+    prisma.moustique.aggregate({ _sum: { nombre: true } }),
+    prisma.tique.aggregate({ _sum:    { nombre: true } }),
+    prisma.puce.aggregate({ _sum:     { nombre: true } }),
+    // Spécimens créés aujourd'hui / semaine / mois (audit_logs)
+    prisma.auditLog.count({ where: { action: 'CREATE', entity: { in: SPECIMEN_ENTITIES }, createdAt: { gte: debutJour } } }),
+    prisma.auditLog.count({ where: { action: 'CREATE', entity: { in: SPECIMEN_ENTITIES }, createdAt: { gte: debut7j  } } }),
+    prisma.auditLog.count({ where: { action: 'CREATE', entity: { in: SPECIMEN_ENTITIES }, createdAt: { gte: debut30j } } }),
+  ]);
+
+  // Enrichissement avec infos utilisateur
+  const userIds = [...new Set([
+    ...saisies30j.map(s => s.userId),
+    ...derniereAction.map(s => s.userId),
+  ])].filter(Boolean);
+
+  const users = userIds.length > 0
+    ? await prisma.user.findMany({
+        where:  { id: { in: userIds } },
+        select: { id: true, nom: true, prenom: true, role: true, actif: true },
+      })
+    : [];
+
+  const s7Map  = Object.fromEntries(saisies7j.map(s => [s.userId,       s._count.id]));
+  const s30Map = Object.fromEntries(saisies30j.map(s => [s.userId,      s._count.id]));
+  const daMap  = Object.fromEntries(derniereAction.map(s => [s.userId,  s._max.createdAt]));
+
+  const parUtilisateur = users
+    .map(u => ({
+      user:          u,
+      saisies7j:     s7Map[u.id]  ?? 0,
+      saisies30j:    s30Map[u.id] ?? 0,
+      derniereAction: daMap[u.id] ?? null,
+    }))
+    .sort((a, b) => b.saisies30j - a.saisies30j);
+
+  return res.json({
+    parUtilisateur,
+    totauxSpecimens: {
+      moustique: Number(totalMoustiques._sum.nombre ?? 0),
+      tique:     Number(totalTiques._sum.nombre     ?? 0),
+      puce:      Number(totalPuces._sum.nombre      ?? 0),
+    },
+    saisiesRecentes: {
+      aujourdhui: nbAujourdHui,
+      semaine:    nbSemaine,
+      mois:       nbMois,
+    },
+  });
+};
+
+module.exports = { getStats, getAdminStats };

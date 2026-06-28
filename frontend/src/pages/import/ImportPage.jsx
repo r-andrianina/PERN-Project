@@ -3,10 +3,26 @@
 
 import { useState, useRef } from 'react';
 import { Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle,
-         ChevronDown, ChevronRight, Info, Clock, PlusCircle } from 'lucide-react';
+         ChevronDown, ChevronRight, Info, Clock, PlusCircle, Download } from 'lucide-react';
 import api from '../../api/axios';
 import { Card, PageHeader, Badge, Spinner } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
+
+const TEMPLATE_ENDPOINTS = {
+  moustique: '/import/template/moustiques',
+};
+
+async function downloadTemplate(type) {
+  const endpoint = TEMPLATE_ENDPOINTS[type];
+  if (!endpoint) return;
+  const res  = await api.get(endpoint, { responseType: 'blob' });
+  const url  = URL.createObjectURL(res.data);
+  const link = document.createElement('a');
+  link.href     = url;
+  link.download = `template_import_${type}s.xlsx`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 const TYPES = [
   { key: 'moustique', label: 'Moustiques', endpoint: '/import/moustiques', available: true },
@@ -398,6 +414,19 @@ export default function ImportPage() {
               ))}
             </div>
             <p className="text-[10px] text-fg-subtle mt-2">* obligatoire</p>
+
+            {TEMPLATE_ENDPOINTS[activeType] && (
+              <button
+                type="button"
+                onClick={() => downloadTemplate(activeType)}
+                className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl
+                           border border-primary/30 bg-primary/5 text-primary text-xs font-semibold
+                           hover:bg-primary/10 transition-colors"
+              >
+                <Download size={13} />
+                Télécharger le template Excel
+              </button>
+            )}
           </Card>
 
           <Card padding="sm">

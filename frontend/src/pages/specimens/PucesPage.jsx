@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Download, Search, X } from 'lucide-react';
 import { Card, Button, Badge, EmptyState, PageHeader, Spinner, Pagination, DataTable } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
+import { exportBlob, exportDate } from '../../api/exportBlob';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import { taxoLabel } from '../../utils/taxoLabel';
 
@@ -145,6 +146,13 @@ export default function PucesPage() {
   const [page,      setPage]      = useState(1);
   const [limit,     setLimit]     = useState(50);
   const [sort,      setSort]      = useState(null);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try { await exportBlob('/puces/export', {}, `puces_${exportDate()}.xlsx`); }
+    finally { setExporting(false); }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(search); setPage(1); }, 300);
@@ -171,8 +179,8 @@ export default function PucesPage() {
         actions={
           <>
             <Button variant="secondary" icon={Download}
-              onClick={() => window.open('http://localhost:3000/api/v1/puces/export', '_blank')}>
-              Export
+              onClick={handleExport} disabled={exporting}>
+              {exporting ? 'Export…' : 'Export Excel'}
             </Button>
             <Button icon={Plus} onClick={() => navigate('/specimens/puces/nouveau')}>
               Ajouter

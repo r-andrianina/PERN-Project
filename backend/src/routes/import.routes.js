@@ -19,6 +19,10 @@ const upload = multer({
 });
 
 router.use(verifyToken);
+
+// GET /api/v1/import/template/moustiques — accessible à tous les rôles
+router.get('/template/moustiques', asyncHandler(ctrl.getTemplateMoustiques));
+
 router.use(requireMinRole('chercheur'));
 
 // POST /api/v1/import/moustiques

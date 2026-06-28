@@ -1,8 +1,9 @@
 // backend/src/controllers/auth.controller.js
 
-const bcrypt = require('bcryptjs');
-const jwt    = require('jsonwebtoken');
-const prisma = require('../config/prisma');
+const bcrypt     = require('bcryptjs');
+const jwt        = require('jsonwebtoken');
+const prisma     = require('../config/prisma');
+const sseManager = require('../utils/sseManager');
 const { logAudit, ACTIONS } = require('../utils/audit');
 
 const ROLES_VALIDES     = ['admin', 'chercheur', 'technicien', 'lecteur'];
@@ -315,9 +316,55 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// =============================================================
+//  PRESENCE — utilisateurs ayant une connexion SSE active
+// =============================================================
+
+const getPresence = async (req, res) => {
+  try {
+    const onlineIds = sseManager.getOnlineUserIds();
+
+    const users = onlineIds.length > 0
+      ? await prisma.user.findMany({
+          where:   { id: { in: onlineIds } },
+          select:  USER_SELECT,
+          orderBy: { prenom: 'asc' },
+        })
+      : [];
+
+    return res.json({
+      count: users.length,
+      users: users.map(u => ({ ...u, tabCount: sseManager.getTabCount(u.id) })),
+    });
+  } catch (err) {
+    console.error('Erreur getPresence :', err.message);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
+
+// =============================================================
+//  KICK — ferme les connexions SSE d'un utilisateur
+// =============================================================
+
+const kickUser = async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (id === req.user.id)
+    return res.status(400).json({ error: 'Vous ne pouvez pas fermer votre propre session' });
+
+  const disconnected = sseManager.disconnectUser(id);
+  // Notifie tous les clients restants que la présence a changé
+  sseManager.broadcast(null, 'presence_update', {});
+
+  return res.json({
+    disconnected,
+    message: disconnected ? 'Session SSE fermée' : 'Utilisateur non connecté',
+  });
+};
+
 module.exports = {
   register, login, me,
   listUsers, createUser, updateUser,
   activateUser, updateSpecimenAccess,
   deleteUser, resetPassword,
+  getPresence, kickUser,
 };
