@@ -2,6 +2,7 @@
 
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
+import { hasMinRole } from '../lib/roles';
 
 import LoginPage        from '../pages/auth/LoginPage';
 import RegisterPage     from '../pages/auth/RegisterPage';
@@ -64,6 +65,14 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
+const MinRoleRoute = ({ children, minRole }) => {
+  const { token, user } = useAuthStore();
+  if (!token) return <Navigate to="/login" replace />;
+  if (!hasMinRole(user?.role, minRole)) return <Navigate to="/dashboard" replace />;
+  return children;
+};
+
 const router = createBrowserRouter([
   { path: '/login',    element: <PublicRoute><LoginPage /></PublicRoute> },
   { path: '/register', element: <PublicRoute><RegisterPage /></PublicRoute> },
@@ -76,7 +85,7 @@ const router = createBrowserRouter([
 
       // Projets
       { path: 'projets',                    element: <ProjetsPage /> },
-      { path: 'projets/nouveau',            element: <NouveauProjet /> },
+      { path: 'projets/nouveau',            element: <MinRoleRoute minRole="chercheur"><NouveauProjet /></MinRoleRoute> },
       { path: 'projets/:id',                element: <ProjetDetail /> },
 
       // Missions
@@ -110,8 +119,8 @@ const router = createBrowserRouter([
       { path: 'specimens/puces/:id',          element: <PuceDetail /> },
 
       // Administration
-      { path: 'utilisateurs',                          element: <AdminRoute><UtilisateursPage /></AdminRoute> },
-      { path: 'admin/presence',                        element: <AdminRoute><AdminPresencePage /></AdminRoute> },
+      { path: 'utilisateurs',   element: <AdminRoute><UtilisateursPage /></AdminRoute> },
+      { path: 'admin/presence', element: <MinRoleRoute minRole="superviseur"><AdminPresencePage /></MinRoleRoute> },
 
       // Dictionnaire de données
       { path: 'dictionnaire',                          element: <DictionnairePage /> },

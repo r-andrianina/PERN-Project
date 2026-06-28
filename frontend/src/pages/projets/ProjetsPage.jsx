@@ -3,6 +3,7 @@ import { FolderOpen, Plus, ChevronRight, Tag, Users } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
+import { hasMinRole } from '../../lib/roles';
 
 const STATUT_TONE  = { actif: 'success', termine: 'default', suspendu: 'warning' };
 const STATUT_LABEL = { actif: 'Actif', termine: 'Terminé', suspendu: 'Suspendu' };
@@ -19,7 +20,7 @@ export default function ProjetsPage() {
         icon={FolderOpen} iconTone="primary"
         title="Projets" subtitle={`${projets.length} projet(s) enregistré(s)`}
         actions={
-          user?.role === 'admin' && (
+          hasMinRole(user?.role, 'chercheur') && (
             <Button icon={Plus} onClick={() => navigate('/projets/nouveau')}>Nouveau projet</Button>
           )
         }
@@ -28,7 +29,7 @@ export default function ProjetsPage() {
       {isLoading ? <Spinner.Block /> : projets.length === 0 ? (
         <EmptyState
           icon={FolderOpen} title="Aucun projet pour l'instant"
-          action={user?.role === 'admin' ? { label: 'Créer le premier projet', icon: Plus, onClick: () => navigate('/projets/nouveau') } : undefined}
+          action={hasMinRole(user?.role, 'chercheur') ? { label: 'Créer le premier projet', icon: Plus, onClick: () => navigate('/projets/nouveau') } : undefined}
         />
       ) : (
         <div className="space-y-3">

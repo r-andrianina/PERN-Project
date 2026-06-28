@@ -1,5 +1,6 @@
 const prisma   = require('../config/prisma');
 const AppError = require('../utils/AppError');
+const { getAccessibleProjetIds, canBypass } = require('../utils/access');
 
 const INCLUDE_LIST = {
   projet:      { select: { id: true, code: true, nom: true } },
@@ -20,7 +21,7 @@ const INCLUDE_DETAIL = {
   },
 };
 
-const list = async ({ statut, projetId, search } = {}) => {
+const list = async ({ statut, projetId, search } = {}, user) => {
   const where = {};
   if (statut)   where.statut   = statut;
   if (projetId) where.projetId = parseInt(projetId);
@@ -30,6 +31,14 @@ const list = async ({ statut, projetId, search } = {}) => {
       { observations: { contains: search, mode: 'insensitive' } },
     ];
   }
+
+  // Si l'utilisateur n'est pas admin/superviseur et qu'aucun projetId précis n'est demandé,
+  // on restreint aux missions des projets dont il est membre.
+  if (user && !canBypass(user.role) && !projetId) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    if (ids !== null) where.projetId = { in: ids };
+  }
+
   return prisma.mission.findMany({ where, include: INCLUDE_LIST, orderBy: { dateDebut: 'desc' } });
 };
 

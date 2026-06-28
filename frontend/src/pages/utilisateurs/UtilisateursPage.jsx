@@ -12,10 +12,11 @@ import { Card, DataTable, Pagination, Select } from '../../components/ui';
 
 // ── Constantes ────────────────────────────────────────────────
 const ROLES = [
-  { value: 'admin',      label: 'Admin',      color: 'bg-role-admin/10 text-role-admin border-role-admin/20'         },
-  { value: 'chercheur',  label: 'Chercheur',  color: 'bg-role-chercheur/10 text-role-chercheur border-role-chercheur/20' },
-  { value: 'technicien', label: 'Technicien', color: 'bg-role-terrain/10 text-role-terrain border-role-terrain/20'   },
-  { value: 'lecteur',    label: 'Lecteur',    color: 'bg-surface-3 text-fg-muted border-border-strong'               },
+  { value: 'admin',       label: 'Admin',       color: 'bg-role-admin/10 text-role-admin border-role-admin/20'              },
+  { value: 'superviseur', label: 'Superviseur', color: 'bg-purple-100 text-purple-700 border-purple-200'                    },
+  { value: 'chercheur',   label: 'Chercheur',   color: 'bg-role-chercheur/10 text-role-chercheur border-role-chercheur/20'  },
+  { value: 'technicien',  label: 'Technicien',  color: 'bg-role-terrain/10 text-role-terrain border-role-terrain/20'        },
+  { value: 'lecteur',     label: 'Lecteur',     color: 'bg-surface-3 text-fg-muted border-border-strong'                   },
 ];
 const roleInfo = Object.fromEntries(ROLES.map((r) => [r.value, r]));
 
@@ -30,10 +31,11 @@ const initials = (u) => `${u?.prenom?.[0] ?? ''}${u?.nom?.[0] ?? ''}`.toUpperCas
 
 const AvatarCircle = ({ user, size = 'md' }) => {
   const colors = {
-    admin:     'bg-role-admin/10 text-role-admin',
-    chercheur: 'bg-role-chercheur/10 text-role-chercheur',
-    terrain:   'bg-role-terrain/10 text-role-terrain',
-    lecteur:   'bg-surface-3 text-fg-muted',
+    admin:       'bg-role-admin/10 text-role-admin',
+    superviseur: 'bg-purple-100 text-purple-700',
+    chercheur:   'bg-role-chercheur/10 text-role-chercheur',
+    technicien:  'bg-role-terrain/10 text-role-terrain',
+    lecteur:     'bg-surface-3 text-fg-muted',
   };
   const sz = size === 'lg' ? 'w-12 h-12 text-base' : 'w-9 h-9 text-xs';
   return (
@@ -180,7 +182,7 @@ function UserModal({ user, onClose, onSaved }) {
               ))}
             </div>
             <p className="text-xs text-fg-subtle">
-              {{ admin: 'Accès total — gestion des utilisateurs, référentiels, données', chercheur: 'Création et modification de toutes les données scientifiques', technicien: 'Saisie de spécimens et méthodes de collecte', lecteur: 'Consultation uniquement — aucune modification possible' }[form.role]}
+              {{ admin: 'Accès total — gestion des utilisateurs, référentiels, données', superviseur: 'Gestion des projets et membres — sans accès admin', chercheur: 'Création et modification de toutes les données scientifiques', technicien: 'Saisie de spécimens et méthodes de collecte', lecteur: 'Consultation uniquement — aucune modification possible' }[form.role]}
             </p>
           </div>
           {!isEdit && (
@@ -318,11 +320,12 @@ export default function UtilisateursPage() {
   useEffect(() => { setPage(1); }, [search, filterRole, filterActif]);
 
   const stats = {
-    total:      users.length,
-    actifs:     users.filter((u) => u.actif).length,
-    enAttente:  users.filter((u) => !u.actif).length,
-    admins:     users.filter((u) => u.role === 'admin').length,
-    chercheurs: users.filter((u) => u.role === 'chercheur').length,
+    total:        users.length,
+    actifs:       users.filter((u) => u.actif).length,
+    enAttente:    users.filter((u) => !u.actif).length,
+    admins:       users.filter((u) => u.role === 'admin').length,
+    superviseurs: users.filter((u) => u.role === 'superviseur').length,
+    chercheurs:   users.filter((u) => u.role === 'chercheur').length,
   };
   const pending = users.filter((u) => !u.actif);
 
@@ -413,7 +416,7 @@ export default function UtilisateursPage() {
       hidden: 'hidden lg:table-cell',
       render: (u) => (
         <div className="flex gap-1 flex-wrap">
-          {u.role === 'admin' ? (
+          {(u.role === 'admin' || u.role === 'superviseur') ? (
             <span className="text-xs text-fg-subtle italic">Tous</span>
           ) : (u.specimensAutorises || []).length === 0 ? (
             <span className="text-xs text-danger">Aucun</span>
@@ -468,7 +471,7 @@ export default function UtilisateursPage() {
               className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
               <Edit2 size={14} />
             </button>
-            {u.role !== 'admin' && (
+            {u.role !== 'admin' && u.role !== 'superviseur' && (
               <button onClick={() => setModal({ type: 'specimens', user: u })} title="Gérer les accès spécimens"
                 className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-specimen-moustique hover:bg-specimen-moustique/10 rounded-lg transition-colors">
                 <ShieldCheck size={14} />
@@ -507,13 +510,14 @@ export default function UtilisateursPage() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          { label: 'Total',      value: stats.total,      icon: Users,       bg: 'bg-surface-2',          text: 'text-gray-600'         },
-          { label: 'Actifs',     value: stats.actifs,     icon: UserCheck,   bg: 'bg-success/10',         text: 'text-success'          },
-          { label: 'En attente', value: stats.enAttente,  icon: Clock,       bg: 'bg-warning/10',         text: 'text-warning'          },
-          { label: 'Admins',     value: stats.admins,     icon: ShieldCheck, bg: 'bg-role-admin/10',      text: 'text-role-admin'       },
-          { label: 'Chercheurs', value: stats.chercheurs, icon: Users,       bg: 'bg-role-chercheur/10',  text: 'text-role-chercheur'   },
+          { label: 'Total',        value: stats.total,        icon: Users,       bg: 'bg-surface-2',        text: 'text-gray-600'        },
+          { label: 'Actifs',       value: stats.actifs,       icon: UserCheck,   bg: 'bg-success/10',       text: 'text-success'         },
+          { label: 'En attente',   value: stats.enAttente,    icon: Clock,       bg: 'bg-warning/10',       text: 'text-warning'         },
+          { label: 'Admins',       value: stats.admins,       icon: ShieldCheck, bg: 'bg-role-admin/10',    text: 'text-role-admin'      },
+          { label: 'Superviseurs', value: stats.superviseurs, icon: ShieldCheck, bg: 'bg-purple-50',        text: 'text-purple-700'      },
+          { label: 'Chercheurs',   value: stats.chercheurs,   icon: Users,       bg: 'bg-role-chercheur/10',text: 'text-role-chercheur'  },
         ].map(({ label, value, icon: Icon, bg, text }) => (
           <div key={label} className={`card p-4 flex items-center gap-3 ${bg}`}>
             <Icon size={20} className={text} />

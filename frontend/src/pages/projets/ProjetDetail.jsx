@@ -1,11 +1,13 @@
 import { useParams, Link } from 'react-router-dom';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   FolderOpen, MapPin, Tag, ChevronRight, User, Calendar,
-  Clock, Target, Bug, Activity, Layers,
+  Clock, Target, Bug, Activity, Layers, Users, UserPlus, Trash2, X, Loader2, Search,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { Card, Badge, EmptyState, Spinner, Breadcrumb } from '../../components/ui';
+import useAuthStore from '../../store/authStore';
+import { hasMinRole, ROLE_LABELS, ROLE_COLORS } from '../../lib/roles';
 
 const STATUT_TONE  = { actif: 'success', termine: 'default', suspendu: 'warning' };
 const STATUT_LABEL = { actif: 'Actif', termine: 'Terminé', suspendu: 'Suspendu' };
@@ -34,11 +36,111 @@ function MiniBar({ value, max, colorClass = 'bg-primary' }) {
   );
 }
 
+// ── Modal ajout de membre ──────────────────────────────────────
+function AddMembreModal({ projetId, currentMembres, onClose, onAdded }) {
+  const [query,    setQuery]    = useState('');
+  const [users,    setUsers]    = useState([]);
+  const [loading,  setLoading]  = useState(false);
+  const [adding,   setAdding]   = useState(null);
+  const [error,    setError]    = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const search = async () => {
+      if (query.length < 2) { setUsers([]); return; }
+      setLoading(true);
+      try {
+        const r = await api.get('/auth/users');
+        const all = [...(r.data.actifs || []), ...(r.data.en_attente || [])];
+        const q = query.toLowerCase();
+        const currentIds = new Set(currentMembres.map(m => m.userId));
+        if (!cancelled) setUsers(
+          all.filter(u =>
+            !currentIds.has(u.id) &&
+            `${u.prenom} ${u.nom} ${u.email}`.toLowerCase().includes(q)
+          ).slice(0, 8)
+        );
+      } catch { if (!cancelled) setError('Impossible de charger les utilisateurs'); }
+      finally { if (!cancelled) setLoading(false); }
+    };
+    const t = setTimeout(search, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [query, currentMembres]);
+
+  const addMembre = async (userId) => {
+    setAdding(userId); setError(null);
+    try {
+      await api.post(`/projets/${projetId}/membres`, { userId });
+      onAdded();
+    } catch (err) { setError(err.response?.data?.error || 'Erreur'); }
+    finally { setAdding(null); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h2 className="text-sm font-semibold text-fg flex items-center gap-2">
+            <UserPlus size={15} className="text-primary" /> Ajouter un membre
+          </h2>
+          <button type="button" onClick={onClose} className="p-1.5 text-fg-subtle hover:text-fg rounded-lg">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-4 space-y-3">
+          {error && <p className="text-xs text-danger bg-danger/10 border border-danger/20 rounded-xl px-3 py-2">{error}</p>}
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-subtle" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher par nom ou email…"
+              className="w-full pl-8 pr-3 py-2 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+              autoFocus
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto divide-y divide-border rounded-xl border border-border">
+            {loading && <p className="text-xs text-fg-subtle text-center py-4"><Loader2 size={14} className="animate-spin inline mr-1" />Chargement…</p>}
+            {!loading && query.length >= 2 && users.length === 0 && (
+              <p className="text-xs text-fg-subtle text-center py-4">Aucun utilisateur trouvé</p>
+            )}
+            {!loading && query.length < 2 && (
+              <p className="text-xs text-fg-subtle text-center py-4">Tapez au moins 2 caractères</p>
+            )}
+            {users.map(u => (
+              <div key={u.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-surface-2 transition-colors">
+                <div>
+                  <p className="text-sm font-medium text-fg">{u.prenom} {u.nom}</p>
+                  <p className="text-xs text-fg-subtle">{u.email}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={adding === u.id}
+                  onClick={() => addMembre(u.id)}
+                  className="px-3 py-1.5 bg-primary text-fg-on-primary text-xs font-medium rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50"
+                >
+                  {adding === u.id ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProjetDetail() {
-  const { id } = useParams();
+  const { id }       = useParams();
+  const { user: me } = useAuthStore();
+
   const [projet,        setProjet]        = useState(null);
   const [specimenStats, setSpecimenStats] = useState(null);
   const [loadingStats,  setLoadingStats]  = useState(true);
+  const [membres,       setMembres]       = useState([]);
+  const [showAddMembre, setShowAddMembre] = useState(false);
+
+  const canManageMembres = hasMinRole(me?.role, 'superviseur');
 
   useEffect(() => {
     api.get(`/projets/${id}`).then(r => setProjet(r.data.projet));
@@ -52,6 +154,22 @@ export default function ProjetDetail() {
       .catch(() => setSpecimenStats(null))
       .finally(() => setLoadingStats(false));
   }, [id]);
+
+  const fetchMembres = useCallback(async () => {
+    try {
+      const r = await api.get(`/projets/${id}/membres`);
+      setMembres(r.data.membres ?? []);
+    } catch { /* non bloquant */ }
+  }, [id]);
+
+  useEffect(() => { fetchMembres(); }, [fetchMembres]);
+
+  const removeMembre = async (userId) => {
+    try {
+      await api.delete(`/projets/${id}/membres/${userId}`);
+      setMembres(prev => prev.filter(m => m.userId !== userId));
+    } catch { /* silencieux */ }
+  };
 
   // ── Calculs dérivés ────────────────────────────────────────────
   const progress = useMemo(() => {
@@ -95,6 +213,7 @@ export default function ProjetDetail() {
         : 'bg-primary';
 
   return (
+    <>
     <div className="max-w-screen-xl space-y-5">
       <Breadcrumb items={[
         { label: 'Projets', to: '/projets' },
@@ -337,8 +456,68 @@ export default function ProjetDetail() {
             </Card>
           )}
 
+          {/* Membres du projet */}
+          <Card padding="none" className="overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Users size={14} className="text-fg-subtle" />
+                <span className="text-xs font-semibold text-fg uppercase tracking-wider">
+                  Membres <span className="font-normal text-fg-subtle">({membres.length})</span>
+                </span>
+              </div>
+              {canManageMembres && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddMembre(true)}
+                  className="flex items-center gap-1 text-xs text-primary hover:text-primary-600 font-medium transition-colors"
+                >
+                  <UserPlus size={13} /> Ajouter
+                </button>
+              )}
+            </div>
+            <div className="divide-y divide-border max-h-56 overflow-y-auto">
+              {membres.length === 0 ? (
+                <p className="text-xs text-fg-subtle text-center py-5">Aucun membre assigné</p>
+              ) : membres.map(m => (
+                <div key={m.userId} className="flex items-center gap-2.5 px-4 py-2.5 group">
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <span className="text-[10px] font-bold text-primary">
+                      {`${m.user?.prenom?.[0] ?? ''}${m.user?.nom?.[0] ?? ''}`.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-fg truncate">{m.user?.prenom} {m.user?.nom}</p>
+                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${ROLE_COLORS[m.user?.role] ?? 'bg-surface-3 text-fg-muted border-border'}`}>
+                      {ROLE_LABELS[m.user?.role] ?? m.user?.role}
+                    </span>
+                  </div>
+                  {canManageMembres && (
+                    <button
+                      type="button"
+                      onClick={() => removeMembre(m.userId)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-all"
+                      title="Retirer du projet"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+
         </div>
       </div>
     </div>
+
+    {showAddMembre && (
+      <AddMembreModal
+        projetId={parseInt(id)}
+        currentMembres={membres}
+        onClose={() => setShowAddMembre(false)}
+        onAdded={() => { setShowAddMembre(false); fetchMembres(); }}
+      />
+    )}
+    </>
   );
 }

@@ -5,7 +5,7 @@ const { logAudit, ACTIONS } = require('../utils/audit');
 const AUDIT_FIELDS = { ordreMission: true, statut: true, dateDebut: true, dateFin: true, objet: true };
 
 const listMissions = async (req, res) => {
-  const missions = await service.list(req.query);
+  const missions = await service.list(req.query, req.user);
   res.json({ total: missions.length, missions });
 };
 

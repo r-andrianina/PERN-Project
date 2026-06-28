@@ -1,7 +1,8 @@
 // backend/src/middlewares/auth.middleware.js
 // Vérification JWT + guards par rôle + contrôle d'accès par type de spécimen
 
-const jwt = require('jsonwebtoken');
+const jwt    = require('jsonwebtoken');
+const prisma = require('../config/prisma');
 
 // =============================================================
 //  VÉRIFICATION DU TOKEN JWT
@@ -43,14 +44,15 @@ const verifyTokenSSE = (req, res, next) => {
 
 // =============================================================
 //  HIÉRARCHIE DES RÔLES
-//  admin > chercheur > technicien > lecteur
+//  admin > superviseur > chercheur > technicien > lecteur
 // =============================================================
 
 const ROLES_HIERARCHY = {
-  admin:      4,
-  chercheur:  3,
-  technicien: 2,
-  lecteur:    1,
+  admin:       5,
+  superviseur: 4,
+  chercheur:   3,
+  technicien:  2,
+  lecteur:     1,
 };
 
 // Guard : autorise uniquement les rôles listés (correspondance exacte)
@@ -83,26 +85,54 @@ const requireMinRole = (roleMinimum) => (req, res, next) => {
 //  CONTRÔLE D'ACCÈS PAR TYPE DE SPÉCIMEN
 //
 //  Usage : checkSpecimenAccess('moustique') sur la route
-//  - Admin        : toujours autorisé (bypass total)
-//  - Autres rôles : le type doit figurer dans specimensAutorises du JWT
-//
-//  Les permissions sont embarquées dans le JWT à la connexion.
-//  Un changement de permissions prend effet à la prochaine connexion.
+//  - Admin / Superviseur : toujours autorisés (bypass total)
+//  - Autres rôles        : vérification en BDD (cache 60s) pour refléter
+//                          immédiatement les changements faits par l'admin
+//                          sans forcer la reconnexion.
 // =============================================================
 
-const checkSpecimenAccess = (type) => (req, res, next) => {
-  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
-  if (req.user.role === 'admin') return next();
+// Cache in-memory : userId → { autorises: string[], expiresAt: number }
+const _specimenCache = new Map();
+const CACHE_TTL_MS   = 60_000; // 1 minute
 
-  const autorises = req.user.specimensAutorises || [];
-  if (!autorises.includes(type)) {
-    return res.status(403).json({
-      error: `Accès interdit — vous n'êtes pas autorisé à accéder aux ${type}s`,
-      votre_role: req.user.role,
-      specimens_autorises: autorises,
-    });
+const checkSpecimenAccess = (type) => async (req, res, next) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
+    if (req.user.role === 'admin' || req.user.role === 'superviseur') return next();
+
+    const userId = req.user.id;
+    const now    = Date.now();
+    const cached = _specimenCache.get(userId);
+
+    let autorises;
+    if (cached && cached.expiresAt > now) {
+      autorises = cached.autorises;
+    } else {
+      const user = await prisma.user.findUnique({
+        where:  { id: userId },
+        select: { specimensAutorises: true, actif: true },
+      });
+      if (!user || !user.actif) {
+        return res.status(401).json({ error: 'Compte inactif ou introuvable' });
+      }
+      autorises = user.specimensAutorises;
+      _specimenCache.set(userId, { autorises, expiresAt: now + CACHE_TTL_MS });
+    }
+
+    if (!autorises.includes(type)) {
+      return res.status(403).json({
+        error: `Accès interdit — vous n'êtes pas autorisé à accéder aux ${type}s`,
+        votre_role:          req.user.role,
+        specimens_autorises: autorises,
+      });
+    }
+    next();
+  } catch (err) {
+    next(err);
   }
-  next();
 };
 
-module.exports = { verifyToken, verifyTokenSSE, requireRole, requireMinRole, checkSpecimenAccess };
+// Invalidation du cache pour un utilisateur (appelée après updateSpecimenAccess).
+const invalidateSpecimenCache = (userId) => _specimenCache.delete(userId);
+
+module.exports = { verifyToken, verifyTokenSSE, requireRole, requireMinRole, checkSpecimenAccess, invalidateSpecimenCache };

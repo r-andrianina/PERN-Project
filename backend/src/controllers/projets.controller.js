@@ -11,17 +11,17 @@ const { logAudit, ACTIONS } = require('../utils/audit');
 const AUDIT_FIELDS = { nom: true, code: true, statut: true, porteur: true, dateDebut: true, dateFin: true };
 
 const listProjets = async (req, res) => {
-  const projets = await service.list(req.query);
+  const projets = await service.list(req.query, req.user);
   res.json({ total: projets.length, projets });
 };
 
 const getProjet = async (req, res) => {
-  const projet = await service.getById(parseInt(req.params.id));
+  const projet = await service.getById(parseInt(req.params.id), req.user);
   res.json({ projet });
 };
 
 const createProjet = async (req, res) => {
-  const projet = await service.create(req.body);
+  const projet = await service.create(req.body, req.user.id);
   await logAudit({ req, action: ACTIONS.CREATE, entity: 'Projet', entityId: projet.id, newValues: { nom: projet.nom, code: projet.code, statut: projet.statut } });
   res.status(201).json({ message: 'Projet créé avec succès', projet });
 };
@@ -47,4 +47,27 @@ const getProjetStats = async (req, res) => {
   res.json(stats);
 };
 
-module.exports = { listProjets, getProjet, createProjet, updateProjet, deleteProjet, getProjetStats };
+// ── Membres ───────────────────────────────────────────────────────────────────
+
+const listMembres = async (req, res) => {
+  const membres = await service.listMembres(parseInt(req.params.id));
+  res.json({ total: membres.length, membres });
+};
+
+const addMembre = async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: 'userId requis' });
+  const membre = await service.addMembre(parseInt(req.params.id), parseInt(userId), req.user.id);
+  await logAudit({ req, action: ACTIONS.CREATE, entity: 'MembreProjet', entityId: membre.id, newValues: { projetId: membre.projetId, userId: membre.userId } });
+  res.status(201).json({ message: 'Membre ajouté au projet', membre });
+};
+
+const removeMembre = async (req, res) => {
+  const projetId = parseInt(req.params.id);
+  const userId   = parseInt(req.params.userId);
+  await service.removeMembre(projetId, userId);
+  await logAudit({ req, action: ACTIONS.DELETE, entity: 'MembreProjet', entityId: 0, oldValues: { projetId, userId } });
+  res.json({ message: 'Membre retiré du projet' });
+};
+
+module.exports = { listProjets, getProjet, createProjet, updateProjet, deleteProjet, getProjetStats, listMembres, addMembre, removeMembre };

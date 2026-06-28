@@ -50,4 +50,17 @@ function disconnectUser(userId) {
   return true;
 }
 
-module.exports = { addClient, removeClient, broadcast, getOnlineUserIds, getTabCount, disconnectUser };
+// Envoie un événement SSE à un utilisateur spécifique (tous ses onglets).
+function sendToUser(userId, eventName, data) {
+  const responses = clients.get(userId);
+  if (!responses || responses.size === 0) return false;
+  const payload = `event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`;
+  const dead = [];
+  for (const res of responses) {
+    try { res.write(payload); } catch { dead.push(res); }
+  }
+  dead.forEach(res => removeClient(userId, res));
+  return true;
+}
+
+module.exports = { addClient, removeClient, broadcast, sendToUser, getOnlineUserIds, getTabCount, disconnectUser };

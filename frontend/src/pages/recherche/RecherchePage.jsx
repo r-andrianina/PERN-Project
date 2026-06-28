@@ -9,7 +9,7 @@ import {
   TrendingUp, Hash, SlidersHorizontal,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, Button, EmptyState, PageHeader, Spinner, Select, DataTable } from '../../components/ui';
+import { Card, Badge, Button, EmptyState, PageHeader, Select, DataTable } from '../../components/ui';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS } from '../../utils/gorgement';
 
@@ -52,6 +52,22 @@ function FilterSection({ title, icon: Icon, children, defaultOpen = true }) {
 
 const inputCls = 'w-full px-3 py-2 text-sm rounded-lg border border-border-strong bg-surface text-fg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary';
 
+// Construit le label de localité : fokontany / commune / district / région
+const localiteLabel = (localite) => {
+  if (!localite) return '—';
+  const parts = [localite.fokontany, localite.commune, localite.district, localite.region]
+    .filter(Boolean);
+  return parts.length ? parts.join(' / ') : localite.nom || '—';
+};
+
+// Construit le code méthode : CDC_1, BG_2, etc.
+const methodeCode = (methode) => {
+  if (!methode) return null;
+  const code = methode.typeMethode?.code;
+  if (code && methode.numero != null) return `${code}_${methode.numero}`;
+  return methode.typeMethode?.nom ?? null;
+};
+
 // ── Colonnes résultats ────────────────────────────────────────
 const RESULT_COLUMNS = [
   {
@@ -67,15 +83,6 @@ const RESULT_COLUMNS = [
     render: (s) => s.idTerrain
       ? <Badge tone="primary" size="sm" className="font-mono font-bold">{s.idTerrain}</Badge>
       : null,
-  },
-  {
-    key:          'id',
-    label:        '#ID',
-    skeletonWidth: '40%',
-    width:        '64px',
-    hidden:       'hidden sm:table-cell',
-    className:    'font-mono text-xs text-fg-subtle',
-    render: (s) => `#${s.id}`,
   },
   {
     key:          'taxonomie',
@@ -121,22 +128,30 @@ const RESULT_COLUMNS = [
     label:        'Localité',
     skeletonWidth: '70%',
     hidden:       'hidden md:table-cell',
-    render: (s) => (
-      <div>
-        <div className="text-xs text-fg-muted">{s.methode?.localite?.nom ?? '—'}</div>
-        {s.methode?.localite?.region && (
-          <div className="text-[10px] text-fg-subtle">{s.methode.localite.region}</div>
-        )}
-      </div>
-    ),
+    render: (s) => {
+      const loc = s.methode?.localite;
+      const label = localiteLabel(loc);
+      return (
+        <div>
+          <div className="text-xs text-fg-muted leading-tight">{label}</div>
+          {loc?.nom && (
+            <div className="text-[10px] text-fg-subtle mt-0.5 italic">{loc.nom}</div>
+          )}
+        </div>
+      );
+    },
   },
   {
     key:          'methode',
     label:        'Méthode',
     skeletonWidth: '60%',
     hidden:       'hidden lg:table-cell',
-    className:    'text-xs text-fg-muted',
-    render: (s) => s.methode?.typeMethode?.nom ?? null,
+    render: (s) => {
+      const code = methodeCode(s.methode);
+      return code
+        ? <span className="text-xs font-mono font-semibold text-fg-muted">{code}</span>
+        : null;
+    },
   },
   {
     key:          'hote',

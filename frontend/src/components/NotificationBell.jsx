@@ -7,6 +7,7 @@ import { Bell, CheckCheck, ArrowRight, WifiOff } from 'lucide-react';
 import api from '../api/axios';
 import { toast } from '../lib/toast';
 import { formatNotificationText, formatRelativeDate, resolveEntityUrl } from '../utils/notifications';
+import useAuthStore from '../store/authStore';
 
 // Poll de secours si SSE déconnecté (perte réseau, redémarrage serveur)
 const FALLBACK_POLL_MS = 60000;
@@ -56,7 +57,9 @@ function ActionBadge({ action }) {
 }
 
 export default function NotificationBell() {
-  const navigate = useNavigate();
+  const navigate    = useNavigate();
+  const updateUser  = useAuthStore((s) => s.updateUser);
+
   const [open,        setOpen]        = useState(false);
   const [items,       setItems]       = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -83,7 +86,6 @@ export default function NotificationBell() {
   // ── Handler SSE new_activity — fetch + toast si dropdown fermé ─
   const handleNewActivity = useCallback(async () => {
     const newItems = await fetchNotifications();
-    // Toast discret uniquement si le dropdown est fermé et que la notif est non lue
     if (!openRef.current && newItems?.length > 0 && !newItems[0].isRead) {
       toast.info(formatNotificationText(newItems[0]), {
         title:    'Nouvelle activité',
@@ -91,6 +93,21 @@ export default function NotificationBell() {
       });
     }
   }, [fetchNotifications]);
+
+  // ── Handler SSE permissions_changed — mise à jour silencieuse ──
+  const updateUserRef = useRef(updateUser);
+  useEffect(() => { updateUserRef.current = updateUser; }, [updateUser]);
+
+  const handlePermissionsChanged = useCallback((e) => {
+    try {
+      const data = JSON.parse(e.data);
+      updateUserRef.current({ specimensAutorises: data.specimensAutorises });
+      toast.info(data.message || 'Vos permissions ont été mises à jour.', {
+        title:    'Permissions modifiées',
+        duration: 8000,
+      });
+    } catch { /* non bloquant */ }
+  }, []);
 
   // ── SSE + polling de secours ────────────────────────────────────
   useEffect(() => {
@@ -108,6 +125,7 @@ export default function NotificationBell() {
     });
 
     es.addEventListener('new_activity', handleNewActivity);
+    es.addEventListener('permissions_changed', handlePermissionsChanged);
     es.onopen  = () => setSseStatus('connected');
     es.onerror = () => setSseStatus('offline');
 
@@ -118,7 +136,7 @@ export default function NotificationBell() {
       es.close();
       clearInterval(tid);
     };
-  }, [fetchNotifications, handleNewActivity]);
+  }, [fetchNotifications, handleNewActivity, handlePermissionsChanged]);
 
   // ── Ouverture / fermeture du dropdown ─────────────────────────
   const openMenu = () => {

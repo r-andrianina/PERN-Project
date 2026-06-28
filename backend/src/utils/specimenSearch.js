@@ -147,10 +147,12 @@ const includeBase = {
   methode: {
     select: {
       id: true,
+      numero: true,
       typeMethode: { select: { code: true, nom: true } },
       localite: {
         select: {
           id: true, nom: true, region: true, district: true,
+          commune: true, fokontany: true,
           latitude: true, longitude: true,
           mission: {
             select: {

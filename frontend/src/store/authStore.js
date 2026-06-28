@@ -45,6 +45,18 @@ const useAuthStore = create((set) => ({
   },
 
   // =============================================================
+  //  UPDATE USER (SSE permissions_changed)
+  //  Met à jour les données utilisateur en mémoire + localStorage
+  //  sans forcer une reconnexion complète.
+  // =============================================================
+  updateUser: (patch) =>
+    set((state) => {
+      const updated = { ...state.user, ...patch };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return { user: updated };
+    }),
+
+  // =============================================================
   //  CLEAR ERROR
   // =============================================================
   clearError: () => set({ error: null }),

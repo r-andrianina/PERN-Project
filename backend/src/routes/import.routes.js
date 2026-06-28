@@ -23,7 +23,7 @@ router.use(verifyToken);
 // GET /api/v1/import/template/moustiques — accessible à tous les rôles
 router.get('/template/moustiques', asyncHandler(ctrl.getTemplateMoustiques));
 
-router.use(requireMinRole('chercheur'));
+router.use(requireMinRole('technicien'));
 
 // POST /api/v1/import/moustiques
 router.post('/moustiques', upload.single('file'), asyncHandler(ctrl.importMoustiques));

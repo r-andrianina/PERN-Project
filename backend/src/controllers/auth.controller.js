@@ -5,8 +5,9 @@ const jwt        = require('jsonwebtoken');
 const prisma     = require('../config/prisma');
 const sseManager = require('../utils/sseManager');
 const { logAudit, ACTIONS } = require('../utils/audit');
+const { invalidateSpecimenCache } = require('../middlewares/auth.middleware');
 
-const ROLES_VALIDES     = ['admin', 'chercheur', 'technicien', 'lecteur'];
+const ROLES_VALIDES     = ['admin', 'superviseur', 'chercheur', 'technicien', 'lecteur'];
 const SPECIMENS_VALIDES = ['moustique', 'tique', 'puce'];
 
 const USER_SELECT = {
@@ -267,6 +268,16 @@ const updateSpecimenAccess = async (req, res) => {
       data:  { specimensAutorises },
       select: USER_SELECT,
     });
+
+    // Invalide le cache de permissions immédiatement (B)
+    invalidateSpecimenCache(id);
+
+    // Notifie l'utilisateur en temps réel via SSE s'il est connecté (D)
+    sseManager.sendToUser(id, 'permissions_changed', {
+      specimensAutorises: user.specimensAutorises,
+      message: 'Vos permissions d\'accès aux spécimens ont été mises à jour.',
+    });
+
     return res.json({ message: 'Permissions spécimens mises à jour', user });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Utilisateur introuvable' });

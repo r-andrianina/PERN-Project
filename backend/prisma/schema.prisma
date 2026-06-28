@@ -18,6 +18,7 @@ datasource db {
 
 enum Role {
   admin
+  superviseur
   chercheur
   technicien
   lecteur
@@ -93,6 +94,7 @@ model User {
   missionsChef       Mission[]       @relation("ChefMission")
   missionsAgent      MissionAgent[]
   auditLogs          AuditLog[]
+  projetsMembre      MembreProjet[]
 
   @@map("users")
 }
@@ -114,10 +116,30 @@ model Projet {
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
 
-  responsable User?     @relation("ResponsableProjet", fields: [responsableId], references: [id])
+  responsable User?          @relation("ResponsableProjet", fields: [responsableId], references: [id])
   missions    Mission[]
+  membres     MembreProjet[]
 
   @@map("projets")
+}
+
+// =============================================================
+//  MEMBRES DE PROJET — cloisonnement par projet
+// =============================================================
+
+model MembreProjet {
+  id        Int      @id @default(autoincrement())
+  projetId  Int      @map("projet_id")
+  userId    Int      @map("user_id")
+  addedAt   DateTime @default(now()) @map("added_at")
+  addedById Int?     @map("added_by_id")
+
+  projet Projet @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projetId, userId])
+  @@index([userId])
+  @@map("membres_projet")
 }
 
 // =============================================================

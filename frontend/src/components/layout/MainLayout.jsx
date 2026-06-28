@@ -12,12 +12,15 @@ import GlobalSearch from '../GlobalSearch';
 import NotificationBell from '../NotificationBell';
 import Footer from './Footer';
 import { useT } from '../../lib/i18n';
+import { canBypass, ROLE_TONE as ROLE_TONE_MAP } from '../../lib/roles';
 
 const ROLE_TONE = {
-  admin:      'role-admin',
-  chercheur:  'role-chercheur',
-  technicien: 'role-terrain',
-  lecteur:    'role-lecteur',
+  ...ROLE_TONE_MAP,
+  admin:       'role-admin',
+  superviseur: 'role-superviseur',
+  chercheur:   'role-chercheur',
+  technicien:  'role-terrain',
+  lecteur:     'role-lecteur',
 };
 
 function NavItem({ to, label, icon: Icon, iconColorIdle, onClick }) {
@@ -130,7 +133,7 @@ export default function MainLayout() {
 
           <NavSection>{t('nav.specimens')}</NavSection>
           {SPECIMEN_ITEMS.filter(({ type }) =>
-            user?.role === 'admin' || (user?.specimensAutorises || []).includes(type)
+            canBypass(user?.role) || (user?.specimensAutorises || []).includes(type)
           ).map(({ path, label, type }) => (
             <NavLink
               key={path} to={path} onClick={closeSidebar}
@@ -151,11 +154,13 @@ export default function MainLayout() {
             </NavLink>
           ))}
 
-          {user?.role === 'admin' && (
+          {canBypass(user?.role) && (
             <>
               <NavSection>{t('nav.admin')}</NavSection>
-              <NavItem to="/utilisateurs" label={t('nav.utilisateurs')} icon={Users}
-                iconColorIdle="text-role-admin" onClick={closeSidebar} />
+              {user?.role === 'admin' && (
+                <NavItem to="/utilisateurs" label={t('nav.utilisateurs')} icon={Users}
+                  iconColorIdle="text-role-admin" onClick={closeSidebar} />
+              )}
               <NavItem to="/admin/presence" label={t('nav.presence')} icon={Radio}
                 iconColorIdle="text-success" onClick={closeSidebar} />
             </>
