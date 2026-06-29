@@ -2,7 +2,7 @@ const { z } = require('zod');
 
 const emailStr    = z.string().email('Format email invalide').toLowerCase();
 const passwordStr = z.string().min(8, 'Le mot de passe doit contenir au moins 8 caracteres');
-const roleEnum    = z.enum(['admin', 'chercheur', 'technicien', 'lecteur']);
+const roleEnum    = z.enum(['admin', 'superviseur', 'chercheur', 'technicien', 'lecteur']);
 const specimensEnum = z.array(z.enum(['moustique', 'tique', 'puce']));
 
 const login = z.object({
