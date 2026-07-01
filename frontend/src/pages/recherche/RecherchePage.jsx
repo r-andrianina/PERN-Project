@@ -403,7 +403,7 @@ export default function RecherchePage() {
               onChange={(val) => setFilter('projetId', val)}
               options={[
                 { value: '', label: 'Tous les projets' },
-                ...projets.map((p) => ({ value: p.id, label: `${p.code} — ${p.nom}` })),
+                ...projets.map((p) => ({ value: p.id, label: p.porteur ? `${p.nom} / ${p.porteur}` : p.nom })),
               ]}
             />
             <Select

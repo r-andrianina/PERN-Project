@@ -93,12 +93,13 @@ async function getOccupiedPositions(containerId) {
   return map;
 }
 
-// Renvoie les N prochaines positions libres dans l'ordre A1, A2, ..., H12 (plaque)
+// Renvoie les N prochaines positions libres dans l'ordre A1, A2, ..., H11 (H12 exclu — témoin SOP)
 async function nextAvailablePositions(containerId, count) {
   const container = await prisma.container.findUnique({ where: { id: parseInt(containerId) } });
   if (!container) throw new Error('Container introuvable');
   const occupied = await getOccupiedPositions(containerId);
-  const all = allPositions(container.type);
+  let all = allPositions(container.type);
+  if (container.type === 'PLAQUE') all = all.filter((p) => p !== 'H12');
   const free = all.filter((p) => !occupied.has(p));
   if (free.length < count) {
     throw new Error(`Plus que ${free.length} positions libres dans ce container, ${count} demandées`);

@@ -18,8 +18,7 @@ const list = async ({ statut, search } = {}, user) => {
   if (statut) where.statut = statut;
   if (search) {
     where.OR = [
-      { nom:  { contains: search, mode: 'insensitive' } },
-      { code: { contains: search, mode: 'insensitive' } },
+      { nom: { contains: search, mode: 'insensitive' } },
     ];
   }
 
@@ -62,21 +61,25 @@ const getById = async (id, user) => {
 // ── Création (l'auteur est automatiquement ajouté comme membre) ───────────────
 
 const create = async (data, creatorId) => {
-  const existing = await prisma.projet.findUnique({ where: { code: data.code } });
-  if (existing) throw AppError.conflict(`Le code "${data.code}" est déjà utilisé`);
-
-  const projet = await prisma.projet.create({
-    data: {
-      code:          data.code,
-      nom:           data.nom,
-      description:   data.description  ?? null,
-      porteur:       data.porteur       ?? null,
-      responsableId: data.responsableId ?? null,
-      dateDebut:     data.dateDebut     ? new Date(data.dateDebut) : null,
-      dateFin:       data.dateFin       ? new Date(data.dateFin)   : null,
-      statut:        data.statut        ?? 'actif',
-    },
-    include: INCLUDE_PROJET,
+  // Le code est auto-généré : PROJ-0001, PROJ-0042, etc.
+  const projet = await prisma.$transaction(async (tx) => {
+    const created = await tx.projet.create({
+      data: {
+        code:          '__TEMP__',
+        nom:           data.nom,
+        description:   data.description  ?? null,
+        porteur:       data.porteur       ?? null,
+        responsableId: data.responsableId ?? null,
+        dateDebut:     data.dateDebut     ? new Date(data.dateDebut) : null,
+        dateFin:       data.dateFin       ? new Date(data.dateFin)   : null,
+        statut:        data.statut        ?? 'actif',
+      },
+    });
+    return tx.projet.update({
+      where: { id: created.id },
+      data:  { code: `PROJ-${String(created.id).padStart(4, '0')}` },
+      include: INCLUDE_PROJET,
+    });
   });
 
   // Auto-add the creator as a member (sauf pour admin/superviseur qui bypass)

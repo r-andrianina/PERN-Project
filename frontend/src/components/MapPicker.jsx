@@ -165,17 +165,6 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
     setResults([]);
   };
 
-  const clear = () => {
-    if (markerRef.current && instanceRef.current) {
-      instanceRef.current.removeLayer(markerRef.current);
-      markerRef.current = null;
-    }
-    onChangeRef.current({ latitude: '', longitude: '' });
-    setQuery('');
-    setResults([]);
-    setShowResults(false);
-  };
-
   return (
     <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm h-full flex flex-col" style={{ position: 'relative' }}>
 
@@ -185,10 +174,10 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
         zIndex: 800,
       }}>
         <div className="relative">
-          <div className="flex items-center bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200/80 px-3 py-2 gap-2">
+          <div className="flex items-center bg-white/55 backdrop-blur-md rounded-xl shadow-md border border-white/25 px-3 py-2 gap-2">
             {searching
               ? <Loader2 size={14} className="text-primary-500 animate-spin flex-shrink-0" />
-              : <Search size={14} className="text-gray-400 flex-shrink-0" />
+              : <Search size={14} className="text-gray-500/80 flex-shrink-0" />
             }
             <input
               type="text"
@@ -196,7 +185,7 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
               onChange={(e) => handleSearch(e.target.value)}
               onFocus={() => results.length > 0 && setShowResults(true)}
               placeholder="Rechercher un lieu, ville, fokontany…"
-              className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 min-w-0"
+              className="flex-1 text-sm bg-transparent border-none outline-none text-gray-800 placeholder-gray-400/70 min-w-0"
             />
             {query && (
               <button
@@ -276,29 +265,6 @@ export default function MapPicker({ latitude, longitude, onChange, height = '340
         onClick={() => setShowResults(false)}
       />
 
-      {/* ── Barre de coordonnées ── */}
-      <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center gap-2">
-        {latitude && longitude ? (
-          <>
-            <MapPin size={13} className="text-primary-500 flex-shrink-0" />
-            <span className="text-xs font-mono text-gray-700 flex-1">
-              {parseFloat(latitude).toFixed(6)}, {parseFloat(longitude).toFixed(6)}
-            </span>
-            <button
-              type="button"
-              onClick={clear}
-              className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-600 transition-colors px-2 py-0.5 rounded-lg hover:bg-red-50"
-            >
-              <X size={11} /> Effacer
-            </button>
-          </>
-        ) : (
-          <p className="text-xs text-gray-400 flex items-center gap-1.5">
-            <MapPin size={12} />
-            Cliquez sur la carte ou recherchez un lieu pour placer le marqueur GPS
-          </p>
-        )}
-      </div>
     </div>
   );
 }

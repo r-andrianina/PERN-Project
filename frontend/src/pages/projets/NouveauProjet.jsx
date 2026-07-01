@@ -1,5 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, FolderOpen, Briefcase, Tag, Calendar, User, Info } from 'lucide-react';
+import { ChevronLeft, FolderOpen, Briefcase, Calendar, User, Info } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import AutocompleteUser from '../../components/AutocompleteUser';
@@ -25,12 +25,10 @@ export default function NouveauProjet() {
   // Formulaire
   const { form, setField, handleChange, errors, isLoading, handleSubmit } = useFormSubmit({
     initial: {
-      code: '', nom: '', description: '',
-      porteur: '', responsableId: '',
+      nom: '', porteur: '', responsableId: '',
       dateDebut: '', dateFin: '', statut: 'actif',
     },
     validate: (f) => ({
-      code:    !f.code && 'Le code est obligatoire',
       nom:     !f.nom  && 'Le nom est obligatoire',
       dateFin: f.dateDebut && f.dateFin && f.dateFin < f.dateDebut && 'La date de fin doit être postérieure à la date de début',
     }),
@@ -79,22 +77,10 @@ export default function NouveauProjet() {
               Informations du projet
             </h2>
             <div className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField label="Code projet" name="code"
-                  value={form.code} onChange={handleChange}
-                  placeholder="ex: PROJ-2025-01" required
-                  error={errors.code} hint="Lettres, chiffres et tirets" />
-                <div className="md:col-span-2">
-                  <FormField label="Nom du projet" name="nom"
-                    value={form.nom} onChange={handleChange}
-                    placeholder="ex: Surveillance vecteurs Madagascar 2026" required
-                    error={errors.nom} />
-                </div>
-              </div>
-
-              <FormField label="Description" name="description" type="textarea"
-                value={form.description} onChange={handleChange}
-                placeholder="Objectifs, contexte, équipes concernées..." />
+              <FormField label="Nom du projet" name="nom"
+                value={form.nom} onChange={handleChange}
+                placeholder="ex: Surveillance vecteurs Madagascar 2026" required
+                error={errors.nom} />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <AutocompleteUser
@@ -133,15 +119,6 @@ export default function NouveauProjet() {
                 <p className="text-xs font-semibold text-fg uppercase tracking-wider">Aperçu</p>
               </div>
               <div className="space-y-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Tag size={11} className="text-fg-subtle" />
-                    <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">Code</span>
-                  </div>
-                  {form.code
-                    ? <p className="text-sm font-mono font-bold text-primary bg-primary/10 inline-block px-2 py-0.5 rounded">{form.code.toUpperCase()}</p>
-                    : <p className="text-sm text-fg-subtle italic">— à définir —</p>}
-                </div>
                 <div>
                   <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">Nom</span>
                   <p className="text-sm font-semibold text-fg mt-0.5">
@@ -194,7 +171,6 @@ export default function NouveauProjet() {
                 <p className="text-xs font-semibold text-fg">Aide</p>
               </div>
               <ul className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
-                <li>• Le <strong>code</strong> identifiera ce projet dans tous les exports.</li>
                 <li>• Le <strong>porteur</strong> peut être un utilisateur de la base ou un partenaire externe.</li>
                 <li>• Les missions s'ajoutent après la création du projet.</li>
               </ul>

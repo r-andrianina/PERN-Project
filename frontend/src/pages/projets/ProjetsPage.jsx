@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { FolderOpen, Plus, ChevronRight, Tag, Users } from 'lucide-react';
+import { FolderOpen, Plus, ChevronRight, Users } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
@@ -43,9 +43,6 @@ export default function ProjetsPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="inline-flex items-center gap-1 text-xs font-mono bg-surface-2 text-fg-muted px-2 py-0.5 rounded-lg border border-border">
-                        <Tag size={10} /> {p.code}
-                      </span>
                       <span className="text-sm font-semibold text-fg truncate">{p.nom}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-1.5">

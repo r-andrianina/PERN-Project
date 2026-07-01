@@ -1,15 +1,23 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Beaker, Trees, Map as MapIcon, Calendar, Hash, Info, Clock, Timer } from 'lucide-react';
+import {
+  ChevronLeft, Beaker, Trees, Map as MapIcon,
+  Calendar, Hash, Info, Clock, Timer, MapPin, X,
+} from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import MapPicker from '../../components/MapPicker';
 import { Card } from '../../components/ui';
 import { useFormSubmit, useApiQueries } from '../../hooks';
 
+const TIME_CLS =
+  'w-full px-3 py-2.5 text-sm rounded-xl border border-border-strong bg-surface text-fg ' +
+  'hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors';
+
 export default function NouvelleMethode() {
-  const navigate = useNavigate();
+  const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
+  const [gpsFlash, setGpsFlash] = useState(false);
 
   const { results, loading: loadingRefs } = useApiQueries([
     { url: '/localites',                                                    key: 'localites',    select: (r) => r.localites ?? [] },
@@ -56,6 +64,7 @@ export default function NouvelleMethode() {
     onSuccess: () => navigate('/methodes'),
   });
 
+  // Pré-remplir GPS depuis la localité
   useEffect(() => {
     if (!form.localiteId || (form.latitude && form.longitude)) return;
     const loc = localites.find((l) => l.id === parseInt(form.localiteId));
@@ -65,8 +74,18 @@ export default function NouvelleMethode() {
     }
   }, [form.localiteId, localites]); // eslint-disable-line
 
+  // Clic carte → flash vert sur la barre inférieure
+  const handleMapChange = ({ latitude, longitude }) => {
+    setField('latitude',  latitude);
+    setField('longitude', longitude);
+    setGpsFlash(true);
+    setTimeout(() => setGpsFlash(false), 900);
+  };
+
+  const clearGps = () => { setField('latitude', ''); setField('longitude', ''); };
+
   const localiteOptions    = localites.map((l) => {
-    const geo = [l.region, l.district, l.commune, l.fokontany].filter(Boolean).join(' / ');
+    const geo    = [l.region, l.district, l.commune, l.fokontany].filter(Boolean).join(' / ');
     const suffix = l.mission?.ordreMission ? ` — ${l.mission.ordreMission}` : '';
     return { value: l.id, label: `${geo || l.nom}${suffix}` };
   });
@@ -79,6 +98,7 @@ export default function NouvelleMethode() {
   const selectedHabitat  = typesHabitat.find((t) => t.id === parseInt(form.typeHabitatId));
   const selectedEnv      = typesEnv.find((t)     => t.id === parseInt(form.typeEnvironnementId));
   const identifiant      = selectedType ? `${selectedType.code}_${form.numero || 1}` : null;
+  const hasGps           = !!(form.latitude && form.longitude);
 
   const duree = useMemo(() => {
     if (!form.heureDebut || !form.heureFin) return null;
@@ -100,12 +120,15 @@ export default function NouvelleMethode() {
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 xl:grid-cols-[1fr,280px] gap-5 items-start">
 
-          {/* ═══ Formulaire ═══ */}
+          {/* ═══ Colonne principale ═══ */}
           <div className="space-y-5">
             {errors.submit && (
-              <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl text-sm text-danger">{errors.submit}</div>
+              <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl text-sm text-danger">
+                {errors.submit}
+              </div>
             )}
 
+            {/* ── 1. Méthode ── */}
             <div className="card p-6">
               <h2 className="section-title"><Beaker size={17} className="text-info" /> Méthode</h2>
               <div className="space-y-4">
@@ -126,92 +149,158 @@ export default function NouvelleMethode() {
               </div>
             </div>
 
+            {/* ── 2. Contexte & Planification ── */}
             <div className="card p-6">
-              <h2 className="section-title"><Trees size={17} className="text-success" /> Contexte</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField label="Type d'habitat" name="typeHabitatId" type="select"
-                  value={form.typeHabitatId} onChange={handleChange} options={typeHabitatOptions} />
-                <FormField label="Type d'environnement" name="typeEnvironnementId" type="select"
-                  value={form.typeEnvironnementId} onChange={handleChange} options={typeEnvOptions} />
-              </div>
-            </div>
+              <h2 className="section-title">
+                <Trees size={17} className="text-success" /> Contexte &amp; Planification
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
 
-            <div className="card p-6">
-              <h2 className="section-title"><MapIcon size={17} className="text-danger" /> Coordonnées GPS</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <FormField label="Latitude"  name="latitude"  type="number" value={form.latitude}  onChange={handleChange} placeholder="ex: -18.9137" />
-                <FormField label="Longitude" name="longitude" type="number" value={form.longitude} onChange={handleChange} placeholder="ex: 47.5361" />
-              </div>
-              <MapPicker
-                latitude={form.latitude || undefined}
-                longitude={form.longitude || undefined}
-                onChange={({ latitude, longitude }) => { setField('latitude', latitude); setField('longitude', longitude); }}
-              />
-            </div>
-
-            <div className="card p-6">
-              <h2 className="section-title"><Calendar size={17} className="text-warning" /> Date et horaires</h2>
-
-              {/* Ligne date + horaires */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                {/* Date */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
-                    <Calendar size={11} className="text-warning" /> Date de collecte
-                  </label>
-                  <input
-                    type="date" name="dateCollecte" value={form.dateCollecte}
-                    onChange={handleChange}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface text-fg
-                      hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                  />
+                <div className="space-y-4">
+                  <FormField label="Type d'habitat" name="typeHabitatId" type="select"
+                    value={form.typeHabitatId} onChange={handleChange} options={typeHabitatOptions} />
+                  <FormField label="Type d'environnement" name="typeEnvironnementId" type="select"
+                    value={form.typeEnvironnementId} onChange={handleChange} options={typeEnvOptions} />
                 </div>
 
-                {/* Heure début */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
-                    <Clock size={11} className="text-info" /> Heure de début
-                  </label>
-                  <input
-                    type="time" name="heureDebut" value={form.heureDebut}
-                    onChange={handleChange}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface text-fg
-                      hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                  />
-                </div>
-
-                {/* Heure fin */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
-                    <Clock size={11} className="text-danger" /> Heure de fin
-                  </label>
-                  <input
-                    type="time" name="heureFin" value={form.heureFin}
-                    onChange={handleChange}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface text-fg
-                      hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                  />
-                </div>
-
-                {/* Durée calculée */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
-                    <Timer size={11} className="text-success" /> Durée
-                  </label>
-                  <div className={`w-full px-3.5 py-2.5 text-sm rounded-xl border transition-colors ${
-                    duree
-                      ? 'border-success/40 bg-success/5 text-success font-semibold'
-                      : 'border-border bg-surface-2 text-fg-subtle italic'
-                  }`}>
-                    {duree ?? '— calculée automatiquement —'}
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-semibold text-fg-muted tracking-wide">
+                      <Calendar size={11} className="text-warning" /> Date de collecte
+                    </label>
+                    <input type="date" name="dateCollecte" value={form.dateCollecte}
+                      onChange={handleChange} className={TIME_CLS} />
                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-semibold text-fg-muted tracking-wide">
+                        <Clock size={11} className="text-info" /> Début
+                      </label>
+                      <input type="time" name="heureDebut" value={form.heureDebut}
+                        onChange={handleChange} className={TIME_CLS} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-semibold text-fg-muted tracking-wide">
+                        <Clock size={11} className="text-danger" /> Fin
+                      </label>
+                      <input type="time" name="heureFin" value={form.heureFin}
+                        onChange={handleChange} className={TIME_CLS} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-semibold text-fg-muted tracking-wide">
+                      <Timer size={11} className="text-success" /> Durée
+                    </label>
+                    <div className={`w-full px-3 py-2.5 text-sm rounded-xl border transition-all duration-500 ${
+                      duree
+                        ? 'border-success/40 bg-success/5 text-success font-semibold'
+                        : 'border-border bg-surface-2 text-fg-subtle italic'
+                    }`}>
+                      {duree ?? '— calculée automatiquement —'}
+                    </div>
+                  </div>
+                  {/* Notes déplacées ici depuis le card Localisation */}
+                  <FormField
+                    label="Notes"
+                    name="notes"
+                    type="textarea"
+                    value={form.notes}
+                    onChange={handleChange}
+                    placeholder="Conditions de terrain, observations particulières…"
+                  />
                 </div>
-              </div>
 
-              <FormField label="Notes" name="notes" type="textarea" value={form.notes} onChange={handleChange}
-                placeholder="Conditions de terrain, observations particulières..." />
+              </div>
             </div>
 
+            {/* ── 3. Localisation ── */}
+            <div className="card overflow-hidden p-0">
+
+              {/* En-tête mince */}
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface">
+                <MapIcon size={14} className="text-danger" />
+                <span className="text-xs font-semibold text-fg uppercase tracking-wider">
+                  Localisation du piège
+                </span>
+              </div>
+
+              {/* Layout 2 colonnes : panneau gauche + carte droite */}
+              <div className="flex flex-col lg:flex-row">
+
+                {/* ── Panneau gauche : champs GPS ── */}
+                <div className="w-full lg:w-56 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-surface-2/30 p-4 flex flex-col gap-4">
+
+                  {/* Latitude */}
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-[10px] font-bold text-fg-subtle uppercase tracking-wider">
+                      <MapPin size={9} /> Latitude
+                    </label>
+                    <input
+                      type="number" name="latitude" value={form.latitude}
+                      onChange={handleChange} placeholder="-18.9137" step="any"
+                      className="w-full text-sm font-mono bg-surface border border-border-strong rounded-xl px-3 py-2.5 text-fg outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors placeholder-fg-subtle/50"
+                    />
+                  </div>
+
+                  {/* Longitude */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold text-fg-subtle uppercase tracking-wider">
+                      Longitude
+                    </label>
+                    <input
+                      type="number" name="longitude" value={form.longitude}
+                      onChange={handleChange} placeholder="47.5361" step="any"
+                      className="w-full text-sm font-mono bg-surface border border-border-strong rounded-xl px-3 py-2.5 text-fg outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors placeholder-fg-subtle/50"
+                    />
+                  </div>
+
+                  {/* Statut GPS */}
+                  {hasGps ? (
+                    <div className={`rounded-xl p-3 text-xs border transition-all duration-500 ${
+                      gpsFlash ? 'bg-success/10 border-success/30' : 'bg-primary/5 border-primary/20'
+                    }`}>
+                      <div className={`flex items-center gap-1.5 font-semibold mb-1.5 transition-colors duration-500 ${
+                        gpsFlash ? 'text-success' : 'text-primary'
+                      }`}>
+                        <MapPin size={11} /> Position définie
+                      </div>
+                      <p className="font-mono text-[10px] text-fg-muted leading-relaxed">
+                        {parseFloat(form.latitude).toFixed(5)}<br />
+                        {parseFloat(form.longitude).toFixed(5)}
+                      </p>
+                      <button type="button" onClick={clearGps}
+                        className="mt-2.5 flex items-center gap-1 text-[10px] text-fg-subtle hover:text-danger transition-colors">
+                        <X size={10} /> Effacer
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border p-3 text-xs text-fg-subtle space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-fg-muted font-medium">
+                        <MapPin size={11} /> Aucune position
+                      </div>
+                      <p className="leading-relaxed">
+                        Recherchez un lieu ou cliquez sur la carte.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex-1" />
+                </div>
+
+                {/* ── Carte ── */}
+                <div className="flex-1 min-w-0 [&>div]:!rounded-none [&>div]:!border-0 [&>div]:!shadow-none">
+                  <MapPicker
+                    latitude={form.latitude   || undefined}
+                    longitude={form.longitude || undefined}
+                    onChange={handleMapChange}
+                    height="560px"
+                  />
+                </div>
+
+              </div>
+            </div>
+
+            {/* Actions */}
             <div className="flex items-center justify-end gap-3">
               <Link to="/methodes" className="btn-secondary">Annuler</Link>
               <button type="submit" disabled={isLoading || loadingRefs} className="btn-primary">
@@ -223,7 +312,6 @@ export default function NouvelleMethode() {
           {/* ═══ Sidebar ═══ */}
           <aside className="space-y-4 xl:sticky xl:top-4 self-start">
 
-            {/* Aperçu */}
             <Card padding="sm" tone="primary">
               <div className="flex items-center gap-2 mb-3">
                 <Beaker size={15} className="text-info" />
@@ -268,14 +356,32 @@ export default function NouvelleMethode() {
                   {form.dateCollecte && (
                     <div>
                       <p className="text-fg-subtle mb-0.5">Date</p>
-                      <p className="font-semibold text-fg">{new Date(form.dateCollecte).toLocaleDateString('fr-FR')}</p>
+                      <p className="font-semibold text-fg">
+                        {new Date(form.dateCollecte).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+                  )}
+                  {duree && (
+                    <div>
+                      <p className="text-fg-subtle mb-0.5">Durée</p>
+                      <p className="font-semibold text-success">{duree}</p>
                     </div>
                   )}
                 </div>
+                {hasGps && (
+                  <div className="pt-2 border-t border-border">
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <MapPin size={9} /> GPS
+                    </p>
+                    <p className="text-xs font-mono text-fg-muted leading-relaxed">
+                      {parseFloat(form.latitude).toFixed(6)}<br />
+                      {parseFloat(form.longitude).toFixed(6)}
+                    </p>
+                  </div>
+                )}
               </div>
             </Card>
 
-            {/* Consignes */}
             <Card padding="sm">
               <div className="flex items-center gap-1.5 mb-2.5">
                 <Info size={12} className="text-fg-subtle" />
@@ -285,20 +391,20 @@ export default function NouvelleMethode() {
                 <div>
                   <p className="font-semibold text-fg mb-0.5">Méthode</p>
                   <p>• Le <strong>type</strong> est issu du dictionnaire (CDC, BG-Sentinel, capture humaine…)</p>
-                  <p className="mt-1">• Le <strong>numéro</strong> distingue les pièges du même type dans une localité — ex : 3 CDC → <code className="font-mono text-[10px]">CDC_1</code>, <code className="font-mono text-[10px]">CDC_2</code>, <code className="font-mono text-[10px]">CDC_3</code></p>
+                  <p className="mt-1">• Le <strong>numéro</strong> distingue les pièges du même type — ex : <code className="font-mono text-[10px]">CDC_1</code>, <code className="font-mono text-[10px]">CDC_2</code></p>
                 </div>
                 <div>
                   <p className="font-semibold text-fg mb-0.5">Contexte</p>
-                  <p>• Habitat et environnement sont facultatifs mais améliorent l'analyse statistique.</p>
+                  <p>• Habitat et environnement améliorent l'analyse statistique.</p>
                 </div>
                 <div>
-                  <p className="font-semibold text-fg mb-0.5">Coordonnées GPS</p>
-                  <p>• Les coordonnées se pré-remplissent depuis la localité.</p>
-                  <p className="mt-1">• Ajustez si le piège n'est pas exactement au point central de la localité.</p>
+                  <p className="font-semibold text-fg mb-0.5">Localisation</p>
+                  <p>• Utilisez la <strong>barre de recherche</strong> sur la carte ou cliquez directement dessus.</p>
+                  <p className="mt-1">• Les coordonnées se pré-remplissent depuis la localité sélectionnée.</p>
                 </div>
                 <div>
                   <p className="font-semibold text-fg mb-0.5">Horaires</p>
-                  <p>• Heure de début/fin = durée effective du piégeage, utile pour les analyses de densité.</p>
+                  <p>• Début/fin → durée calculée automatiquement.</p>
                 </div>
               </div>
             </Card>

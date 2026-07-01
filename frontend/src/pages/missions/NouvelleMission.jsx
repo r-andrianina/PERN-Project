@@ -175,7 +175,7 @@ export default function NouvelleMission() {
     }
   };
 
-  const projetOptions = projets.map(p => ({ value: p.id, label: `${p.code} — ${p.nom}` }));
+  const projetOptions = projets.map(p => ({ value: p.id, label: p.porteur ? `${p.nom} / ${p.porteur}` : p.nom }));
   const userOptions   = users.map(u  => ({ value: u.id, label: `${u.prenom} ${u.nom} (${u.role})` }));
   const statutOptions = [
     { value: 'planifiee', label: 'Planifiée' },
@@ -511,7 +511,7 @@ export default function NouvelleMission() {
                 {selectedProjet && (
                   <div>
                     <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Projet</p>
-                    <p className="text-xs font-medium text-fg">{selectedProjet.code} — {selectedProjet.nom}</p>
+                    <p className="text-xs font-medium text-fg">{selectedProjet.nom}{selectedProjet.porteur ? ` / ${selectedProjet.porteur}` : ''}</p>
                   </div>
                 )}
                 {(mission.dateDebut || mission.dateFin) && (

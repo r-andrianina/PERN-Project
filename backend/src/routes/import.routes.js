@@ -25,6 +25,9 @@ router.get('/template/moustiques', asyncHandler(ctrl.getTemplateMoustiques));
 
 router.use(requireMinRole('technicien'));
 
+// POST /api/v1/import/moustiques/validate — validation à sec (aucune écriture)
+router.post('/moustiques/validate', upload.single('file'), asyncHandler(ctrl.validateMoustiques));
+
 // POST /api/v1/import/moustiques
 router.post('/moustiques', upload.single('file'), asyncHandler(ctrl.importMoustiques));
 

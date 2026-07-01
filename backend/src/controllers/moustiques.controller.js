@@ -123,8 +123,8 @@ const createMoustique = async (req, res) => {
       if (!container) return res.status(404).json({ error: 'Container introuvable' });
     }
 
-    // ── MODE SPLIT (boîte uniquement) — N enregistrements 1 individu/tube ──
-    if (cId && container.type === 'BOITE' && insertMode === 'split' && nbInt > 1) {
+    // ── MODE SPLIT (boîte ou plaque) — N enregistrements 1 individu/position ──
+    if (cId && insertMode === 'split' && nbInt > 1 && (container.type === 'BOITE' || container.type === 'PLAQUE')) {
       const positions = await nextAvailablePositions(cId, nbInt);
       const ids = await generateMany(parseInt(methodeId), nbInt);
       const baseData = {
@@ -144,7 +144,7 @@ const createMoustique = async (req, res) => {
       const data = positions.map((p, i) => ({ ...baseData, position: p, idTerrain: ids[i] }));
       const created = await prisma.moustique.createMany({ data });
       return res.status(201).json({
-        message: `${created.count} moustique(s) enregistré(s) (1 individu / tube)`,
+        message: `${created.count} moustique(s) enregistré(s) (1 individu / ${container.type === 'PLAQUE' ? 'puit' : 'tube'})`,
         count:   created.count,
         positions,
       });
@@ -454,7 +454,47 @@ const exportExcel = async (req, res) => {
   }
 };
 
+// DELETE /api/v1/moustiques/bulk
+// Supprime un lot de moustiques soit par IDs explicites, soit par critères de filtre.
+const bulkDeleteMoustiques = async (req, res) => {
+  const { ids, filters } = req.body;
+  if (!ids?.length && !filters) {
+    return res.status(400).json({ error: 'ids ou filters est requis' });
+  }
+
+  let where = {};
+
+  if (ids?.length) {
+    where.id = { in: ids.map(Number).filter((n) => !isNaN(n)) };
+  } else {
+    const { methodeId, missionId, taxonomieId, sexe, search } = filters;
+    if (methodeId)   where.methodeId   = parseInt(methodeId);
+    if (taxonomieId) where.taxonomieId = parseInt(taxonomieId);
+    if (sexe)        where.sexe        = sexe;
+    if (missionId)   where.methode     = { localite: { missionId: parseInt(missionId) } };
+    if (search) {
+      where.OR = [
+        { taxonomie: { nom:    { contains: search, mode: 'insensitive' } } },
+        { taxonomie: { parent: { nom: { contains: search, mode: 'insensitive' } } } },
+        { idTerrain: { contains: search, mode: 'insensitive' } },
+        { notes:     { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    if (Object.keys(where).length === 0) {
+      return res.status(400).json({ error: 'Au moins un filtre est requis pour éviter une suppression totale accidentelle' });
+    }
+  }
+
+  const { count } = await prisma.moustique.deleteMany({ where });
+  await logAudit({
+    req, action: ACTIONS.DELETE, entity: 'Moustique', entityId: null,
+    oldValues: { bulkDelete: true, deleted: count, criteria: JSON.stringify(where) },
+  });
+  return res.json({ deleted: count, message: `${count} moustique(s) supprimé(s)` });
+};
+
 module.exports = {
   listMoustiques, getMoustique, createMoustique,
   updateMoustique, deleteMoustique, importExcel, exportExcel,
+  bulkDeleteMoustiques,
 };

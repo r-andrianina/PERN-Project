@@ -16,6 +16,19 @@ const {
   LIFESTAGE, SEX, COLLECTION_METHOD, PRESERVATIVE, ORGANISM_PART, BLOOD_MEAL,
   normalizeKey, parseScientificName, buildHeaderMap, cellValue,
 } = require('../utils/importMappings');
+const { nextAvailablePositions } = require('../utils/container');
+
+// Positions libres d'une plaque (excl. H12 — témoin SOP) à partir d'une liste d'occupées
+function freePlaquePositions(occupiedSet) {
+  const out = [];
+  for (const r of 'ABCDEFGH') {
+    for (let c = 1; c <= 12; c++) {
+      const p = `${r}${c}`;
+      if (p !== 'H12' && !occupiedSet.has(p)) out.push(p);
+    }
+  }
+  return out;
+}
 
 // ── Helpers internes ─────────────────────────────────────────
 const toDate = (v) => {
@@ -448,48 +461,7 @@ const importMoustiques = async (req, res) => {
       continue;
     }
 
-    // ── 5. Container (créé automatiquement si absent) ──
-    const boxId = toString(cellValue(row, hMap, 'BOX_PLATE_ID'));
-    let position = toString(cellValue(row, hMap, 'TUBE_OR_WELL_ID'));
-    let containerId = null;
-
-    if (boxId) {
-      if (!containerCache.has(boxId)) {
-        const c = await resolveContainer(boxId, mission.id, userId);
-        containerCache.set(boxId, c ?? null);
-      }
-      const container = containerCache.get(boxId);
-      containerId = container?.id ?? null;
-
-      // H12 = témoin négatif SOP sur les plaques — importer sans position
-      if (container?.type === 'PLAQUE' && position === 'H12') {
-        addLog('avertissement', 'TEMOIN_H12',
-          `Position H12 réservée au témoin négatif (SOP) — spécimen importé sans position assignée`);
-        position = null;
-      }
-    }
-
-    if (containerId && position) {
-      const occupied = await prisma.moustique.findFirst({
-        where: { containerId, position },
-        select: { id: true, idTerrain: true },
-      });
-      if (occupied) {
-        addLog('erreur', 'POSITION_OCCUPEE', `Position "${position}" déjà occupée dans le container "${boxId}" par ${occupied.idTerrain}`);
-        continue;
-      }
-    }
-
-    // ── 6. Unicité idTerrain ──
-    if (idTerrain) {
-      const dupl = await prisma.moustique.findUnique({ where: { idTerrain }, select: { id: true } });
-      if (dupl) {
-        addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" déjà présent en base — ligne ignorée`);
-        continue;
-      }
-    }
-
-    // ── 7. Mapper les autres champs ──
+    // ── 5. Mapper les champs biologiques ──
     const rawStade  = normalizeKey(cellValue(row, hMap, 'LIFESTAGE'));
     const rawSexe   = normalizeKey(cellValue(row, hMap, 'SEX'));
     const rawBlood  = normalizeKey(cellValue(row, hMap, 'BLOOD_MEAL'));
@@ -504,6 +476,118 @@ const importMoustiques = async (req, res) => {
 
     const nombre = parseInt(cellValue(row, hMap, 'NUMBER') ?? 1) || 1;
     const notes  = toString(cellValue(row, hMap, 'REMARKS', 'OTHER_INFORMATIONS', 'MISC_METADATA'));
+
+    // ── 6. Container ──
+    const boxId = toString(cellValue(row, hMap, 'BOX_PLATE_ID'));
+    let position = toString(cellValue(row, hMap, 'TUBE_OR_WELL_ID'));
+    let containerId = null;
+    let containerType = null;
+
+    if (boxId) {
+      if (!containerCache.has(boxId)) {
+        const c = await resolveContainer(boxId, mission.id, userId);
+        containerCache.set(boxId, c ?? null);
+      }
+      const container = containerCache.get(boxId);
+      containerId   = container?.id   ?? null;
+      containerType = container?.type ?? null;
+    }
+
+    // ── 6a. PLAQUE + nombre > 1 → split automatique ──────────────
+    if (containerId && containerType === 'PLAQUE' && nombre > 1) {
+      // Récupérer les positions déjà occupées pour ce container
+      const occupiedRows = await prisma.moustique.findMany({
+        where: { containerId, position: { not: null } },
+        select: { position: true },
+      });
+      const occupiedSet   = new Set(occupiedRows.map(r => r.position));
+      const freePositions = freePlaquePositions(occupiedSet);
+
+      if (freePositions.length < nombre) {
+        addLog('erreur', 'POSITION_INSUFFISANTE',
+          `Pas assez de positions libres dans "${boxId}" — ${freePositions.length} libre(s) pour ${nombre} individu(s) demandé(s)`);
+        continue;
+      }
+
+      const positionsToUse = freePositions.slice(0, nombre);
+      let splitOk = 0;
+
+      for (const pos of positionsToUse) {
+        const splitId = idTerrain ? `${idTerrain}-${pos}` : null;
+
+        // Vérifier doublon pour l'ID dérivé
+        if (splitId) {
+          const dupl = await prisma.moustique.findUnique({ where: { idTerrain: splitId }, select: { id: true } });
+          if (dupl) {
+            logs.push({ ligne: rn, idTerrain: splitId, niveau: 'avertissement',
+              code: 'DOUBLON', raison: `"${splitId}" déjà importé — position ${pos} ignorée` });
+            continue;
+          }
+        }
+
+        try {
+          await prisma.moustique.create({
+            data: {
+              idTerrain:    splitId,
+              methodeId:    methode.id,
+              taxonomieId:  taxo.id,
+              nombre:       1,
+              sexe, stade, repasSang, organePreleve, solutionId,
+              containerId,
+              position:     pos,
+              dateCollecte: dateCol,
+              notes,
+            },
+          });
+          splitOk++;
+          // Marquer la position comme occupée pour les lignes suivantes du même fichier
+          occupiedSet.add(pos);
+        } catch (err) {
+          logs.push({ ligne: rn, idTerrain: splitId || `ligne_${rn}-${pos}`, niveau: 'erreur',
+            code: 'ERREUR_BDD', raison: `Erreur création individu ${pos} : ${err.message}` });
+        }
+      }
+
+      counts.imported += splitOk;
+      if (splitOk > 0) {
+        logs.push({ ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
+          code: 'SPLIT_PLAQUE',
+          raison: `Split: ${splitOk}/${nombre} individu(s) créé(s) aux positions ${positionsToUse.slice(0, splitOk).join(', ')} dans "${boxId}"` });
+      }
+      continue; // passer à la ligne suivante
+    }
+    // ─────────────────────────────────────────────────────────────
+
+    // ── 6b. PLAQUE normale (nombre = 1) ou BOITE ──
+    if (containerId) {
+      // H12 = témoin négatif SOP sur les plaques
+      if (containerType === 'PLAQUE' && position === 'H12') {
+        addLog('avertissement', 'TEMOIN_H12',
+          `Position H12 réservée au témoin négatif (SOP) — spécimen importé sans position assignée`);
+        position = null;
+      }
+
+      if (position) {
+        const occupied = await prisma.moustique.findFirst({
+          where: { containerId, position },
+          select: { id: true, idTerrain: true },
+        });
+        if (occupied) {
+          addLog('erreur', 'POSITION_OCCUPEE',
+            `Position "${position}" déjà occupée dans "${boxId}" par ${occupied.idTerrain}`);
+          continue;
+        }
+      }
+    }
+
+    // ── 7. Unicité idTerrain ──
+    if (idTerrain) {
+      const dupl = await prisma.moustique.findUnique({ where: { idTerrain }, select: { id: true } });
+      if (dupl) {
+        addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" déjà présent en base — ligne ignorée`);
+        continue;
+      }
+    }
 
     // ── 8. Créer le moustique ──
     try {
@@ -640,4 +724,184 @@ const getTemplateMoustiques = async (req, res) => {
   res.end();
 };
 
-module.exports = { importMoustiques, getTemplateMoustiques };
+// ── Validation à sec (aucune écriture en base) ───────────────────
+// POST /api/v1/import/moustiques/validate
+// Lit le fichier, vérifie chaque ligne, renvoie un rapport sans importer.
+const validateMoustiques = async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Aucun fichier fourni' });
+
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(req.file.buffer);
+  const ws = wb.worksheets[0];
+  if (!ws) return res.status(400).json({ error: 'Fichier Excel vide ou format invalide' });
+
+  const hMap = buildHeaderMap(ws.getRow(1));
+  for (const h of ['SERIES', 'MISSION_ORDER_NUMBER', 'SCIENTIFIC_NAME']) {
+    if (!hMap[h]) {
+      return res.status(400).json({
+        error: `Colonne obligatoire manquante : "${h}". Vérifiez que le fichier suit le format IPM.`,
+      });
+    }
+  }
+
+  const logs          = [];
+  const taxoCache     = new Map();
+  const methodeCache  = new Map();
+  const seenIds       = new Set();
+  const counts        = { total: 0, valid: 0, erreurs: 0, avertissements: 0 };
+
+  const rows = [];
+  ws.eachRow((row, rn) => { if (rn > 1) rows.push({ row, rn }); });
+
+  for (const { row, rn } of rows) {
+    counts.total++;
+    const idTerrain    = toString(cellValue(row, hMap, 'SERIES', 'COLLECTOR_SAMPLE_ID'));
+    const ordreMission = toString(cellValue(row, hMap, 'MISSION_ORDER_NUMBER'));
+    const sciName      = toString(cellValue(row, hMap, 'SCIENTIFIC_NAME'));
+    let rowOk = true;
+
+    const addLog = (niveau, code, raison) => {
+      logs.push({ ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau, code, raison });
+      if (niveau === 'erreur') { counts.erreurs++; rowOk = false; }
+      else if (niveau === 'avertissement') counts.avertissements++;
+    };
+
+    // 1. Champs obligatoires
+    if (!ordreMission) addLog('erreur', 'MISSION_MANQUANTE', 'MISSION_ORDER_NUMBER manquant');
+    if (!sciName)      addLog('erreur', 'TAXONOMIE_INTROUVABLE', 'SCIENTIFIC_NAME manquant');
+
+    // 2. Taxonomie
+    if (sciName) {
+      const { genus, species } = parseScientificName(sciName);
+      const taxoKey = `${genus}_${species}`;
+      if (!taxoCache.has(taxoKey)) {
+        let t = null;
+        if (genus && species) {
+          t = await prisma.taxonomieSpecimen.findFirst({
+            where: {
+              niveau: 'espece',
+              nom: { equals: species, mode: 'insensitive' },
+              parent: { nom: { equals: genus, mode: 'insensitive' }, niveau: 'genre' },
+              actif: true,
+            },
+            select: { id: true, niveau: true },
+          });
+        }
+        if (!t && genus) {
+          t = await prisma.taxonomieSpecimen.findFirst({
+            where: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' }, actif: true },
+            select: { id: true, niveau: true },
+          });
+        }
+        taxoCache.set(taxoKey, t ?? null);
+      }
+      const taxo = taxoCache.get(taxoKey);
+      if (!taxo) {
+        addLog('erreur', 'TAXONOMIE_INTROUVABLE', `"${sciName}" introuvable dans le dictionnaire (genre: ${parseScientificName(sciName).genus}, espèce: ${parseScientificName(sciName).species ?? '—'})`);
+      } else if (taxo.niveau === 'genre') {
+        addLog('avertissement', 'TAXO_NIVEAU_GENRE', `"${sciName}" résolu au genre uniquement — espèce "${parseScientificName(sciName).species ?? '(absente)'}" introuvable`);
+      }
+    }
+
+    // 3. Doublon idTerrain (dans le fichier + en base)
+    if (idTerrain) {
+      if (seenIds.has(idTerrain)) {
+        addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" apparaît plusieurs fois dans le fichier`);
+      } else {
+        seenIds.add(idTerrain);
+        const dupl = await prisma.moustique.findUnique({ where: { idTerrain }, select: { id: true } });
+        if (dupl) addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" déjà présent en base de données`);
+      }
+    }
+
+    // 4. Type méthode (référentiel)
+    const rawMethod = toString(cellValue(row, hMap, 'COLLECTION_METHOD'));
+    if (rawMethod) {
+      const key = normalizeKey(rawMethod);
+      if (!methodeCache.has(key)) {
+        const methodCode   = COLLECTION_METHOD[key] ?? null;
+        let typeMethode    = null;
+        if (methodCode) {
+          typeMethode = await prisma.typeMethodeCollecte.findUnique({
+            where: { code: methodCode }, select: { id: true, nom: true },
+          });
+        }
+        if (!typeMethode) {
+          typeMethode = await prisma.typeMethodeCollecte.findFirst({
+            where: { nom: { contains: rawMethod, mode: 'insensitive' }, actif: true },
+            select: { id: true, nom: true },
+          });
+          if (typeMethode) methodeCache.set(key, { found: true, fuzzy: true, nom: typeMethode.nom });
+          else             methodeCache.set(key, { found: false });
+        } else {
+          methodeCache.set(key, { found: true, fuzzy: false });
+        }
+      }
+      const mc = methodeCache.get(key);
+      if (!mc.found) {
+        addLog('erreur', 'TYPE_METHODE_INTROUVABLE', `Méthode "${rawMethod}" introuvable dans le référentiel`);
+      } else if (mc.fuzzy) {
+        addLog('avertissement', 'METHODE_MATCHEE_FUZZY', `Méthode "${rawMethod}" trouvée par correspondance partielle → "${mc.nom}"`);
+      }
+    }
+
+    // 5. Container : split PLAQUE ou position occupée
+    const boxId    = toString(cellValue(row, hMap, 'BOX_PLATE_ID'));
+    const position = toString(cellValue(row, hMap, 'TUBE_OR_WELL_ID'));
+    const nombre   = parseInt(cellValue(row, hMap, 'NUMBER') ?? 1) || 1;
+
+    if (boxId) {
+      const container = await prisma.container.findUnique({
+        where: { code: boxId }, select: { id: true, type: true },
+      });
+
+      if (container) {
+        // PLAQUE + nombre > 1 → vérifier qu'il y a assez de positions libres
+        if (container.type === 'PLAQUE' && nombre > 1) {
+          const occupiedRows = await prisma.moustique.findMany({
+            where: { containerId: container.id, position: { not: null } },
+            select: { position: true },
+          });
+          const occupiedSet   = new Set(occupiedRows.map(r => r.position));
+          const freePositions = freePlaquePositions(occupiedSet);
+
+          if (freePositions.length < nombre) {
+            addLog('erreur', 'POSITION_INSUFFISANTE',
+              `Pas assez de positions libres dans "${boxId}" — ${freePositions.length} libre(s) pour ${nombre} individu(s) demandé(s)`);
+          } else {
+            addLog('info', 'SPLIT_PLAQUE',
+              `Split prévu : ${nombre} individu(s) → positions ${freePositions.slice(0, nombre).join(', ')} dans "${boxId}"`);
+          }
+        } else if (position && position !== 'H12') {
+          // PLAQUE normale ou BOITE : vérifier position occupée
+          const occupied = await prisma.moustique.findFirst({
+            where: { containerId: container.id, position }, select: { id: true, idTerrain: true },
+          });
+          if (occupied) {
+            addLog('erreur', 'POSITION_OCCUPEE',
+              `Position "${position}" déjà occupée dans "${boxId}" par ${occupied.idTerrain}`);
+          }
+        }
+      }
+      // Si container inexistant → sera créé à l'import, pas d'erreur de validation
+    }
+
+    if (rowOk) counts.valid++;
+  }
+
+  const resume = {};
+  for (const log of logs) {
+    if (log.niveau === 'erreur') resume[log.code] = (resume[log.code] ?? 0) + 1;
+  }
+
+  return res.json({
+    total:          counts.total,
+    valid:          counts.valid,
+    erreurs:        counts.erreurs,
+    avertissements: counts.avertissements,
+    resume,
+    logs,
+  });
+};
+
+module.exports = { importMoustiques, validateMoustiques, getTemplateMoustiques };

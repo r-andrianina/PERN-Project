@@ -292,12 +292,21 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
     return m;
   }, [containerData]);
 
-  // Calcul des positions auto pour le mode split (boîte + nombre>1)
-  const isSplitMode = containerData?.container?.type === 'BOITE' && insertMode === 'split' && nombre > 1;
+  // Pour une PLAQUE avec nombre>1, forcer automatiquement le mode split
+  useEffect(() => {
+    if (containerData?.container?.type === 'PLAQUE' && nombre > 1 && insertMode !== 'split') {
+      onChange({ containerId, position: '', insertMode: 'split' });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [containerData, nombre]);
+
+  // Calcul des positions auto pour le mode split (boîte ou plaque + nombre>1)
+  const isSplitMode = containerId && insertMode === 'split' && nombre > 1;
   const autoPositions = useMemo(() => {
     if (!isSplitMode || !containerData) return [];
     const all = buildPositions(containerData.container.type);
-    const free = all.filter((p) => !occupiedMap.has(p));
+    // Exclure H12 (témoin SOP) pour les plaques
+    const free = all.filter((p) => !occupiedMap.has(p) && p !== 'H12');
     return free.slice(0, nombre);
   }, [isSplitMode, containerData, occupiedMap, nombre]);
 
@@ -394,7 +403,7 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
         </p>
       )}
 
-      {/* Mode d'insertion (boîte + nombre>1) */}
+      {/* Mode d'insertion — BOITE + nombre>1 */}
       {containerData?.container?.type === 'BOITE' && nombre > 1 && (
         <div className="bg-warning/10 border border-warning/20 rounded-xl p-4 space-y-2">
           <p className="text-xs font-semibold text-amber-800 mb-2">Mode d'insertion</p>
@@ -425,11 +434,14 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
         </div>
       )}
 
-      {/* Plaque + nombre>1 → message */}
+      {/* Mode d'insertion — PLAQUE + nombre>1 → split automatique */}
       {containerData?.container?.type === 'PLAQUE' && nombre > 1 && (
-        <div className="bg-warning/10 border border-warning/20 rounded-xl p-3 flex items-start gap-2.5 text-xs text-amber-800">
-          <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
-          <span>Une plaque accepte 1 spécimen par puit. Le nombre sera forcé à 1 — utilisez plusieurs enregistrements pour saisir plusieurs spécimens, ou choisissez une boîte.</span>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-start gap-2.5 text-xs text-emerald-800">
+          <Check size={14} className="flex-shrink-0 mt-0.5 text-emerald-600" />
+          <span>
+            <strong>Split automatique :</strong> {nombre} enregistrements distincts seront créés, un par puit,
+            aux {nombre} prochaines positions libres (en vert sur la grille).
+          </span>
         </div>
       )}
 

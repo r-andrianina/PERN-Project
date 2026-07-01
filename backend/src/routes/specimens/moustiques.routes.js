@@ -33,6 +33,7 @@ router.post('/',   requireMinRole('technicien'), validate(schema.createMoustique
 router.put('/:id', requireMinRole('technicien'), validate(schema.updateMoustique), asyncHandler(ctrl.updateMoustique));
 
 router.post('/import', requireMinRole('technicien'), upload.single('file'), asyncHandler(ctrl.importExcel));
+router.delete('/bulk', requireRole('admin'), asyncHandler(ctrl.bulkDeleteMoustiques));
 router.delete('/:id',  requireRole('admin'), asyncHandler(ctrl.deleteMoustique));
 
 module.exports = router;

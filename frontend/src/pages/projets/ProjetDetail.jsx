@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
-  FolderOpen, MapPin, Tag, ChevronRight, User, Calendar,
+  FolderOpen, MapPin, ChevronRight, User, Calendar,
   Clock, Target, Bug, Activity, Layers, Users, UserPlus, Trash2, X, Loader2, Search,
 } from 'lucide-react';
 import api from '../../api/axios';
@@ -234,9 +234,6 @@ export default function ProjetDetail() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap mb-1">
-                  <span className="inline-flex items-center gap-1 text-xs font-mono bg-surface-2 text-fg-muted px-2 py-0.5 rounded-lg border border-border">
-                    <Tag size={10} /> {projet.code}
-                  </span>
                   <Badge tone={STATUT_TONE[projet.statut] ?? 'default'} dot>
                     {STATUT_LABEL[projet.statut] ?? projet.statut}
                   </Badge>
@@ -244,12 +241,6 @@ export default function ProjetDetail() {
                 <h1 className="text-xl font-bold text-fg">{projet.nom}</h1>
               </div>
             </div>
-
-            {projet.description && (
-              <p className="text-sm text-fg-muted bg-surface-2 rounded-xl px-4 py-3 border border-border mt-2">
-                {projet.description}
-              </p>
-            )}
 
             <div className="grid grid-cols-2 gap-3 mt-4">
               {(projet.porteur || projet.responsable) && (
