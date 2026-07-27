@@ -25,9 +25,12 @@ SRC="C:/Users/Andrianina/Desktop/SpecimenManager"
 # 1. Builder le frontend
 cd "$SRC/frontend" && npm run build
 
-# 2. Transférer via tar pipe
+# 2. Transférer via tar pipe — backend/prisma est INDISPENSABLE ici : c'est
+#    là que vivent schema.prisma et les migrations. L'oublier fait tourner
+#    le rebuild suivant sur un schéma obsolète sans qu'aucune erreur ne le
+#    signale (constaté le 2026-07-27 : 7 migrations manquantes, silencieux).
 cd "$SRC"
-tar czf - backend/src frontend/src frontend/dist \
+tar czf - backend/src backend/prisma frontend/src frontend/dist \
   | ssh -i "$KEY" "$NAS" "tar xzf - -C $DST/"
 
 # 3. Rebuilder les containers
@@ -35,7 +38,13 @@ ssh -i "$KEY" "$NAS" \
   "echo 'MOT_DE_PASSE' | sudo -S /usr/local/bin/docker compose \
   -f $DST/docker-compose.prod.yml up -d --build 2>&1"
 
-# 4. Vérifier
+# 4. Appliquer les migrations — ne JAMAIS sauter cette étape après un
+#    changement de schema.prisma, même si l'étape 3 s'est bien passée.
+ssh -i "$KEY" "$NAS" \
+  "echo 'MOT_DE_PASSE' | sudo -S /usr/local/bin/docker exec sm_backend \
+  npx prisma migrate deploy"
+
+# 5. Vérifier
 ssh -i "$KEY" "$NAS" "curl -s http://localhost:8080/api/health"
 ```
 
