@@ -1,5 +1,48 @@
 import { AlertCircle } from 'lucide-react';
-import { Select } from './ui';
+import { Select, DatePicker } from './ui';
+
+const pad2 = (n) => String(n).padStart(2, '0');
+const HOURS   = Array.from({ length: 24 }, (_, i) => ({ value: pad2(i), label: pad2(i) }));
+const MINUTES = Array.from({ length: 12 }, (_, i) => ({ value: pad2(i * 5), label: pad2(i * 5) }));
+
+// Champ composite date + heure pour type="datetime-local" — calendrier
+// personnalisé (DatePicker) pour la date, deux <Select> bornés 00-23 /
+// 00-55 (pas de 5 min) pour l'heure. Value/onChange gardent le même format
+// que l'input natif : "YYYY-MM-DDTHH:mm".
+function DateTimeField({ value, onChange, name, disabled, error }) {
+  const [datePart = '', timePart = ''] = (value || '').split('T');
+  const [hh = '', mm = ''] = timePart.split(':');
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const emit = (nextDate, nextHh, nextMm) => {
+    const d = nextDate !== undefined ? nextDate : datePart;
+    const h = nextHh   !== undefined ? nextHh   : (hh || '00');
+    const m = nextMm   !== undefined ? nextMm   : (mm || '00');
+    onChange({ target: { name, value: `${d || todayStr}T${h}:${m}` } });
+  };
+
+  return (
+    <div className="flex gap-2">
+      <DatePicker
+        value={datePart}
+        onChange={(d) => emit(d, undefined, undefined)}
+        disabled={disabled}
+        error={error}
+        wrapperClassName="flex-1"
+      />
+      <Select
+        value={hh} onChange={(h) => emit(undefined, h, undefined)}
+        options={HOURS} placeholder="Hh" disabled={disabled} searchable={false}
+        wrapperClassName="w-[4.5rem]"
+      />
+      <Select
+        value={mm} onChange={(m) => emit(undefined, undefined, m)}
+        options={MINUTES} placeholder="Mm" disabled={disabled} searchable={false}
+        wrapperClassName="w-[4.5rem]"
+      />
+    </div>
+  );
+}
 
 export default function FormField({
   label, name, type = 'text', value, onChange, onBlur,
@@ -33,6 +76,25 @@ export default function FormField({
           disabled={disabled}
           error={error}
           options={[{ value: '', label: '— Sélectionner —' }, ...(options ?? [])]}
+        />
+
+      ) : type === 'date' ? (
+        <DatePicker
+          name={name}
+          value={value}
+          onChange={(val) => onChange({ target: { name, value: val } })}
+          placeholder={placeholder}
+          disabled={disabled}
+          error={error}
+        />
+
+      ) : type === 'datetime-local' ? (
+        <DateTimeField
+          name={name}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          error={error}
         />
 
       ) : type === 'textarea' ? (

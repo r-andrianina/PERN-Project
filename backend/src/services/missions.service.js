@@ -15,15 +15,23 @@ const INCLUDE_DETAIL = {
   chefMission: { select: { id: true, nom: true, prenom: true, email: true } },
   localites: {
     include: {
-      methodes: { include: { _count: { select: { moustiques: true, tiques: true, puces: true } } } },
+      methodes: {
+        include: {
+          typeMethode:       { select: { id: true, code: true, nom: true } },
+          typeHabitat:       { select: { id: true, nom: true } },
+          typeEnvironnement: { select: { id: true, nom: true } },
+          _count:            { select: { moustiques: true, tiques: true, puces: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+      contacts: { orderBy: { id: 'asc' } },
     },
     orderBy: { createdAt: 'asc' },
   },
 };
 
-const list = async ({ statut, projetId, search } = {}, user) => {
+const list = async ({ projetId, search } = {}, user) => {
   const where = {};
-  if (statut)   where.statut   = statut;
   if (projetId) where.projetId = parseInt(projetId);
   if (search) {
     where.OR = [
@@ -49,10 +57,10 @@ const getById = async (id) => {
 };
 
 const create = async (data) => {
-  const { ordreMission, projetId, chefMissionId, chefMissionNom, dateDebut, dateFin, statut, objet, observations, agentIds } = data;
+  const { ordreMission, projetId, chefMissionId, chefMissionNom, dateDebut, dateFin, objet, observations, agentIds } = data;
 
-  if (Array.isArray(agentIds) && agentIds.length > 5)
-    throw AppError.badRequest('Maximum 5 agents de terrain par mission');
+  if (Array.isArray(agentIds) && agentIds.length > 20)
+    throw AppError.badRequest('Maximum 20 agents de terrain par mission');
 
   const existing = await prisma.mission.findUnique({ where: { ordreMission } });
   if (existing) throw AppError.conflict(`L'ordre de mission "${ordreMission}" existe déjà`);
@@ -68,7 +76,6 @@ const create = async (data) => {
       chefMissionNom: chefMissionNom || null,
       dateDebut:      new Date(dateDebut),
       dateFin:       dateFin ? new Date(dateFin) : null,
-      statut:        statut || 'planifiee',
       objet:         objet || null,
       observations:  observations || null,
       agents: agentIds?.length ? { create: agentIds.map(uid => ({ userId: parseInt(uid) })) } : undefined,
@@ -78,17 +85,16 @@ const create = async (data) => {
 };
 
 const update = async (id, data) => {
-  const { chefMissionId, chefMissionNom, dateDebut, dateFin, statut, objet, observations, agentIds } = data;
+  const { chefMissionId, chefMissionNom, dateDebut, dateFin, objet, observations, agentIds } = data;
 
-  if (Array.isArray(agentIds) && agentIds.length > 5)
-    throw AppError.badRequest('Maximum 5 agents de terrain par mission');
+  if (Array.isArray(agentIds) && agentIds.length > 20)
+    throw AppError.badRequest('Maximum 20 agents de terrain par mission');
 
   const patch = {};
   if (chefMissionId  !== undefined) patch.chefMissionId  = chefMissionId ? parseInt(chefMissionId) : null;
   if (chefMissionNom !== undefined) patch.chefMissionNom = chefMissionNom || null;
   if (dateDebut)                   patch.dateDebut     = new Date(dateDebut);
   if (dateFin !== undefined)       patch.dateFin       = dateFin ? new Date(dateFin) : null;
-  if (statut)                      patch.statut        = statut;
   if (objet !== undefined)         patch.objet         = objet || null;
   if (observations !== undefined)  patch.observations  = observations;
 

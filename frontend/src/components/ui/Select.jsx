@@ -51,7 +51,13 @@ export default function Select({
   const filtered = useMemo(() => {
     if (!showSearch || !query.trim()) return options;
     const q = query.trim().toLowerCase();
-    return options.filter((o) => o.label.toLowerCase().includes(q));
+    // `keywords` (optionnel) élargit la recherche à du texte non affiché
+    // dans le label — ex: un code technique masqué de l'UI mais toujours
+    // recherchable ("CDC" retrouve "CDC_LIGHT_TRAP" même si le label
+    // affiché est juste "Piège lumineux CDC").
+    return options.filter((o) =>
+      o.label.toLowerCase().includes(q) || o.keywords?.toLowerCase().includes(q)
+    );
   }, [options, query, showSearch]);
 
   const selected = options.find((o) => String(o.value) === String(value ?? ''));

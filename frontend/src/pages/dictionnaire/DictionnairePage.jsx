@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { BookOpen, Bug, Rabbit, FlaskConical, Map, Trees, Beaker, History, ChevronRight } from 'lucide-react';
+import { BookOpen, Bug, Rabbit, FlaskConical, Map, Trees, Beaker, History, ChevronRight, Layers, Biohazard } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { Card, PageHeader } from '../../components/ui';
 
@@ -9,7 +9,9 @@ const CARDS = [
   { path: '/dictionnaire/types-methode',          label: 'Méthodes de collecte',      desc: 'CDC-LT, BG-Sentinel, HLC, etc.',       Icon: Beaker,       iconCls: 'text-info bg-info/10' },
   { path: '/dictionnaire/solutions-conservation', label: 'Solutions de conservation', desc: 'Ethanol, RNAlater, azote liquide…',    Icon: FlaskConical, iconCls: 'text-warning bg-warning/10' },
   { path: '/dictionnaire/types-environnement',    label: 'Types d\'environnement',    desc: 'Urbain, rural, forêt, mangrove…',      Icon: Map,          iconCls: 'text-primary bg-primary/10' },
-  { path: '/dictionnaire/types-habitat',          label: 'Types d\'habitat',          desc: 'Intra/péri/extra-domiciliaire…',        Icon: Trees,        iconCls: 'text-success bg-success/10' },
+  { path: '/dictionnaire/types-habitat',           label: 'Types d\'habitat',           desc: 'Intra/péri/extra-domiciliaire…',        Icon: Trees,   iconCls: 'text-success bg-success/10'  },
+  { path: '/dictionnaire/types-autre-specimen',   label: 'Types d\'autres spécimens', desc: 'Phlébotomes, Culicoïdes, etc.',         Icon: Layers,    iconCls: 'text-specimen-puce bg-specimen-puce/10' },
+  { path: '/dictionnaire/pathogenes-cibles',       label: 'Pathogènes cibles',         desc: 'Virus, parasites, marqueurs COI, etc.', Icon: Biohazard, iconCls: 'text-danger bg-danger/10'             },
 ];
 
 export default function DictionnairePage() {

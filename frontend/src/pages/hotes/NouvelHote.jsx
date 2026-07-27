@@ -2,6 +2,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, PawPrint, Stethoscope, FileText, Info } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
+import IdTerrainField from '../../components/IdTerrainField';
 import { Card } from '../../components/ui';
 import { useFormSubmit, useApiQueries } from '../../hooks';
 
@@ -16,9 +17,10 @@ export default function NouvelHote() {
   const methodes   = results.methodes   ?? [];
   const taxonomies = results.taxonomies ?? [];
 
-  const { form, handleChange, errors, isLoading, handleSubmit } = useFormSubmit({
+  const { form, handleChange, setField, errors, isLoading, handleSubmit } = useFormSubmit({
     initial: {
       methodeId:       searchParams.get('methodeId') || '',
+      idTerrain:       '',
       taxonomieHoteId: '',
       especeLocale:    '',
       age:             '',
@@ -33,6 +35,7 @@ export default function NouvelHote() {
     }),
     onSubmit: (f) => api.post('/hotes', {
       methodeId:       parseInt(f.methodeId),
+      idTerrain:       f.idTerrain || null,
       taxonomieHoteId: parseInt(f.taxonomieHoteId),
       especeLocale:    f.especeLocale || null,
       age:             f.age          || null,
@@ -73,6 +76,15 @@ export default function NouvelHote() {
                 <FormField label="Méthode de collecte" name="methodeId" type="select"
                   value={form.methodeId} onChange={handleChange}
                   options={methodeOptions} required error={errors.methodeId} disabled={loadingRefs} />
+                <IdTerrainField
+                  methodeId={form.methodeId}
+                  value={form.idTerrain}
+                  onChange={(v) => setField('idTerrain', v)}
+                  error={errors.idTerrain}
+                  buildPreviewUrl={(id) => `/methodes/${id}/preview-hote-id`}
+                  label="Identifiant hôte"
+                  formatHint="HOTE_<AAAAMM>_<n>"
+                />
                 <FormField label="Espèce hôte (référentiel)" name="taxonomieHoteId" type="select"
                   value={form.taxonomieHoteId} onChange={handleChange}
                   options={taxonomieOptions} required error={errors.taxonomieHoteId}

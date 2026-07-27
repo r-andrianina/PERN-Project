@@ -2,7 +2,7 @@ const service = require('../services/missions.service');
 const prisma  = require('../config/prisma');
 const { logAudit, ACTIONS } = require('../utils/audit');
 
-const AUDIT_FIELDS = { ordreMission: true, statut: true, dateDebut: true, dateFin: true, objet: true };
+const AUDIT_FIELDS = { ordreMission: true, dateDebut: true, dateFin: true, objet: true };
 
 const listMissions = async (req, res) => {
   const missions = await service.list(req.query, req.user);
@@ -13,7 +13,7 @@ const getMission = async (req, res) => res.json({ mission: await service.getById
 
 const createMission = async (req, res) => {
   const mission = await service.create(req.body);
-  await logAudit({ req, action: ACTIONS.CREATE, entity: 'Mission', entityId: mission.id, newValues: { nom: mission.ordreMission, statut: mission.statut } });
+  await logAudit({ req, action: ACTIONS.CREATE, entity: 'Mission', entityId: mission.id, newValues: { nom: mission.ordreMission } });
   res.status(201).json({ message: 'Mission créée avec succès', mission });
 };
 
@@ -21,7 +21,7 @@ const updateMission = async (req, res) => {
   const id     = parseInt(req.params.id);
   const before = await prisma.mission.findUnique({ where: { id }, select: AUDIT_FIELDS });
   const mission = await service.update(id, req.body);
-  await logAudit({ req, action: ACTIONS.UPDATE, entity: 'Mission', entityId: id, oldValues: before, newValues: { nom: mission.ordreMission, statut: mission.statut, dateDebut: mission.dateDebut, dateFin: mission.dateFin } });
+  await logAudit({ req, action: ACTIONS.UPDATE, entity: 'Mission', entityId: id, oldValues: before, newValues: { nom: mission.ordreMission, dateDebut: mission.dateDebut, dateFin: mission.dateFin } });
   res.json({ message: 'Mission mise à jour avec succès', mission });
 };
 

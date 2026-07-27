@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, FolderOpen, MapPin, BookOpen, Beaker, PawPrint, Users, Upload,
-  Menu, X, LogOut, FlaskConical, Map, Radio,
+  LayoutDashboard, FolderOpen, MapPin, BookOpen, PawPrint, Users, Upload,
+  Menu, X, LogOut, FlaskConical, Map, Radio, Microscope,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import ThemeToggle from '../ThemeToggle';
@@ -11,6 +11,7 @@ import SpecimenIcon from '../SpecimenIcon';
 import GlobalSearch from '../GlobalSearch';
 import NotificationBell from '../NotificationBell';
 import Footer from './Footer';
+import Clock from './Clock';
 import { useT } from '../../lib/i18n';
 import { canBypass, ROLE_TONE as ROLE_TONE_MAP } from '../../lib/roles';
 
@@ -60,12 +61,6 @@ export default function MainLayout() {
   const t                = useT();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [now, setNow] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const handleLogout = () => { logout(); navigate('/login'); };
   const closeSidebar = () => setSidebarOpen(false);
@@ -78,7 +73,6 @@ export default function MainLayout() {
     { path: '/carte',        label: t('nav.carte'),        icon: Map             },
     { path: '/projets',      label: t('nav.projets'),      icon: FolderOpen      },
     { path: '/missions',     label: t('nav.missions'),     icon: MapPin          },
-    { path: '/methodes',     label: t('nav.methodes'),     icon: Beaker          },
     { path: '/hotes',        label: t('nav.hotes'),        icon: PawPrint        },
     { path: '/dictionnaire', label: t('nav.dictionnaire'), icon: BookOpen        },
     { path: '/import',       label: t('nav.import'),       icon: Upload          },
@@ -88,6 +82,7 @@ export default function MainLayout() {
     { path: '/specimens/moustiques', label: t('nav.moustiques'), type: 'moustique' },
     { path: '/specimens/tiques',     label: t('nav.tiques'),     type: 'tique'     },
     { path: '/specimens/puces',      label: t('nav.puces'),      type: 'puce'      },
+    { path: '/specimens/autres',     label: 'Autres spécimens',  type: 'autre'     },
   ];
 
   return (
@@ -101,7 +96,7 @@ export default function MainLayout() {
       {/* ── SIDEBAR ── */}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-surface border-r border-border flex flex-col
+        w-64 xl:w-72 2xl:w-80 bg-surface border-r border-border flex flex-col
         transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         shadow-card-lg lg:shadow-none
@@ -130,6 +125,9 @@ export default function MainLayout() {
           {NAV_ITEMS.map((item) => (
             <NavItem key={item.path} to={item.path} label={item.label} icon={item.icon} onClick={closeSidebar} />
           ))}
+
+          <NavSection>Laboratoire</NavSection>
+          <NavItem to="/labo" label="Manipulations labo" icon={Microscope} iconColorIdle="text-warning" onClick={closeSidebar} />
 
           <NavSection>{t('nav.specimens')}</NavSection>
           {SPECIMEN_ITEMS.filter(({ type }) =>
@@ -212,12 +210,7 @@ export default function MainLayout() {
 
           {/* Droite : date, heure, statut, thème */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            <span className="hidden sm:block text-xs text-fg-subtle capitalize">
-              {now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </span>
-            <span className="hidden md:block text-xs font-mono text-fg-muted tabular-nums">
-              {now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </span>
+            <Clock />
             <div className="hidden md:flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               <span className="text-xs text-fg-subtle">{t('topbar.connected')}</span>
@@ -228,7 +221,7 @@ export default function MainLayout() {
         </header>
 
         {/* Page courante */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 2xl:p-8">
           <Outlet />
         </main>
 

@@ -30,13 +30,6 @@ enum StatutProjet {
   suspendu
 }
 
-enum StatutMission {
-  planifiee
-  en_cours
-  terminee
-  annulee
-}
-
 enum Sexe {
   M
   F
@@ -57,6 +50,74 @@ enum TypeSpecimenTaxon {
   moustique
   tique
   puce
+  autre
+}
+
+enum TypeManipulation {
+  // Préparation
+  identification_morpho   // E — clé dichotomique, parité, gorgement
+  broyage_pool            // F — homogénéisation, constitution du pool
+  dessication             // A — conservation à sec
+  // Biologie moléculaire
+  extraction              // B — ADN / ARN
+  amplification_pcr       // C — PCR standard
+  qpcr                    // G — qPCR / RT-qPCR (valeur Ct)
+  nested_pcr              // H — PCR nichée (2 rounds)
+  sequencage              // D — Sanger / NGS
+  // Autre
+  microscopie             // I — glandes salivaires, frottis, oocystes
+  autre
+}
+
+enum StatutResultat {
+  brut
+  valide
+  invalide
+}
+
+enum MethodeExtraction {
+  destructive
+  non_destructive
+}
+
+enum StatutBandeGel {
+  positif
+  negatif
+  inconclusif
+}
+
+enum MethodeSequencage {
+  sanger
+  ngs_illumina
+  oxford_nanopore
+}
+
+enum TypeAcideNucleique {
+  adn
+  arn
+  adn_arn
+}
+
+enum NiveauConfiance {
+  certain
+  probable
+  douteux
+}
+
+enum TypeBroyage {
+  tissuelyser
+  pilon_mortier
+  billes_verre
+  sonication
+  manuel
+}
+
+enum TypeExamenMicro {
+  glandes_salivaires
+  frottis_sanguin
+  estomac_moustique
+  ovaires
+  corps_entier
 }
 
 enum AuditAction {
@@ -90,11 +151,14 @@ model User {
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
   // Relations
-  projetsResponsable Projet[]        @relation("ResponsableProjet")
-  missionsChef       Mission[]       @relation("ChefMission")
-  missionsAgent      MissionAgent[]
-  auditLogs          AuditLog[]
-  projetsMembre      MembreProjet[]
+  projetsResponsable  Projet[]             @relation("ResponsableProjet")
+  missionsChef        Mission[]            @relation("ChefMission")
+  missionsAgent       MissionAgent[]
+  auditLogs           AuditLog[]
+  projetsMembre       MembreProjet[]
+  manipulationsLabo   ManipulationLabo[]   @relation("OperateurManipulation")
+  validationsLabo     ManipulationLabo[]   @relation("ValidateurManipulation")
+  eventsLabo          ManipulationEvent[]
 
   @@map("users")
 }
@@ -109,6 +173,7 @@ model Projet {
   nom           String       @db.VarChar(200)
   description   String?      @db.Text
   porteur       String?      @db.VarChar(200)
+  posteAnalytique String?    @map("poste_analytique") @db.VarChar(150)
   responsableId Int?         @map("responsable_id")
   dateDebut     DateTime?    @map("date_debut") @db.Date
   dateFin       DateTime?    @map("date_fin") @db.Date
@@ -154,7 +219,6 @@ model Mission {
   chefMissionNom String?       @db.VarChar(200) @map("chef_mission_nom")
   dateDebut      DateTime      @map("date_debut") @db.Date
   dateFin       DateTime?     @map("date_fin") @db.Date
-  statut        StatutMission @default(planifiee)
   objet         String?       @db.Text
   observations  String?       @db.Text
   createdAt     DateTime      @default(now()) @map("created_at")
@@ -195,9 +259,6 @@ model Localite {
   district  String?  @db.VarChar(100)
   commune   String?  @db.VarChar(100)
   fokontany String?  @db.VarChar(100)
-  contactNom       String? @map("contact_nom")       @db.VarChar(150)
-  contactTelephone String? @map("contact_telephone") @db.VarChar(50)
-  contactStatut    String? @map("contact_statut")    @db.VarChar(100)
   latitude  Float?
   longitude Float?
   altitudeM Float?   @map("altitude_m")
@@ -206,8 +267,24 @@ model Localite {
 
   mission  Mission           @relation(fields: [missionId], references: [id], onDelete: Cascade)
   methodes MethodeCollecte[]
+  contacts LocaliteContact[]
 
   @@map("localites")
+}
+
+// Contacts locaux d'une localité (chef fokontany, guide, etc.) — plusieurs par localité.
+model LocaliteContact {
+  id         Int      @id @default(autoincrement())
+  localiteId Int      @map("localite_id")
+  nom        String   @db.VarChar(150)
+  telephone  String?  @db.VarChar(50)
+  statut     String?  @db.VarChar(100)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  localite Localite @relation(fields: [localiteId], references: [id], onDelete: Cascade)
+
+  @@map("localite_contacts")
 }
 
 // =============================================================
@@ -223,11 +300,12 @@ model MethodeCollecte {
   numero              Int       @default(1)
   typeHabitatId       Int?      @map("type_habitat_id")
   typeEnvironnementId Int?      @map("type_environnement_id")
+  interieurExterieur  String?   @map("interieur_exterieur")
   latitude            Float?
   longitude           Float?
-  dateCollecte        DateTime? @map("date_collecte") @db.Date
-  heureDebut          String?   @map("heure_debut")
-  heureFin            String?   @map("heure_fin")
+  altitudeM           Float?    @map("altitude_m")
+  datePose            DateTime? @map("date_pose")
+  dateReleve          DateTime? @map("date_releve")
   notes               String?   @db.Text
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
@@ -239,6 +317,7 @@ model MethodeCollecte {
   moustiques        Moustique[]
   tiques            Tique[]
   puces             Puce[]
+  autresSpecimens   AutreSpecimen[]
   hotes             Hote[]
 
   @@map("methodes_collecte")
@@ -268,9 +347,10 @@ model TaxonomieSpecimen {
   parent  TaxonomieSpecimen?  @relation("TxsHierarchy", fields: [parentId], references: [id])
   enfants TaxonomieSpecimen[] @relation("TxsHierarchy")
 
-  moustiques Moustique[]
-  tiques     Tique[]
-  puces      Puce[]
+  moustiques      Moustique[]
+  tiques          Tique[]
+  puces           Puce[]
+  autresSpecimens AutreSpecimen[]
 
   @@index([parentId])
   @@index([niveau])
@@ -333,9 +413,10 @@ model SolutionConservation {
   createdById Int?     @map("created_by")
   updatedById Int?     @map("updated_by")
 
-  moustiques Moustique[]
-  tiques     Tique[]
-  puces      Puce[]
+  moustiques      Moustique[]
+  tiques          Tique[]
+  puces           Puce[]
+  autresSpecimens AutreSpecimen[]
 
   @@map("solutions_conservation")
 }
@@ -378,6 +459,7 @@ model TypeHabitat {
 
 model Hote {
   id              Int      @id @default(autoincrement())
+  idTerrain       String?  @unique @map("id_terrain") @db.VarChar(50)
   methodeId       Int      @map("methode_id")
   taxonomieHoteId Int      @map("taxonomie_hote_id")
   especeLocale    String?  @map("espece_locale") @db.VarChar(200)
@@ -424,6 +506,7 @@ model Moustique {
   solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
   container Container?            @relation(fields: [containerId], references: [id])
 
+  @@index([methodeId])
   @@index([containerId])
   @@map("moustiques")
 }
@@ -457,6 +540,7 @@ model Tique {
   solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
   container Container?            @relation(fields: [containerId], references: [id])
 
+  @@index([methodeId])
   @@index([containerId])
   @@map("tiques")
 }
@@ -488,6 +572,7 @@ model Puce {
   solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
   container Container?            @relation(fields: [containerId], references: [id])
 
+  @@index([methodeId])
   @@index([containerId])
   @@map("puces")
 }
@@ -507,14 +592,408 @@ model Container {
   updatedAt   DateTime      @updatedAt @map("updated_at")
   createdById Int?          @map("created_by")
 
-  mission    Mission     @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  moustiques Moustique[]
-  tiques     Tique[]
-  puces      Puce[]
+  mission         Mission       @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  moustiques      Moustique[]
+  tiques          Tique[]
+  puces           Puce[]
+  autresSpecimens AutreSpecimen[]
 
   @@index([type])
   @@index([missionId])
   @@map("containers")
+}
+
+// =============================================================
+//  DICTIONNAIRE — TYPE D'AUTRE SPÉCIMEN
+// =============================================================
+
+model TypeAutreSpecimen {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(50)
+  nom         String   @db.VarChar(150)
+  description String?  @db.Text
+  actif       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by")
+  updatedById Int?     @map("updated_by")
+
+  specimens AutreSpecimen[]
+
+  @@map("types_autre_specimen")
+}
+
+// =============================================================
+//  SPÉCIMENS — AUTRES (Phlébotomes, Culicoïdes, etc.)
+// =============================================================
+
+model AutreSpecimen {
+  id             Int       @id @default(autoincrement())
+  idTerrain      String?   @unique @map("id_terrain") @db.VarChar(50)
+  methodeId      Int       @map("methode_id")
+  typeSpecimenId Int       @map("type_specimen_id")
+  taxonomieId    Int?      @map("taxonomie_id")
+  nombre         Int       @default(1)
+  sexe           Sexe      @default(inconnu)
+  stade          String?   @db.VarChar(50)
+  solutionId     Int?      @map("solution_id")
+  containerId    Int?      @map("container_id")
+  position       String?   @db.VarChar(10)
+  dateCollecte   DateTime? @map("date_collecte") @db.Date
+  notes          String?   @db.Text
+  attributs      Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  methode      MethodeCollecte      @relation(fields: [methodeId],      references: [id], onDelete: Cascade)
+  typeSpecimen TypeAutreSpecimen    @relation(fields: [typeSpecimenId], references: [id])
+  taxonomie    TaxonomieSpecimen?   @relation(fields: [taxonomieId],    references: [id])
+  solution     SolutionConservation? @relation(fields: [solutionId],   references: [id])
+  container    Container?           @relation(fields: [containerId],    references: [id])
+
+  @@index([containerId])
+  @@index([methodeId])
+  @@map("autres_specimens")
+}
+
+// =============================================================
+//  POOLS DE SPÉCIMENS (analyse groupée)
+// =============================================================
+
+model Pool {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique @db.VarChar(50)
+  nombreIndividus Int      @map("nombre_individus")
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  createdById     Int?     @map("created_by_id")
+
+  membres        PoolMembre[]
+  manipulations  ManipulationLabo[]
+
+  @@map("pools")
+}
+
+model PoolMembre {
+  id           Int               @id @default(autoincrement())
+  poolId       Int               @map("pool_id")
+  specimenType TypeSpecimenTaxon @map("specimen_type")
+  specimenId   Int               @map("specimen_id")
+
+  pool Pool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  @@unique([poolId, specimenType, specimenId])
+  @@index([poolId])
+  @@map("pool_membres")
+}
+
+// =============================================================
+//  DICTIONNAIRE — PATHOGÈNES CIBLES
+// =============================================================
+
+model PathogeneCible {
+  id          Int                 @id @default(autoincrement())
+  code        String              @unique @db.VarChar(50)
+  nom         String              @db.VarChar(200)
+  famille     String?             @db.VarChar(100)
+  typeOrg     String?             @map("type_org") @db.VarChar(50) // bacterie / virus / parasite / champignon
+  typeAN      TypeAcideNucleique? @map("type_an")
+  description String?             @db.Text
+  actif       Boolean             @default(true)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  createdById Int?                @map("created_by")
+  updatedById Int?                @map("updated_by")
+
+  manipulationsPcr      ManipulationPcr[]
+  manipulationsQpcr     ManipulationQPcr[]
+  manipulationsNestedPcr ManipulationNestedPcr[]
+
+  @@map("pathogenes_cibles")
+}
+
+// =============================================================
+//  MODULE LABORATOIRE — TABLE COMMUNE
+// =============================================================
+
+model ManipulationLabo {
+  id               Int               @id @default(autoincrement())
+  // Cible : spécimen individuel OU pool (contrainte applicative : l'un des deux)
+  specimenType     TypeSpecimenTaxon? @map("specimen_type")
+  specimenId       Int?               @map("specimen_id")
+  poolId           Int?               @map("pool_id")
+  typeManipulation TypeManipulation   @map("type_manipulation")
+  protocole        String?            @db.VarChar(200)
+  operateurId      Int                @map("operateur_id")
+  dateDebut        DateTime           @default(now()) @map("date_debut")
+  dateFin          DateTime?          @map("date_fin")
+  statut           StatutResultat     @default(brut)
+  valideParId      Int?               @map("valide_par_id")
+  valideLe         DateTime?          @map("valide_le")
+  motifInvalidation String?           @map("motif_invalidation") @db.Text
+  notes            String?            @db.Text
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  operateur  User   @relation("OperateurManipulation", fields: [operateurId], references: [id])
+  validePar  User?  @relation("ValidateurManipulation", fields: [valideParId], references: [id])
+  pool       Pool?  @relation(fields: [poolId], references: [id])
+  events     ManipulationEvent[]
+
+  // Modules (un seul renseigné selon typeManipulation)
+  identificationMorpho ManipulationIdentificationMorpho?
+  broyagePool          ManipulationBroyagePool?
+  dessication          ManipulationDessication?
+  extraction           ManipulationExtraction?
+  pcr                  ManipulationPcr?
+  qpcr                 ManipulationQPcr?
+  nestedPcr            ManipulationNestedPcr?
+  sequencage           ManipulationSequencage?
+  microscopie          ManipulationMicroscopie?
+
+  @@index([specimenType, specimenId])
+  @@index([poolId])
+  @@index([operateurId])
+  @@index([statut])
+  @@map("manipulations_labo")
+}
+
+// =============================================================
+//  MODULE LABORATOIRE — ÉVÉNEMENTS IMMUABLES (audit scientifique)
+// =============================================================
+
+model ManipulationEvent {
+  id             Int      @id @default(autoincrement())
+  manipulationId Int      @map("manipulation_id")
+  typeEvent      String   @map("type_event") @db.VarChar(50)
+  operateurId    Int      @map("operateur_id")
+  dateHeure      DateTime @default(now()) @map("date_heure")
+  payload        Json?
+  ipAddress      String?  @map("ip_address") @db.VarChar(45)
+
+  manipulation ManipulationLabo @relation(fields: [manipulationId], references: [id], onDelete: Cascade)
+  operateur    User             @relation(fields: [operateurId], references: [id])
+
+  @@index([manipulationId])
+  @@index([dateHeure])
+  @@map("manipulation_events")
+}
+
+// =============================================================
+//  MODULE E — IDENTIFICATION MORPHOLOGIQUE
+// =============================================================
+
+model ManipulationIdentificationMorpho {
+  manipulationId    Int              @id @map("manipulation_id")
+  cleUtilisee       String?          @map("cle_utilisee") @db.VarChar(200)
+  especeIdentifiee  String?          @map("espece_identifiee") @db.VarChar(200)
+  niveauConfiance   NiveauConfiance? @map("niveau_confiance")
+  stadeConfirme     String?          @map("stade_confirme") @db.VarChar(50)
+  gorgement         String?          @db.VarChar(50)
+  pariteMethode     String?          @map("parite_methode") @db.VarChar(100)
+  pariteResultat    String?          @map("parite_resultat") @db.VarChar(50)
+  partiesPrelevees  String?          @map("parties_prelevees") @db.VarChar(200)
+  observations      String?          @db.Text
+
+  manipulation ManipulationLabo @relation(fields: [manipulationId], references: [id], onDelete: Cascade)
+
+  @@map("manipulation_identification_morpho")
+}
+
+// =============================================================
+//  MODULE F — BROYAGE & CONSTITUTION DE POOL
+// =============================================================
+
+model ManipulationBroyagePool {
+  manipulationId      Int          @id @map("manipulation_id")
+  poolId              Int?         @map("pool_id_cree")
+  methodeBroyage      TypeBroyage? @map("methode_broyage")
+  tamponUtilise       String?      @map("tampon_utilise") @db.VarChar(200)
+  volumeTamponUl      Float?       @map("volume_tampon_ul")
+  parametresBroyeur   String?      @map("parametres_broyeur") @db.VarChar(100)
+  volumeRecupereUl    Float?       @map("volume_recupere_ul")
+  aspectMacro         String?      @map("aspect_macro") @db.VarChar(100)
+
+  manipulation ManipulationLabo @relation(fields: [manipulationId], references: [id], onDelete: Cascade)
+
+  @@map("manipulation_broyage_pool")
+}
+
+// =============================================================
+//  MODULE A — DESSICATION
+// =============================================================
+
+model ManipulationDessication {
+  manipulationId       Int       @id @map("manipulation_id")
+  methode              String?   @db.VarChar(200)
+  dateMiseConservation DateTime? @map("date_mise_conservation") @db.Date
+  temperatureStockage  String?   @map("temperature_stockage") @db.VarChar(20)
+  dureeDessicationH    Float?    @map("duree_dessication_h")
+  quantiteSilicaGelG   Float?    @map("quantite_silica_gel_g")
+  partieCorps          String?   @map("partie_corps") @db.VarChar(100)
+  statutTissu          String?   @map("statut_tissu") @db.VarChar(100)
+  emplacementCode      String?   @map("emplacement_code") @db.VarChar(100)
+
+  manipulation ManipulationLabo @relation(fields: [manipulationId], references: [id], onDelete: Cascade)
+
+  @@map("manipulation_dessication")
+}
+
+// =============================================================
+//  MODULE B — EXTRACTION ADN/ARN
+// =============================================================
+
+model ManipulationExtraction {
+  manipulationId          Int                 @id @map("manipulation_id")
+  typeAcideNucleique      TypeAcideNucleique? @map("type_acide_nucleique")
+  typeKit                 String?             @map("type_kit") @db.VarChar(200)
+  methodeExtraction       MethodeExtraction?  @map("methode_extraction")
+  methodeHomogeneisation  TypeBroyage?        @map("methode_homogeneisation")
+  quantiteTissuMg         Float?              @map("quantite_tissu_mg")
+  numerotLot              String?             @map("numerot_lot") @db.VarChar(100)
+  volumeElutionUl         Float?              @map("volume_elution_ul")
+  controlExtraction       Boolean?            @map("control_extraction")
+  concentrationAdn        Float?              @map("concentration_adn")
+  pureteA260A280          Float?              @map("purete_a260_a280")
+  pureteA260A230          Float?              @map("purete_a260_a230")
+  volumeFinalUl           Float?              @map("volume_final_ul")
+  idTubeAdn               String?             @map("id_tube_adn") @db.VarChar(100)
+
+  manipulation ManipulationLabo @relation(fields: [manipulationId], references: [id], onDelete: Cascade)
+
+  @@map("manipulation_extraction")
+}
+
+// =============================================================
+//  MODULE C — PCR STANDARD
+// =============================================================
+
+model ManipulationPcr {
+  manipulationId   Int             @id @map("manipulation_id")
+  pathogeneCibleId Int?            @map("pathogene_cible_id")
+  geneCible        String?         @map("gene_cible") @db.VarChar(200)
+  amorceForward    String?         @map("amorce_forward") @db.VarChar(300)
+  amorceReverse    String?         @map("amorce_reverse") @db.VarChar(300)
+  enzyme           String?         @db.VarChar(200)
+  programmeThermo  String?         @map("programme_thermo") @db.VarChar(300)
+  tailleAttenduePb Int?            @map("taille_attendue_pb")
+  idPlaquePcr      String?         @map("id_plaque_pcr") @db.VarChar(50)
+  puitsPcr         String?         @map("puits_pcr") @db.VarChar(5)
+  temoinPositif    Boolean?        @map("temoin_positif")
+  temoinNegatif    Boolean?        @map("temoin_negatif")
+  statutBandeGel   StatutBandeGel? @map("statut_bande_gel")
+  tailleBandePb    Int?            @map("taille_bande_pb")
+  imageGelPath     String?         @map("image_gel_path") @db.VarChar(500)
+
+  pathogeneCible PathogeneCible?  @relation(fields: [pathogeneCibleId], references: [id])
+  manipulation   ManipulationLabo @relation(fields: [manipulationId], references: [id], onDelete: Cascade)
+
+  @@map("manipulation_pcr")
+}
+
+// =============================================================
+//  MODULE G — qPCR / RT-qPCR
+// =============================================================
+
+model ManipulationQPcr {
+  manipulationId    Int             @id @map("manipulation_id")
+  pathogeneCibleId  Int?            @map("pathogene_cible_id")
+  typePcr           String?         @map("type_pcr") @db.VarChar(20)   // qPCR / RT-qPCR
+  geneCible         String?         @map("gene_cible") @db.VarChar(200)
+  amorceForward     String?         @map("amorce_forward") @db.VarChar(300)
+  amorceReverse     String?         @map("amorce_reverse") @db.VarChar(300)
+  sondeTaqman       String?         @map("sonde_taqman") @db.VarChar(300)
+  geneReference     String?         @map("gene_reference") @db.VarChar(100)
+  masterMix         String?         @map("master_mix") @db.VarChar(200)
+  volumeReactionUl  Float?          @map("volume_reaction_ul")
+  idPlaqueQpcr      String?         @map("id_plaque_qpcr") @db.VarChar(50)
+  puitsQpcr         String?         @map("puits_qpcr") @db.VarChar(5)
+  valeurCt          Float?          @map("valeur_ct")
+  ctTemoinPositif   Float?          @map("ct_temoin_positif")
+  ctTemoinNegatif   Float?          @map("ct_temoin_negatif")
+  ctControleInterne Float?          @map("ct_controle_interne")
+  efficacitePct     Float?          @map("efficacite_pct")
+  interpretation    StatutBandeGel? @map("interpretation")
+  chargeVirale      Float?          @map("charge_virale")
+
+  pathogeneCible PathogeneCible?  @relation(fields: [pathogeneCibleId], references: [id])
+  manipulation   ManipulationLabo @relation(fields: [manipulationId], references: [id], onDelete: Cascade)
+
+  @@map("manipulation_qpcr")
+}
+
+// =============================================================
+//  MODULE H — PCR NICHÉE (NESTED PCR)
+// =============================================================
+
+model ManipulationNestedPcr {
+  manipulationId   Int             @id @map("manipulation_id")
+  pathogeneCibleId Int?            @map("pathogene_cible_id")
+  geneCible        String?         @map("gene_cible") @db.VarChar(200)
+  amorceF1         String?         @map("amorce_f1") @db.VarChar(300)
+  amorceR1         String?         @map("amorce_r1") @db.VarChar(300)
+  tailleAttendue1  Int?            @map("taille_attendue_1_pb")
+  statutBande1     StatutBandeGel? @map("statut_bande_1")
+  amorceF2         String?         @map("amorce_f2") @db.VarChar(300)
+  amorceR2         String?         @map("amorce_r2") @db.VarChar(300)
+  tailleAttendue2  Int?            @map("taille_attendue_2_pb")
+  statutBande2     StatutBandeGel? @map("statut_bande_2")
+  resultatFinal    StatutBandeGel? @map("resultat_final")
+  tailleBandeObsPb Int?            @map("taille_bande_obs_pb")
+  idPlaque         String?         @map("id_plaque") @db.VarChar(50)
+  temoinPositif    Boolean?        @map("temoin_positif")
+  temoinNegatif    Boolean?        @map("temoin_negatif")
+  imageGelPath     String?         @map("image_gel_path") @db.VarChar(500)
+
+  pathogeneCible PathogeneCible?  @relation(fields: [pathogeneCibleId], references: [id])
+  manipulation   ManipulationLabo @relation(fields: [manipulationId], references: [id], onDelete: Cascade)
+
+  @@map("manipulation_nested_pcr")
+}
+
+// =============================================================
+//  MODULE D — SÉQUENÇAGE
+// =============================================================
+
+model ManipulationSequencage {
+  manipulationId     Int                @id @map("manipulation_id")
+  methodeSequencage  MethodeSequencage? @map("methode_sequencage")
+  prestataire        String?            @db.VarChar(200)
+  idPlaqueTube       String?            @map("id_plaque_tube") @db.VarChar(100)
+  amorceSequencage   String?            @map("amorce_sequencage") @db.VarChar(200)
+  fichierRawPath     String?            @map("fichier_raw_path") @db.VarChar(500)
+  scoreQualite       Float?             @map("score_qualite")
+  sequenceConsensus  String?            @map("sequence_consensus") @db.Text
+  organismeBlast     String?            @map("organisme_blast") @db.VarChar(300)
+  identiteBlastPct   Float?             @map("identite_blast_pct")
+  couvertureBlastPct Float?             @map("couverture_blast_pct")
+  accessionGenbank   String?            @map("accession_genbank") @db.VarChar(50)
+  resultatBlast      String?            @map("resultat_blast") @db.Text
+
+  manipulation ManipulationLabo @relation(fields: [manipulationId], references: [id], onDelete: Cascade)
+
+  @@map("manipulation_sequencage")
+}
+
+// =============================================================
+//  MODULE I — MICROSCOPIE
+// =============================================================
+
+model ManipulationMicroscopie {
+  manipulationId    Int              @id @map("manipulation_id")
+  typeExamen        TypeExamenMicro? @map("type_examen")
+  coloration        String?          @db.VarChar(100)
+  grossissement     String?          @db.VarChar(50)
+  resultat          StatutBandeGel?
+  stadeObserve      String?          @map("stade_observe") @db.VarChar(200)
+  densiteParasitaire String?         @map("densite_parasitaire") @db.VarChar(100)
+  imageMicroPath    String?          @map("image_micro_path") @db.VarChar(500)
+  observations      String?          @db.Text
+
+  manipulation ManipulationLabo @relation(fields: [manipulationId], references: [id], onDelete: Cascade)
+
+  @@map("manipulation_microscopie")
 }
 
 // =============================================================

@@ -2,19 +2,24 @@ const { z } = require('zod');
 
 const optFloat = z.coerce.number().optional().nullable();
 
+const contact = z.object({
+  id:        z.coerce.number().int().positive().optional(),
+  nom:       z.string().min(1).max(150),
+  telephone: z.string().max(50).optional().nullable(),
+  statut:    z.string().max(100).optional().nullable(),
+});
+
 const createLocalite = z.object({
   missionId:  z.coerce.number().int().positive(),
   code:       z.string().regex(/^[A-Z]{3}$/).optional().nullable(),
+  // Champ unique côté formulaire — le backend mirroire vers la colonne toponyme.
   nom:        z.string().min(1).max(200),
-  toponyme:   z.string().max(200).optional().nullable(),
   pays:       z.string().max(100).optional().default('Madagascar'),
   region:     z.string().max(100).optional().nullable(),
   district:   z.string().max(100).optional().nullable(),
   commune:    z.string().max(100).optional().nullable(),
   fokontany:  z.string().max(100).optional().nullable(),
-  contactNom:       z.string().max(150).optional().nullable(),
-  contactTelephone: z.string().max(50).optional().nullable(),
-  contactStatut:    z.string().max(100).optional().nullable(),
+  contacts:   z.array(contact).optional(),
   latitude:   optFloat,
   longitude:  optFloat,
   altitudeM:  optFloat,

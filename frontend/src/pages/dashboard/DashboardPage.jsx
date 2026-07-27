@@ -8,12 +8,10 @@ import {
   ResponsiveContainer, Cell, PieChart, Pie,
 } from 'recharts';
 import useAuthStore from '../../store/authStore';
-import { Card, Badge, EmptyState, Spinner } from '../../components/ui';
+import { Card, EmptyState, Spinner } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
 import SpecimenIcon from '../../components/SpecimenIcon';
 
-const STATUT_TONE  = { planifiee: 'info', en_cours: 'success', terminee: 'default', annulee: 'danger' };
-const STATUT_LABEL = { planifiee: 'Planifiée', en_cours: 'En cours', terminee: 'Terminée', annulee: 'Annulée' };
 
 const TYPE_CFG = {
   moustique: { color: '#1D9E75', label: 'Moustique' },
@@ -300,9 +298,6 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0 ml-3">
                   <span className="text-xs text-fg-subtle hidden sm:block">{m._count?.localites ?? 0} loc.</span>
-                  <Badge tone={STATUT_TONE[m.statut] ?? 'default'} dot>
-                    {STATUT_LABEL[m.statut] ?? m.statut}
-                  </Badge>
                   <ChevronRight size={14} className="text-fg-subtle group-hover:text-primary transition-colors" />
                 </div>
               </Link>

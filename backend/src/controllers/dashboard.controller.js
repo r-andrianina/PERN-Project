@@ -51,7 +51,7 @@ const getStats = async (req, res) => {
       take:    6,
       orderBy: { createdAt: 'desc' },
       select: {
-        id: true, ordreMission: true, statut: true,
+        id: true, ordreMission: true,
         projet: { select: { nom: true } },
         _count: { select: { localites: true } },
       },

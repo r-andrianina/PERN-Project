@@ -17,61 +17,45 @@ const othersWhere = (userId) => ({
 });
 
 const list = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const limit  = Math.min(parseInt(req.query.limit)  || 20, 100);
-    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+  const userId = req.user.id;
+  const limit  = Math.min(parseInt(req.query.limit)  || 20, 100);
+  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
 
-    const base   = othersWhere(userId);
-    const filter = { ...base };
+  const base   = othersWhere(userId);
+  const filter = { ...base };
 
-    if (req.query.action) filter.action = req.query.action;
-    if (req.query.entity) filter.entity = req.query.entity;
-    if (req.query.isRead === 'true')  filter.isRead = true;
-    if (req.query.isRead === 'false') filter.isRead = false;
+  if (req.query.action) filter.action = req.query.action;
+  if (req.query.entity) filter.entity = req.query.entity;
+  if (req.query.isRead === 'true')  filter.isRead = true;
+  if (req.query.isRead === 'false') filter.isRead = false;
 
-    const [items, total, unreadCount] = await Promise.all([
-      prisma.auditLog.findMany({
-        where:   filter,
-        include: { user: { select: { id: true, prenom: true, nom: true } } },
-        orderBy: { createdAt: 'desc' },
-        take:    limit,
-        skip:    offset,
-      }),
-      prisma.auditLog.count({ where: filter }),
-      prisma.auditLog.count({ where: { ...base, isRead: false } }),
-    ]);
+  const [items, total, unreadCount] = await Promise.all([
+    prisma.auditLog.findMany({
+      where:   filter,
+      include: { user: { select: { id: true, prenom: true, nom: true } } },
+      orderBy: { createdAt: 'desc' },
+      take:    limit,
+      skip:    offset,
+    }),
+    prisma.auditLog.count({ where: filter }),
+    prisma.auditLog.count({ where: { ...base, isRead: false } }),
+  ]);
 
-    return res.json({ items, total, unreadCount });
-  } catch (err) {
-    console.error('Erreur list notifications :', err.message);
-    return res.status(500).json({ error: 'Erreur serveur' });
-  }
+  return res.json({ items, total, unreadCount });
 };
 
 const markRead = async (req, res) => {
   const id = parseInt(req.params.id);
-  try {
-    await prisma.auditLog.update({ where: { id }, data: { isRead: true } });
-    return res.json({ message: 'ok' });
-  } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ error: 'Notification introuvable' });
-    console.error('Erreur markRead notification :', err.message);
-    return res.status(500).json({ error: 'Erreur serveur' });
-  }
+  await prisma.auditLog.update({ where: { id }, data: { isRead: true } });
+  return res.json({ message: 'ok' });
 };
 
 const markAllRead = async (req, res) => {
-  try {
-    await prisma.auditLog.updateMany({
-      where: { ...othersWhere(req.user.id), isRead: false },
-      data: { isRead: true },
-    });
-    return res.json({ message: 'ok' });
-  } catch (err) {
-    console.error('Erreur markAllRead notifications :', err.message);
-    return res.status(500).json({ error: 'Erreur serveur' });
-  }
+  await prisma.auditLog.updateMany({
+    where: { ...othersWhere(req.user.id), isRead: false },
+    data: { isRead: true },
+  });
+  return res.json({ message: 'ok' });
 };
 
 // Endpoint SSE — maintient une connexion longue durée et pousse les événements

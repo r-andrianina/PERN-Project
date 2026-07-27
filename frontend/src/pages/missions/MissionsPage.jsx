@@ -5,9 +5,6 @@ import useAuthStore from '../../store/authStore';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner, DataTable, Pagination } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
 
-const STATUT_TONE  = { planifiee: 'info', en_cours: 'success', terminee: 'default', annulee: 'danger' };
-const STATUT_LABEL = { planifiee: 'Planifiée', en_cours: 'En cours', terminee: 'Terminée', annulee: 'Annulée' };
-
 const COLUMNS = [
   {
     key:          'ordreMission',
@@ -60,17 +57,6 @@ const COLUMNS = [
     render: (m) => <Badge tone="info">{m._count?.localites ?? 0}</Badge>,
   },
   {
-    key:          'statut',
-    label:        'Statut',
-    sortable:     true,
-    skeletonWidth: '55%',
-    render: (m) => (
-      <Badge tone={STATUT_TONE[m.statut] ?? 'default'} dot>
-        {STATUT_LABEL[m.statut] ?? m.statut}
-      </Badge>
-    ),
-  },
-  {
     key:   '_nav',
     label: '',
     width: '40px',
@@ -97,7 +83,6 @@ export default function MissionsPage() {
       switch (sort.key) {
         case 'ordreMission': av = a.ordreMission; bv = b.ordreMission; break;
         case 'dateDebut':    av = a.dateDebut;    bv = b.dateDebut;    break;
-        case 'statut':       av = a.statut;       bv = b.statut;       break;
         case 'localites':    av = a._count?.localites ?? 0; bv = b._count?.localites ?? 0; break;
         default: return 0;
       }
@@ -150,9 +135,8 @@ export default function MissionsPage() {
             {missions.map(m => (
               <Link key={m.id} to={`/missions/${m.id}`} className="block group">
                 <Card padding="sm" className="hover:shadow-card-md transition-shadow">
-                  <div className="flex items-start justify-between mb-2">
+                  <div className="mb-2">
                     <span className="font-semibold text-primary text-sm">{m.ordreMission}</span>
-                    <Badge tone={STATUT_TONE[m.statut] ?? 'default'} dot>{STATUT_LABEL[m.statut] ?? m.statut}</Badge>
                   </div>
                   <p className="text-xs text-fg-muted mb-2">{m.projet?.nom}</p>
                   <div className="flex items-center gap-4 text-xs text-fg-subtle">

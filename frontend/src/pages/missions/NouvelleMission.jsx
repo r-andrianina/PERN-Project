@@ -1,24 +1,183 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, MapPin, ClipboardList, Plus, Trash2, Check, Loader2, Tag, Calendar, User, Navigation, UserCheck, UserX } from 'lucide-react';
+import {
+  ChevronLeft, MapPin, ClipboardList, Plus, Trash2, Check, Loader2, Calendar, User,
+  Navigation, UserCheck, UserX, Beaker, X, Edit2, Layers,
+} from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
-import MapPicker from '../../components/MapPicker';
+import LocaliteFieldsForm from '../../components/LocaliteFieldsForm';
+import MethodeFieldsForm from '../../components/MethodeFieldsForm';
 import AgentMultiSelect from '../../components/AgentMultiSelect';
+import { useApiQuery } from '../../hooks';
 
 const defaultLocalite = () => ({
-  nom: '', toponyme: '', pays: 'Madagascar',
+  nom: '', pays: 'Madagascar',
   region: '', district: '', commune: '', fokontany: '',
-  contactNom: '', contactTelephone: '', contactStatut: '',
+  contacts: [],
+  methodes: [],
   latitude: '', longitude: '', altitudeM: '',
 });
+
+const defaultMethode = () => ({
+  typeMethodeId: '', numero: '1', typeHabitatId: '', typeEnvironnementId: '', interieurExterieur: '',
+  datePose: '', dateReleve: '', notes: '', latitude: '', longitude: '', altitudeM: '',
+});
+
+// ── Modal d'ajout/édition d'une méthode brouillon (pas encore persistée —
+//    la localité elle-même n'existe pas encore tant que la mission n'est
+//    pas créée). Ne fait aucun appel API, se contente de renvoyer l'objet
+//    au parent via onSave.
+function MethodeDraftModal({ localite, initial, onClose, onSave }) {
+  const [form, setForm] = useState(initial ?? defaultMethode());
+  const isEdit = !!initial;
+
+  const { data: typesMethode } = useApiQuery('/dictionnaire/types-methode', {
+    params: { actif: 'true' }, select: (r) => r.items ?? [],
+  });
+  const selectedType = (typesMethode ?? []).find((t) => t.id === parseInt(form.typeMethodeId));
+  const identifiant  = selectedType ? `${selectedType.code}_${form.numero || 1}` : null;
+
+  // Numéro auto-incrémenté : dès qu'un type de méthode est (re)choisi lors
+  // d'un ajout, on propose le prochain numéro libre pour ce type sur cette
+  // localité brouillon.
+  const handleFieldsChange = (patch) => {
+    setForm((f) => {
+      const next = { ...f, ...patch };
+      if (!isEdit && patch.typeMethodeId !== undefined) {
+        const siblingNums = (localite.methodes || [])
+          .filter((m) => String(m.typeMethodeId) === String(patch.typeMethodeId))
+          .map((m) => parseInt(m.numero) || 1);
+        next.numero = String((siblingNums.length ? Math.max(...siblingNums) : 0) + 1);
+      }
+      return next;
+    });
+  };
+
+  const submit = (e) => {
+    e.preventDefault();
+    onSave(form);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <form onSubmit={submit} className="bg-surface rounded-2xl shadow-2xl w-full max-w-3xl my-4 sm:my-8">
+        <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between rounded-t-2xl">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
+              <Beaker size={16} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white">
+                {isEdit ? 'Modifier la méthode' : 'Nouvelle méthode'}
+              </h2>
+              <p className="text-xs text-white/80">{localite.nom || 'Localité sans nom'}{identifiant ? ` — ${identifiant}` : ''}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <MethodeFieldsForm value={form} onChange={handleFieldsChange} localiteCoords={localite} />
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-border">
+            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="submit" className="btn-primary">
+              <Check size={15} /> {isEdit ? 'Enregistrer' : 'Ajouter la méthode'}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Modal de génération en série : "type de méthode + nombre" → N cartes
+//    piège brouillon (ex: CDC_2, CDC_3, CDC_4), chacune vide à part son
+//    type/numéro — à compléter individuellement ensuite, comme les localités.
+function MethodeBulkModal({ localite, onClose, onGenerate }) {
+  const [typeMethodeId, setTypeMethodeId] = useState('');
+  const [count, setCount] = useState('1');
+
+  const { data: typesMethode } = useApiQuery('/dictionnaire/types-methode', {
+    params: { actif: 'true' }, select: (r) => r.items ?? [],
+  });
+  const selectedType = (typesMethode ?? []).find((t) => t.id === parseInt(typeMethodeId));
+  const typeOptions  = (typesMethode ?? []).map((t) => ({ value: t.id, label: t.nom, keywords: t.code }));
+
+  const nextNumero = selectedType
+    ? (() => {
+        const siblingNums = (localite.methodes || [])
+          .filter((m) => String(m.typeMethodeId) === String(typeMethodeId))
+          .map((m) => parseInt(m.numero) || 1);
+        return (siblingNums.length ? Math.max(...siblingNums) : 0) + 1;
+      })()
+    : 1;
+
+  const n = Math.max(1, Math.min(20, parseInt(count) || 1));
+  const preview = selectedType
+    ? Array.from({ length: n }, (_, i) => `${selectedType.code}_${nextNumero + i}`)
+    : [];
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!typeMethodeId) return;
+    onGenerate(typeMethodeId, n);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <form onSubmit={submit} className="bg-surface rounded-2xl shadow-2xl w-full max-w-md my-4 sm:my-8">
+        <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between rounded-t-2xl">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
+              <Layers size={16} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white">Générer des pièges en série</h2>
+              <p className="text-xs text-white/80">{localite.nom || 'Localité sans nom'}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <FormField label="Type de méthode" name="typeMethodeId" type="select"
+            value={typeMethodeId} onChange={(e) => setTypeMethodeId(e.target.value)}
+            options={typeOptions} required />
+          <FormField label="Nombre de pièges" name="count" type="number"
+            value={count} onChange={(e) => setCount(e.target.value)}
+            hint="Une carte sera créée par piège, à compléter individuellement (habitat, environnement, position…)." />
+
+          {preview.length > 0 && (
+            <div className="text-xs text-fg-subtle bg-surface-2/60 rounded-lg px-3 py-2">
+              <span className="font-medium text-fg-muted">Génèrera : </span>
+              <span className="font-mono">{preview.join(', ')}</span>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-border">
+            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="submit" disabled={!typeMethodeId} className="btn-primary">
+              <Check size={15} /> Générer{n > 1 ? ` (${n})` : ''}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 export default function NouvelleMission() {
   const navigate = useNavigate();
 
   const [mission, setMission] = useState({
     ordreMission: '', projetId: '', chefMissionId: '', chefMissionNom: '',
-    dateDebut: '', dateFin: '', statut: 'planifiee', objet: '', observations: '',
+    dateDebut: '', dateFin: '', objet: '', observations: '',
     agentIds: [],
   });
   const [chefMode, setChefMode] = useState('systeme'); // 'systeme' | 'externe'
@@ -28,10 +187,8 @@ export default function NouvelleMission() {
   const [isLoading, setIsLoading]   = useState(false);
   const [errors, setErrors]         = useState({});
   const [activeLocalite, setActiveLocalite] = useState(0);
-  // état auto-fill par localité : { 0: 'loading'|'match'|'nearest'|null }
-  const [autoFill,  setAutoFill]    = useState({});
-  // état chargement altitude par localité : { 0: true|false }
-  const [altitudeLoading, setAltitudeLoading] = useState({});
+  const [methodeModal, setMethodeModal] = useState(null); // { localiteIndex, methodeIndex? }
+  const [bulkModal, setBulkModal] = useState(null); // { localiteIndex }
 
   useEffect(() => {
     Promise.all([api.get('/projets'), api.get('/auth/users')])
@@ -41,80 +198,74 @@ export default function NouvelleMission() {
       }).catch(console.error);
   }, []);
 
+  const { data: typesMethode } = useApiQuery('/dictionnaire/types-methode', {
+    params: { actif: 'true' }, select: (r) => r.items ?? [],
+  });
+  const { data: typesHabitat } = useApiQuery('/dictionnaire/types-habitat', {
+    params: { actif: 'true' }, select: (r) => r.items ?? [],
+  });
+  const { data: typesEnv } = useApiQuery('/dictionnaire/types-environnement', {
+    params: { actif: 'true' }, select: (r) => r.items ?? [],
+  });
+
+  const saveMethode = (localiteIndex, methodeIndex, draft) => {
+    setLocalites((prev) => {
+      const updated = [...prev];
+      const methodes = [...(updated[localiteIndex].methodes || [])];
+      if (methodeIndex === undefined || methodeIndex === null) methodes.push(draft);
+      else methodes[methodeIndex] = draft;
+      updated[localiteIndex] = { ...updated[localiteIndex], methodes };
+      return updated;
+    });
+    setMethodeModal(null);
+  };
+
+  // Génération en série : N cartes piège vides (sauf type/numéro), à
+  // compléter individuellement — même logique d'auto-incrément que l'ajout
+  // unitaire (handleFieldsChange de MethodeDraftModal), appliquée N fois.
+  const generateMethodes = (localiteIndex, typeMethodeId, count) => {
+    setLocalites((prev) => {
+      const updated = [...prev];
+      const existing = updated[localiteIndex].methodes || [];
+      const siblingNums = existing
+        .filter((m) => String(m.typeMethodeId) === String(typeMethodeId))
+        .map((m) => parseInt(m.numero) || 1);
+      let next = (siblingNums.length ? Math.max(...siblingNums) : 0) + 1;
+      const generated = [];
+      for (let i = 0; i < count; i++) {
+        generated.push({ ...defaultMethode(), typeMethodeId: String(typeMethodeId), numero: String(next) });
+        next += 1;
+      }
+      updated[localiteIndex] = { ...updated[localiteIndex], methodes: [...existing, ...generated] };
+      return updated;
+    });
+    setBulkModal(null);
+  };
+
+  const removeMethode = (localiteIndex, methodeIndex) => {
+    setLocalites((prev) => {
+      const updated = [...prev];
+      updated[localiteIndex] = {
+        ...updated[localiteIndex],
+        methodes: updated[localiteIndex].methodes.filter((_, i) => i !== methodeIndex),
+      };
+      return updated;
+    });
+  };
+
   const handleMissionChange = (e) => {
     setErrors({ ...errors, [e.target.name]: null });
     setMission({ ...mission, [e.target.name]: e.target.value });
   };
 
-  const handleLocaliteChange = (index, e) => {
-    const updated = [...localites];
-    updated[index] = { ...updated[index], [e.target.name]: e.target.value };
-    setLocalites(updated);
-  };
-
-  // Lookup PostGIS fokontany à partir des coordonnées
-  const lookupFokontany = async (index, lat, lng) => {
-    if (!lat || !lng) return;
-    setAutoFill((s) => ({ ...s, [index]: 'loading' }));
-    try {
-      const r = await api.get('/localites/lookup-fokontany', { params: { lat, lng } });
-      const d = r.data;
-      const filled = d.match ? d : d.nearest;
-      if (filled) {
-        setLocalites((prev) => {
-          const updated = [...prev];
-          updated[index] = {
-            ...updated[index],
-            region:    filled.region    || updated[index].region,
-            district:  filled.district  || updated[index].district,
-            commune:   filled.commune   || updated[index].commune,
-            fokontany: filled.fokontany || updated[index].fokontany,
-          };
-          return updated;
-        });
-        setAutoFill((s) => ({ ...s, [index]: d.match ? 'match' : 'nearest' }));
-      } else {
-        setAutoFill((s) => ({ ...s, [index]: 'none' }));
-      }
-    } catch {
-      setAutoFill((s) => ({ ...s, [index]: 'none' }));
-    }
-  };
-
-  // Altitude automatique via l'API d'élévation Open-Meteo (gratuite, sans clé)
-  const lookupAltitude = async (index, lat, lng) => {
-    if (!lat || !lng) return;
-    setAltitudeLoading((s) => ({ ...s, [index]: true }));
-    try {
-      const r = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`);
-      const data = await r.json();
-      const elevation = data?.elevation?.[0];
-      if (elevation !== undefined && elevation !== null) {
-        setLocalites((prev) => {
-          const updated = [...prev];
-          updated[index] = { ...updated[index], altitudeM: String(Math.round(elevation)) };
-          return updated;
-        });
-      }
-    } catch {
-      // silencieux — l'utilisateur peut saisir l'altitude manuellement
-    } finally {
-      setAltitudeLoading((s) => ({ ...s, [index]: false }));
-    }
-  };
-
-  const handleMapChange = (index, coords) => {
+  // patch : objet partiel — mergé sur l'état le plus récent (évite les races
+  // entre lookups PostGIS/altitude concurrents résolus dans le désordre).
+  const updateLocalite = (index, patch) => {
     setLocalites((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], ...coords, altitudeM: '' };
+      updated[index] = { ...updated[index], ...patch };
       return updated;
     });
-    if (coords.latitude && coords.longitude) {
-      lookupFokontany(index, coords.latitude, coords.longitude);
-      lookupAltitude(index, coords.latitude, coords.longitude);
-    } else {
-      setAutoFill((s) => ({ ...s, [index]: null }));
-    }
   };
 
   const addLocalite = () => {
@@ -156,16 +307,39 @@ export default function NouvelleMission() {
         chefMissionId:  chefMode === 'systeme' && mission.chefMissionId ? parseInt(mission.chefMissionId) : null,
         chefMissionNom: chefMode === 'externe' ? mission.chefMissionNom || null : null,
         agentIds:       mission.agentIds.map((id) => parseInt(id)),
+        dateFin:        mission.dateFin || null,
       });
       const missionId = missionRes.data.mission.id;
-      await Promise.all(
-        localites.map(l => api.post('/localites', {
+      const localiteResults = await Promise.all(
+        localites.map((l) => api.post('/localites', {
           ...l,
+          methodes:  undefined, // brouillon local — créées séparément ci-dessous une fois l'id réel connu
           missionId,
           latitude:  l.latitude  ? parseFloat(l.latitude)  : null,
           longitude: l.longitude ? parseFloat(l.longitude) : null,
           altitudeM: l.altitudeM ? parseFloat(l.altitudeM) : null,
         }))
+      );
+      // Une fois les localités créées (et leur id réel connu), on crée les
+      // méthodes brouillon rattachées à chacune.
+      await Promise.all(
+        localiteResults.flatMap((res, i) => {
+          const localiteId = res.data.localite.id;
+          return (localites[i].methodes || []).map((m) => api.post('/methodes', {
+            ...m,
+            localiteId,
+            typeMethodeId:       m.typeMethodeId       ? parseInt(m.typeMethodeId)       : null,
+            numero:              parseInt(m.numero) || 1,
+            typeHabitatId:       m.typeHabitatId       ? parseInt(m.typeHabitatId)       : null,
+            typeEnvironnementId: m.typeEnvironnementId ? parseInt(m.typeEnvironnementId) : null,
+            interieurExterieur:  m.interieurExterieur || null,
+            datePose:            m.datePose   || null,
+            dateReleve:          m.dateReleve || null,
+            latitude:            m.latitude  || null,
+            longitude:           m.longitude || null,
+            altitudeM:           m.altitudeM || null,
+          }));
+        })
       );
       navigate(`/missions/${missionId}`);
     } catch (err) {
@@ -177,12 +351,6 @@ export default function NouvelleMission() {
 
   const projetOptions = projets.map(p => ({ value: p.id, label: p.porteur ? `${p.nom} / ${p.porteur}` : p.nom }));
   const userOptions   = users.map(u  => ({ value: u.id, label: `${u.prenom} ${u.nom} (${u.role})` }));
-  const statutOptions = [
-    { value: 'planifiee', label: 'Planifiée' },
-    { value: 'en_cours',  label: 'En cours'  },
-    { value: 'terminee',  label: 'Terminée'  },
-    { value: 'annulee',   label: 'Annulée'   },
-  ];
   const selectedProjet   = projets.find((p) => p.id === parseInt(mission.projetId));
   const selectedChef     = chefMode === 'systeme' ? users.find((u) => u.id === parseInt(mission.chefMissionId)) : null;
   const chefLabel        = chefMode === 'systeme' ? (selectedChef ? `${selectedChef.prenom} ${selectedChef.nom}` : null) : (mission.chefMissionNom || null);
@@ -225,8 +393,12 @@ export default function NouvelleMission() {
               value={mission.projetId} onChange={handleMissionChange}
               options={projetOptions} required error={errors.projetId}
             />
-            {/* Chef de mission — utilisateur du système ou personne externe */}
-            <div className="space-y-2">
+            {/* Chef de mission — utilisateur du système ou personne externe.
+                Pleine largeur : plus haut que les autres champs (label +
+                bascule + select/texte), le mettre en pleine largeur évite un
+                appariement de ligne déséquilibré et laisse Date de
+                début/Date de fin se retrouver naturellement côte à côte. */}
+            <div className="space-y-2 md:col-span-2">
               <p className="text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
                 <User size={12} /> Chef de mission
               </p>
@@ -270,11 +442,6 @@ export default function NouvelleMission() {
               )}
             </div>
             <FormField
-              label="Statut" name="statut" type="select"
-              value={mission.statut} onChange={handleMissionChange}
-              options={statutOptions}
-            />
-            <FormField
               label="Date de début" name="dateDebut" type="date"
               value={mission.dateDebut} onChange={handleMissionChange}
               required error={errors.dateDebut}
@@ -289,8 +456,8 @@ export default function NouvelleMission() {
                 value={mission.agentIds}
                 onChange={(ids) => setMission((m) => ({ ...m, agentIds: ids }))}
                 users={users}
-                max={5}
-                hint="Maximum 5 agents — sélection parmi les utilisateurs actifs"
+                max={20}
+                hint="Maximum 20 agents — sélection parmi les utilisateurs actifs"
               />
             </div>
             <div className="md:col-span-2">
@@ -341,7 +508,7 @@ export default function NouvelleMission() {
                       : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                   }`}
                 >
-                  {i + 1}. {l.nom || 'Sans nom'}
+                  {i + 1}. {l.nom || 'Sans nom'}{l.methodes?.length > 0 ? ` (${l.methodes.length})` : ''}
                 </button>
               ))}
             </div>
@@ -350,9 +517,14 @@ export default function NouvelleMission() {
           {localites.map((loc, index) => (
             <div key={index} className={index === activeLocalite ? 'block' : 'hidden'}>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Localité n°{index + 1}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Localité n°{index + 1}{loc.nom ? ` — ${loc.nom}` : ''}
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-info/10 text-info border border-info/20 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                    <Beaker size={9} /> {loc.methodes?.length ?? 0} méthode{(loc.methodes?.length ?? 0) > 1 ? 's' : ''}
+                  </span>
+                </div>
                 {localites.length > 1 && (
                   <button
                     type="button" onClick={() => removeLocalite(index)}
@@ -363,119 +535,104 @@ export default function NouvelleMission() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-                <div className="space-y-4 flex flex-col">
-                  <FormField
-                    label="Nom de la localité" name="nom"
-                    value={loc.nom} onChange={(e) => handleLocaliteChange(index, e)}
-                    placeholder="ex: Grotte Ambodiriana"
-                    required error={errors[`localite_${index}_nom`]}
-                  />
-                  <FormField
-                    label="Toponyme" name="toponyme"
-                    value={loc.toponyme} onChange={(e) => handleLocaliteChange(index, e)}
-                    placeholder="Nom local / alternatif"
-                  />
+              <LocaliteFieldsForm
+                value={loc}
+                onChange={(patch) => updateLocalite(index, patch)}
+                errors={{
+                  nom:       errors[`localite_${index}_nom`],
+                  region:    errors[`localite_${index}_region`],
+                  district:  errors[`localite_${index}_district`],
+                  commune:   errors[`localite_${index}_commune`],
+                  fokontany: errors[`localite_${index}_fokontany`],
+                }}
+              />
 
-                  {/* Bandeau auto-fill */}
-                  {autoFill[index] === 'loading' && (
-                    <div className="p-2.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-2 text-xs text-blue-700">
-                      <Loader2 size={12} className="animate-spin" /> Recherche du fokontany à ces coordonnées…
-                    </div>
-                  )}
-                  {autoFill[index] === 'match' && (
-                    <div className="p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-2 text-xs text-emerald-700">
-                      <Check size={12} /> Région / district / commune / fokontany pré-remplis depuis la base PostGIS — modifiables si besoin
-                    </div>
-                  )}
-                  {autoFill[index] === 'nearest' && (
-                    <div className="p-2.5 bg-amber-50 border border-amber-100 rounded-xl flex items-center gap-2 text-xs text-amber-700">
-                      <Tag size={12} /> Point hors polygones — fokontany le plus proche utilisé
-                    </div>
-                  )}
-
-                  <FormField
-                    label="Région" name="region"
-                    value={loc.region} onChange={(e) => handleLocaliteChange(index, e)}
-                    placeholder="ex: Analamanga" required
-                    error={errors[`localite_${index}_region`]}
-                    hint="Pré-rempli au clic sur la carte"
-                  />
-                  <div className="grid grid-cols-2 gap-3">
-                    <FormField
-                      label="District" name="district"
-                      value={loc.district} onChange={(e) => handleLocaliteChange(index, e)}
-                      placeholder="ex: Ankazobe" required
-                      error={errors[`localite_${index}_district`]}
-                    />
-                    <FormField
-                      label="Commune" name="commune"
-                      value={loc.commune} onChange={(e) => handleLocaliteChange(index, e)}
-                      placeholder="Commune" required
-                      error={errors[`localite_${index}_commune`]}
-                    />
-                  </div>
-                  <FormField
-                    label="Fokontany" name="fokontany"
-                    value={loc.fokontany} onChange={(e) => handleLocaliteChange(index, e)}
-                    placeholder="Fokontany" required
-                    error={errors[`localite_${index}_fokontany`]}
-                  />
-                  <div className="grid grid-cols-3 gap-3 mt-auto">
-                    <FormField
-                      label="Latitude" name="latitude"
-                      value={loc.latitude} onChange={(e) => handleLocaliteChange(index, e)}
-                      onBlur={() => lookupFokontany(index, loc.latitude, loc.longitude)}
-                      placeholder="-18.9137" hint="Cliquez sur la carte"
-                    />
-                    <FormField
-                      label="Longitude" name="longitude"
-                      value={loc.longitude} onChange={(e) => handleLocaliteChange(index, e)}
-                      onBlur={() => lookupFokontany(index, loc.latitude, loc.longitude)}
-                      placeholder="47.5361"
-                    />
-                    <FormField
-                      label="Altitude (m)" name="altitudeM"
-                      value={loc.altitudeM} onChange={(e) => handleLocaliteChange(index, e)}
-                      placeholder={altitudeLoading[index] ? 'Calcul…' : '1200'}
-                      disabled={altitudeLoading[index]}
-                    />
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Contact local</p>
-                    <div className="grid grid-cols-3 gap-3">
-                      <FormField
-                        label="Nom" name="contactNom"
-                        value={loc.contactNom} onChange={(e) => handleLocaliteChange(index, e)}
-                      />
-                      <FormField
-                        label="Téléphone" name="contactTelephone"
-                        value={loc.contactTelephone} onChange={(e) => handleLocaliteChange(index, e)}
-                      />
-                      <FormField
-                        label="Statut" name="contactStatut"
-                        value={loc.contactStatut} onChange={(e) => handleLocaliteChange(index, e)}
-                        placeholder="ex: Chef fokontany"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Colonne carte — alignée verticalement avec la colonne gauche */}
-                <div className="flex flex-col">
-                  <p className="text-xs font-semibold text-gray-600 tracking-wide mb-1.5">
-                    Carte — cliquez pour placer le point GPS et auto-remplir
+              {/* Méthodes de collecte — brouillon, créées après la localité.
+                  Encadré pour bien montrer qu'elles sont groupées sous cette localité. */}
+              <div className="mt-5 p-3 rounded-xl border border-border bg-surface-2/30">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-fg-muted uppercase tracking-wider flex items-center gap-1.5">
+                    <Beaker size={12} /> Méthodes de collecte ({loc.methodes?.length ?? 0})
                   </p>
-                  <div className="flex-1 min-h-[480px]">
-                    <MapPicker
-                      latitude={loc.latitude}
-                      longitude={loc.longitude}
-                      onChange={(coords) => handleMapChange(index, coords)}
-                      height="100%"
-                    />
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setBulkModal({ localiteIndex: index })}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-fg-subtle hover:text-primary-600 bg-surface-2/60 hover:bg-primary-50 px-2.5 py-1 rounded-lg transition-colors"
+                    >
+                      <Layers size={12} /> Générer en série
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMethodeModal({ localiteIndex: index })}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 px-2.5 py-1 rounded-lg transition-colors"
+                    >
+                      <Plus size={12} /> Ajouter
+                    </button>
                   </div>
                 </div>
+
+                {loc.methodes?.length > 0 ? (
+                  <div className="space-y-1">
+                    {loc.methodes.map((m, mIndex) => {
+                      const type = (typesMethode ?? []).find((t) => t.id === parseInt(m.typeMethodeId));
+                      const identifiant = type ? `${type.code}_${m.numero || 1}` : `Méthode ${mIndex + 1}`;
+                      const habitat = (typesHabitat ?? []).find((t) => t.id === parseInt(m.typeHabitatId));
+                      const env     = (typesEnv ?? []).find((t) => t.id === parseInt(m.typeEnvironnementId));
+                      // Position propre au piège si précisée, sinon héritée de la localité brouillon.
+                      const lat = parseFloat(m.latitude  || loc.latitude);
+                      const lng = parseFloat(m.longitude || loc.longitude);
+                      const alt = parseFloat(m.altitudeM || loc.altitudeM);
+                      return (
+                        <div key={mIndex} className="flex items-center justify-between gap-2 text-xs bg-surface-2/60 rounded-lg px-2.5 py-1.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-mono font-semibold text-fg flex-shrink-0">{identifiant}</span>
+                            <span className="text-fg-subtle truncate">
+                              {[
+                                habitat?.nom,
+                                env?.nom,
+                                m.interieurExterieur === 'interieur' ? 'Intérieur' : m.interieurExterieur === 'exterieur' ? 'Extérieur' : null,
+                              ].filter(Boolean).join(' · ')}
+                            </span>
+                            {m.datePose && (
+                              <span className="text-fg-subtle whitespace-nowrap">
+                                {new Date(m.datePose).toLocaleDateString('fr-FR')}
+                              </span>
+                            )}
+                            {!Number.isNaN(lat) && !Number.isNaN(lng) && (
+                              <span
+                                className={`inline-flex items-center gap-1 font-mono whitespace-nowrap ${m.latitude ? 'text-fg-subtle' : 'text-fg-subtle/60'}`}
+                                title={m.latitude ? 'Position propre au piège' : 'Position héritée de la localité'}
+                              >
+                                <MapPin size={9} />
+                                {lat.toFixed(4)}, {lng.toFixed(4)}
+                                {!Number.isNaN(alt) && ` · ${Math.round(alt)} m`}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setMethodeModal({ localiteIndex: index, methodeIndex: mIndex })}
+                              className="p-1 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded"
+                            >
+                              <Edit2 size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeMethode(index, mIndex)}
+                              className="p-1 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-fg-subtle italic">Aucune méthode ajoutée.</p>
+                )}
               </div>
             </div>
           ))}
@@ -535,7 +692,7 @@ export default function NouvelleMission() {
                 )}
                 {selectedAgents.length > 0 && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-1.5">Agents ({selectedAgents.length}/5)</p>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-1.5">Agents ({selectedAgents.length}/20)</p>
                     <div className="flex flex-wrap gap-1">
                       {selectedAgents.map((u) => (
                         <span key={u.id} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
@@ -576,6 +733,27 @@ export default function NouvelleMission() {
 
         </div>{/* fin grid 2-col */}
       </form>
+
+      {methodeModal && (
+        <MethodeDraftModal
+          localite={localites[methodeModal.localiteIndex]}
+          initial={
+            methodeModal.methodeIndex !== undefined
+              ? localites[methodeModal.localiteIndex].methodes[methodeModal.methodeIndex]
+              : null
+          }
+          onClose={() => setMethodeModal(null)}
+          onSave={(draft) => saveMethode(methodeModal.localiteIndex, methodeModal.methodeIndex, draft)}
+        />
+      )}
+
+      {bulkModal && (
+        <MethodeBulkModal
+          localite={localites[bulkModal.localiteIndex]}
+          onClose={() => setBulkModal(null)}
+          onGenerate={(typeMethodeId, count) => generateMethodes(bulkModal.localiteIndex, typeMethodeId, count)}
+        />
+      )}
     </div>
   );
 }

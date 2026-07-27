@@ -93,7 +93,7 @@ export default function NouveauPuce() {
 
   const hoteOptions = hotes.map(h => ({
     value: h.id,
-    label: `${h.taxonomieHote?.nom || 'Hôte'}${h.especeLocale ? ' — ' + h.especeLocale : ''}`,
+    label: `${h.idTerrain || `#${h.id}`} — ${h.taxonomieHote?.nom || 'Hôte'}${h.especeLocale ? ` (${h.especeLocale})` : ''}`,
   }));
   const taxonomieOptions = taxonomies.map(t => ({
     value: t.id, label: t.parent ? `${t.parent.nom} ${t.nom}` : t.nom,

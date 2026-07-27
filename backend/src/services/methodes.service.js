@@ -1,11 +1,11 @@
 const prisma   = require('../config/prisma');
 const AppError = require('../utils/AppError');
-const { generateIdTerrain, getLocaliteByMethode } = require('../utils/idTerrain');
+const { generateIdTerrain, getLocaliteByMethode, generateHoteId } = require('../utils/idTerrain');
 
 const INCLUDE_REFS = {
   localite: {
     select: {
-      id: true, nom: true, region: true,
+      id: true, nom: true, region: true, latitude: true, longitude: true, altitudeM: true,
       mission: { select: { id: true, ordreMission: true } },
     },
   },
@@ -53,7 +53,7 @@ const getById = async (id) => {
 };
 
 const create = async (data) => {
-  const { localiteId, typeMethodeId, numero, typeHabitatId, typeEnvironnementId, latitude, longitude, dateCollecte, heureDebut, heureFin, notes } = data;
+  const { localiteId, typeMethodeId, numero, typeHabitatId, typeEnvironnementId, interieurExterieur, latitude, longitude, altitudeM, datePose, dateReleve, notes } = data;
 
   const [localite, typeMethode] = await Promise.all([
     prisma.localite.findUnique({ where: { id: parseInt(localiteId) } }),
@@ -70,29 +70,31 @@ const create = async (data) => {
       numero:              numero ? parseInt(numero) : 1,
       typeHabitatId:       typeHabitatId       ? parseInt(typeHabitatId)       : null,
       typeEnvironnementId: typeEnvironnementId ? parseInt(typeEnvironnementId) : null,
-      latitude:            latitude     ? parseFloat(latitude)  : null,
-      longitude:           longitude    ? parseFloat(longitude) : null,
-      dateCollecte:        dateCollecte ? new Date(dateCollecte) : null,
-      heureDebut:          heureDebut   || null,
-      heureFin:            heureFin     || null,
-      notes:               notes        || null,
+      interieurExterieur:  interieurExterieur || null,
+      latitude:            latitude   ? parseFloat(latitude)  : null,
+      longitude:           longitude  ? parseFloat(longitude) : null,
+      altitudeM:           altitudeM  ? parseFloat(altitudeM) : null,
+      datePose:            datePose   ? new Date(datePose)   : null,
+      dateReleve:          dateReleve ? new Date(dateReleve) : null,
+      notes:               notes      || null,
     },
     include: INCLUDE_REFS,
   });
 };
 
 const update = async (id, data) => {
-  const { typeMethodeId, numero, typeHabitatId, typeEnvironnementId, latitude, longitude, dateCollecte, heureDebut, heureFin, notes } = data;
+  const { typeMethodeId, numero, typeHabitatId, typeEnvironnementId, interieurExterieur, latitude, longitude, altitudeM, datePose, dateReleve, notes } = data;
   const patch = {};
   if (typeMethodeId       !== undefined) patch.typeMethodeId       = typeMethodeId       ? parseInt(typeMethodeId)       : null;
   if (numero              !== undefined) patch.numero              = numero ? parseInt(numero) : 1;
   if (typeHabitatId       !== undefined) patch.typeHabitatId       = typeHabitatId       ? parseInt(typeHabitatId)       : null;
   if (typeEnvironnementId !== undefined) patch.typeEnvironnementId = typeEnvironnementId ? parseInt(typeEnvironnementId) : null;
-  if (latitude            !== undefined) patch.latitude            = latitude     ? parseFloat(latitude)  : null;
-  if (longitude           !== undefined) patch.longitude           = longitude    ? parseFloat(longitude) : null;
-  if (dateCollecte        !== undefined) patch.dateCollecte        = dateCollecte ? new Date(dateCollecte) : null;
-  if (heureDebut          !== undefined) patch.heureDebut          = heureDebut;
-  if (heureFin            !== undefined) patch.heureFin            = heureFin;
+  if (interieurExterieur  !== undefined) patch.interieurExterieur  = interieurExterieur || null;
+  if (latitude            !== undefined) patch.latitude            = latitude   ? parseFloat(latitude)  : null;
+  if (longitude           !== undefined) patch.longitude           = longitude  ? parseFloat(longitude) : null;
+  if (altitudeM           !== undefined) patch.altitudeM           = altitudeM  ? parseFloat(altitudeM) : null;
+  if (datePose            !== undefined) patch.datePose            = datePose   ? new Date(datePose)   : null;
+  if (dateReleve          !== undefined) patch.dateReleve          = dateReleve ? new Date(dateReleve) : null;
   if (notes               !== undefined) patch.notes               = notes;
 
   return prisma.methodeCollecte.update({
@@ -125,4 +127,13 @@ const previewId = async (methodeId) => {
   return { idTerrain, localite: { id: localite.id, code: localite.code, nom: localite.nom } };
 };
 
-module.exports = { list, getById, create, update, remove, previewId };
+// Aperçu de l'identifiant d'un hôte — format distinct des spécimens
+// (HOTE_<AAAAMM>_<n>, pas besoin du code localité).
+const previewHoteId = async (methodeId) => {
+  const localite = await getLocaliteByMethode(methodeId);
+  if (!localite) throw AppError.notFound('Méthode introuvable');
+  const idTerrain = await generateHoteId(methodeId);
+  return { idTerrain };
+};
+
+module.exports = { list, getById, create, update, remove, previewId, previewHoteId };

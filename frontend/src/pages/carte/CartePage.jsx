@@ -10,7 +10,8 @@ import 'leaflet/dist/leaflet.css';
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { Spinner } from '../../components/ui';
-import { BASE_LAYERS, createBaseLayer } from '../../lib/mapLayers';
+import { createBaseLayer } from '../../lib/mapLayers';
+import MapSearchBar from '../../components/MapSearchBar';
 
 // ── Couleurs des types ────────────────────────────────────────
 const TYPE_CFG = {
@@ -137,12 +138,10 @@ export default function CartePage() {
 
   const [points,       setPoints]       = useState([]);
   const [loading,      setLoading]      = useState(true);
-  const [activeLayer,  setActiveLayer]  = useState('satellite');
   const [visibleTypes, setVisibleTypes] = useState(new Set(autorises));
 
   const mapRef      = useRef(null);  // div conteneur
   const instanceRef = useRef(null);  // instance L.Map
-  const tileRef     = useRef(null);
   const groupsRef   = useRef({});    // { moustique: L.LayerGroup, ... }
 
   // ── Chargement données ─────────────────────────────────────
@@ -163,7 +162,7 @@ export default function CartePage() {
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    tileRef.current = createBaseLayer(L, 'satellite').addTo(map);
+    createBaseLayer(L, 'satellite').addTo(map);
 
     // Groupes par type (pour show/hide)
     groupsRef.current = {
@@ -225,15 +224,6 @@ export default function CartePage() {
       try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 }); } catch { /* fitBounds can throw on empty/invalid bounds */ }
     }
   }, [points, visibleTypes, loading]);
-
-  // ── Basculer couche ───────────────────────────────────────
-  const switchLayer = (key) => {
-    const map = instanceRef.current;
-    if (!map || key === activeLayer) return;
-    map.removeLayer(tileRef.current);
-    tileRef.current = createBaseLayer(L, key).addTo(map);
-    setActiveLayer(key);
-  };
 
   const toggleType = (type) => {
     setVisibleTypes(prev => {
@@ -355,28 +345,12 @@ export default function CartePage() {
           </div>
         </div>
 
-        {/* ── Sélecteur couche (flottant haut-droite) ── */}
-        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 800, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {Object.entries(BASE_LAYERS).map(([key, cfg]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => switchLayer(key)}
-              title={cfg.label}
-              style={{
-                width: 36, height: 36, borderRadius: 10, cursor: 'pointer',
-                border: activeLayer === key ? '2px solid #1D9E75' : '2px solid rgba(255,255,255,0.9)',
-                background: activeLayer === key ? '#1D9E75' : 'rgba(255,255,255,0.95)',
-                backdropFilter: 'blur(4px)',
-                color: activeLayer === key ? 'white' : '#374151',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                fontSize: 16, transition: 'all 0.15s',
-              }}
-            >
-              {cfg.icon}
-            </button>
-          ))}
+        {/* ── Recherche (flottante haut-droite) ── */}
+        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 800, width: 280, maxWidth: 'calc(100% - 24px)' }}>
+          <MapSearchBar
+            placeholder="Rechercher un lieu…"
+            onSelect={(lat, lng) => instanceRef.current?.setView([lat, lng], 13, { animate: true })}
+          />
         </div>
 
         {/* ── Légende (flottant bas-gauche) ── */}

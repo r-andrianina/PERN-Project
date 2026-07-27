@@ -2,7 +2,7 @@ const service = require('../services/hotes.service');
 const prisma  = require('../config/prisma');
 const { logAudit, ACTIONS } = require('../utils/audit');
 
-const AUDIT_FIELDS = { especeLocale: true, age: true, sexe: true, etatSante: true, notes: true };
+const AUDIT_FIELDS = { idTerrain: true, especeLocale: true, age: true, sexe: true, etatSante: true, notes: true };
 
 const listHotes = async (req, res) => {
   const hotes = await service.list(req.query);
@@ -13,7 +13,7 @@ const getOne = async (req, res) => res.json({ hote: await service.getById(parseI
 
 const create = async (req, res) => {
   const hote = await service.create(req.body);
-  await logAudit({ req, action: ACTIONS.CREATE, entity: 'Hote', entityId: hote.id, newValues: { especeLocale: hote.especeLocale, sexe: hote.sexe } });
+  await logAudit({ req, action: ACTIONS.CREATE, entity: 'Hote', entityId: hote.id, newValues: { idTerrain: hote.idTerrain, especeLocale: hote.especeLocale, sexe: hote.sexe } });
   res.status(201).json({ message: 'Hôte enregistré', hote });
 };
 

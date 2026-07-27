@@ -95,7 +95,7 @@ const getSpecimens = async (req, res) => {
       methodeId:      m.id,
       latitude:       m.latitude,
       longitude:      m.longitude,
-      dateCollecte:   m.dateCollecte ? m.dateCollecte.toISOString().split('T')[0] : null,
+      dateCollecte:   m.datePose ? m.datePose.toISOString().split('T')[0] : null,
       typeMethode:    m.typeMethode,
       localite:       m.localite,
       specimens,

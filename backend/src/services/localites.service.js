@@ -16,7 +16,7 @@ const validateCode = async (code, ignoreId = null) => {
 const INCLUDE_LIST = {
   mission: {
     select: {
-      id: true, ordreMission: true, statut: true,
+      id: true, ordreMission: true,
       projet: { select: { id: true, code: true, nom: true } },
     },
   },
@@ -29,6 +29,31 @@ const INCLUDE_DETAIL = {
     include: { _count: { select: { moustiques: true, tiques: true, puces: true } } },
     orderBy: { createdAt: 'asc' },
   },
+  contacts: { orderBy: { id: 'asc' } },
+};
+
+// Remplace intégralement les contacts d'une localité par le tableau fourni
+// (upsert des contacts avec id, création des nouveaux, suppression des absents).
+const syncContacts = async (tx, localiteId, contacts) => {
+  const existing = await tx.localiteContact.findMany({ where: { localiteId }, select: { id: true } });
+  const keptIds = contacts.filter(c => c.id).map(c => c.id);
+  const toDelete = existing.map(c => c.id).filter(id => !keptIds.includes(id));
+
+  if (toDelete.length) {
+    await tx.localiteContact.deleteMany({ where: { id: { in: toDelete } } });
+  }
+  for (const c of contacts) {
+    const contactData = {
+      nom:       c.nom.trim(),
+      telephone: c.telephone || null,
+      statut:    c.statut    || null,
+    };
+    if (c.id) {
+      await tx.localiteContact.update({ where: { id: c.id }, data: contactData });
+    } else {
+      await tx.localiteContact.create({ data: { ...contactData, localiteId } });
+    }
+  }
 };
 
 const list = async ({ missionId, region, search } = {}) => {
@@ -56,8 +81,9 @@ const getCarte = async () => {
   const localites = await prisma.localite.findMany({
     where: { latitude: { not: null }, longitude: { not: null } },
     include: {
-      mission: { select: { ordreMission: true, projet: { select: { code: true, nom: true } } } },
-      _count:  { select: { methodes: true } },
+      mission:  { select: { ordreMission: true, projet: { select: { code: true, nom: true } } } },
+      contacts: { orderBy: { id: 'asc' } },
+      _count:   { select: { methodes: true } },
     },
   });
   return {
@@ -66,9 +92,11 @@ const getCarte = async () => {
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [l.longitude, l.latitude] },
       properties: {
-        id: l.id, nom: l.nom, toponyme: l.toponyme,
+        id: l.id, code: l.code, nom: l.nom,
         region: l.region, district: l.district, commune: l.commune,
-        fokontany: l.fokontany, altitude: l.altitudeM,
+        fokontany: l.fokontany,
+        latitude: l.latitude, longitude: l.longitude, altitudeM: l.altitudeM,
+        contacts: l.contacts.map(c => ({ nom: c.nom, telephone: c.telephone, statut: c.statut })),
         mission: l.mission.ordreMission, projet: l.mission.projet.nom,
         nbMethodes: l._count.methodes,
       },
@@ -77,7 +105,7 @@ const getCarte = async () => {
 };
 
 const create = async (data) => {
-  const { missionId, code, nom, toponyme, pays, region, district, commune, fokontany, contactNom, contactTelephone, contactStatut, latitude, longitude, altitudeM } = data;
+  const { missionId, code, nom, pays, region, district, commune, fokontany, contacts, latitude, longitude, altitudeM } = data;
 
   const mission = await prisma.mission.findUnique({ where: { id: parseInt(missionId) } });
   if (!mission) throw AppError.notFound('Mission introuvable');
@@ -85,41 +113,49 @@ const create = async (data) => {
   const codeUpper = code ? code.trim().toUpperCase() : null;
   await validateCode(codeUpper);
 
-  return prisma.localite.create({
-    data: {
-      missionId:  parseInt(missionId),
-      code:       codeUpper,
-      nom:        nom.trim(),
-      toponyme:   toponyme   || null,
-      pays:       pays       || 'Madagascar',
-      region:     region     || null,
-      district:   district   || null,
-      commune:    commune    || null,
-      fokontany:  fokontany  || null,
-      contactNom:       contactNom       || null,
-      contactTelephone: contactTelephone || null,
-      contactStatut:    contactStatut    || null,
-      latitude:   latitude   ? parseFloat(latitude)  : null,
-      longitude:  longitude  ? parseFloat(longitude) : null,
-      altitudeM:  altitudeM  ? parseFloat(altitudeM) : null,
-    },
-    include: { mission: { select: { id: true, ordreMission: true } } },
+  const nomTrimmed = nom.trim();
+
+  return prisma.$transaction(async (tx) => {
+    const localite = await tx.localite.create({
+      data: {
+        missionId:  parseInt(missionId),
+        code:       codeUpper,
+        nom:        nomTrimmed,
+        // Champ visuel unique côté formulaire — les 2 colonnes restent en base, mirroirées.
+        toponyme:   nomTrimmed,
+        pays:       pays       || 'Madagascar',
+        region:     region     || null,
+        district:   district   || null,
+        commune:    commune    || null,
+        fokontany:  fokontany  || null,
+        latitude:   latitude   ? parseFloat(latitude)  : null,
+        longitude:  longitude  ? parseFloat(longitude) : null,
+        altitudeM:  altitudeM  ? parseFloat(altitudeM) : null,
+      },
+    });
+    if (Array.isArray(contacts) && contacts.length) {
+      await syncContacts(tx, localite.id, contacts);
+    }
+    return tx.localite.findUnique({
+      where: { id: localite.id },
+      include: { mission: { select: { id: true, ordreMission: true } }, contacts: { orderBy: { id: 'asc' } } },
+    });
   });
 };
 
 const update = async (id, data) => {
-  const { code, nom, toponyme, pays, region, district, commune, fokontany, contactNom, contactTelephone, contactStatut, latitude, longitude, altitudeM } = data;
+  const { code, nom, pays, region, district, commune, fokontany, contacts, latitude, longitude, altitudeM } = data;
   const patch = {};
-  if (nom       !== undefined) patch.nom       = nom.trim();
-  if (toponyme  !== undefined) patch.toponyme  = toponyme;
+  if (nom !== undefined) {
+    const nomTrimmed = nom.trim();
+    patch.nom      = nomTrimmed;
+    patch.toponyme = nomTrimmed; // mirroir — cf. create()
+  }
   if (pays      !== undefined) patch.pays      = pays;
   if (region    !== undefined) patch.region    = region;
   if (district  !== undefined) patch.district  = district;
   if (commune   !== undefined) patch.commune   = commune;
   if (fokontany !== undefined) patch.fokontany = fokontany;
-  if (contactNom       !== undefined) patch.contactNom       = contactNom       || null;
-  if (contactTelephone !== undefined) patch.contactTelephone = contactTelephone || null;
-  if (contactStatut    !== undefined) patch.contactStatut    = contactStatut    || null;
   if (latitude  !== undefined) patch.latitude  = latitude  ? parseFloat(latitude)  : null;
   if (longitude !== undefined) patch.longitude = longitude ? parseFloat(longitude) : null;
   if (altitudeM !== undefined) patch.altitudeM = altitudeM ? parseFloat(altitudeM) : null;
@@ -130,9 +166,18 @@ const update = async (id, data) => {
     patch.code = codeUpper;
   }
 
-  return prisma.localite.update({
-    where: { id }, data: patch,
-    include: { mission: { select: { id: true, ordreMission: true } }, _count: { select: { methodes: true } } },
+  return prisma.$transaction(async (tx) => {
+    if (Array.isArray(contacts)) {
+      await syncContacts(tx, id, contacts);
+    }
+    return tx.localite.update({
+      where: { id }, data: patch,
+      include: {
+        mission: { select: { id: true, ordreMission: true } },
+        _count:  { select: { methodes: true } },
+        contacts: { orderBy: { id: 'asc' } },
+      },
+    });
   });
 };
 

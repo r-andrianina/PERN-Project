@@ -1,71 +1,92 @@
 # /transfer-nas — Transférer le projet vers le NAS Synology (Windows)
 
-Affiche les commandes PowerShell pour copier les fichiers du projet vers le NAS,
-en excluant les dossiers lourds (node_modules, .git, dist).
+Transfère les fichiers sources modifiés vers le NAS via **tar pipe SSH**.
+⚠️ Ne jamais utiliser `scp -r` sur Windows : crée des fichiers avec chemins Windows comme noms.
 
-## Prérequis
+## Configuration (déjà en place)
 
-- WinSCP installé (https://winscp.net) **ou** WSL2 disponible avec `rsync`
-- SSH activé sur le NAS (port 22)
-- Dossier `/volume1/docker/specimenmanager` créé sur le NAS
+- **IP NAS** : `192.168.64.18`
+- **Utilisateur** : `Henintsoa_DEV`
+- **Clé SSH** : `~/.ssh/nas_deploy` (authentification sans mot de passe)
+- **Chemin NAS** : `/volume1/docker/specimenmanager`
 
-## Étape 1 — Créer le dossier de destination sur le NAS
+## Mise à jour du code (cas courant)
 
-Ouvrir PowerShell et se connecter en SSH :
-
-```powershell
-ssh admin@ADRESSE_IP_DU_NAS
-mkdir -p /volume1/docker/specimenmanager/backups
-exit
-```
-
-## Étape 2 — Transférer les fichiers
-
-### Option A — WSL2 avec rsync (recommandé)
+### Étape 1 — Builder le frontend en local
 
 ```bash
-rsync -avz \
-  --exclude='node_modules' \
+cd C:/Users/Andrianina/Desktop/SpecimenManager/frontend
+npm run build
+```
+
+### Étape 2 — Transférer via tar pipe (Git Bash)
+
+```bash
+KEY="$USERPROFILE/.ssh/nas_deploy"
+NAS="Henintsoa_DEV@192.168.64.18"
+DST="/volume1/docker/specimenmanager"
+SRC="C:/Users/Andrianina/Desktop/SpecimenManager"
+
+cd "$SRC"
+tar czf - backend/src frontend/src frontend/dist \
+  | ssh -i "$KEY" "$NAS" "tar xzf - -C $DST/"
+```
+
+### Étape 3 — Rebuilder et redémarrer sur le NAS
+
+```bash
+ssh -i "$KEY" "$NAS" \
+  "echo 'MOT_DE_PASSE' | sudo -S /usr/local/bin/docker compose \
+  -f $DST/docker-compose.prod.yml up -d --build"
+```
+
+### Étape 4 — Vérifier
+
+```bash
+ssh -i "$KEY" "$NAS" "curl -s http://localhost:8080/api/health"
+# {"status":"ok","app":"SpécimenManager API","version":"1.0.0"}
+```
+
+---
+
+## Transfert complet (première installation ou remise à zéro)
+
+```bash
+KEY="$USERPROFILE/.ssh/nas_deploy"
+NAS="Henintsoa_DEV@192.168.64.18"
+DST="/volume1/docker/specimenmanager"
+SRC="C:/Users/Andrianina/Desktop/SpecimenManager"
+
+cd "$SRC"
+
+# Tout transférer sauf node_modules, .git, dist (sera copié séparément après build)
+tar czf - \
   --exclude='*/node_modules' \
-  --exclude='frontend/dist' \
   --exclude='.git' \
+  --exclude='frontend/dist' \
   --exclude='*.log' \
-  /mnt/c/Users/Andrianina/Desktop/SpecimenManager/ \
-  admin@ADRESSE_IP_DU_NAS:/volume1/docker/specimenmanager/
+  . | ssh -i "$KEY" "$NAS" "tar xzf - -C $DST/"
+
+# Puis copier le dist compilé
+tar czf - frontend/dist | ssh -i "$KEY" "$NAS" "tar xzf - -C $DST/"
 ```
 
-### Option B — WinSCP en ligne de commande
+---
 
-```powershell
-# Remplacer MOT_DE_PASSE par le mot de passe admin du NAS
-& "C:\Program Files (x86)\WinSCP\WinSCP.com" /command `
-  "open sftp://admin:MOT_DE_PASSE@ADRESSE_IP_DU_NAS" `
-  "synchronize remote -delete -criteria=time -filemask=""| node_modules/; */node_modules/; .git/; frontend\dist/; *.log"" C:\Users\Andrianina\Desktop\SpecimenManager /volume1/docker/specimenmanager" `
-  "exit"
+## Vérifier la structure après transfert
+
+```bash
+ssh -i "$USERPROFILE/.ssh/nas_deploy" Henintsoa_DEV@192.168.64.18 \
+  "ls /volume1/docker/specimenmanager/backend/src/ && \
+   ls /volume1/docker/specimenmanager/frontend/dist/assets/"
 ```
 
-### Option C — Robocopy (sans WinSCP, réseau local seulement)
-
-```powershell
-# Monter le partage réseau Synology
-net use Z: \\ADRESSE_IP_DU_NAS\docker /user:admin MOT_DE_PASSE
-
-robocopy C:\Users\Andrianina\Desktop\SpecimenManager Z:\specimenmanager `
-  /MIR /XD node_modules .git dist /XF *.log /NFL /NDL
-```
-
-## Étape 3 — Vérifier le transfert
-
-```powershell
-ssh admin@ADRESSE_IP_DU_NAS "ls /volume1/docker/specimenmanager/"
-# Attendu : backend/ frontend/ nginx/ db/ fokontany/ docker-compose.prod.yml .env
-```
+---
 
 ## Notes importantes
 
-- Le fichier `.env` (racine) et `backend/.env.production` **seront** transférés
-  car ils ne sont pas dans `.gitignore` pour rsync — c'est voulu.
-- Le dossier `fokontany/` est exclu du git mais doit être transféré manuellement
-  (shapefile ~33 MB). Il est inclus dans le rsync ci-dessus.
-- Après chaque mise à jour du code, relancer le `rsync` puis sur le NAS :
-  `docker compose -f docker-compose.prod.yml up -d --build`
+- `tar pipe` préserve parfaitement l'arborescence — aucun problème de chemin Windows
+- Le frontend doit être **compilé en local** (`npm run build`) avant transfert
+  car le container nginx copie `frontend/dist/` pré-compilé (pas de build in-Docker)
+- Docker sur ce NAS nécessite `sudo` et le chemin complet `/usr/local/bin/docker`
+- `scp -O` fonctionne pour des fichiers uniques mais **pas** pour des dossiers récursifs

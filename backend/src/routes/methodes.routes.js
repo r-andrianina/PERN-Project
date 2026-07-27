@@ -10,6 +10,7 @@ router.use(verifyToken);
 
 router.get('/',                        asyncHandler(ctrl.listMethodes));
 router.get('/:id/preview-id-terrain',  asyncHandler(ctrl.previewIdTerrain));
+router.get('/:id/preview-hote-id',     asyncHandler(ctrl.previewHoteId));
 router.get('/:id',                     asyncHandler(ctrl.getMethode));
 
 router.post('/',    requireMinRole('technicien'), validate(schema.createMethode), asyncHandler(ctrl.createMethode));

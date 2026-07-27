@@ -25,7 +25,7 @@ export default function NouveauProjet() {
   // Formulaire
   const { form, setField, handleChange, errors, isLoading, handleSubmit } = useFormSubmit({
     initial: {
-      nom: '', porteur: '', responsableId: '',
+      nom: '', porteur: '', posteAnalytique: '', responsableId: '',
       dateDebut: '', dateFin: '', statut: 'actif',
     },
     validate: (f) => ({
@@ -101,6 +101,11 @@ export default function NouveauProjet() {
                 <FormField label="Date de fin" name="dateFin" type="date"
                   value={form.dateFin} onChange={handleChange} error={errors.dateFin} />
               </div>
+
+              <FormField label="Poste analytique (PA)" name="posteAnalytique"
+                value={form.posteAnalytique} onChange={handleChange}
+                placeholder="ex: PA-2026-014"
+                hint="Référence budgétaire du projet" />
             </div>
 
             <div className="flex items-center justify-end gap-3 mt-6 pt-5 border-t border-border">

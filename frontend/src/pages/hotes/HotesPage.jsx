@@ -53,7 +53,8 @@ export default function HotesPage() {
       list = list.filter((h) =>
         taxoLabel(h.taxonomieHote).toLowerCase().includes(s) ||
         h.especeLocale?.toLowerCase().includes(s) ||
-        h.methode?.localite?.nom?.toLowerCase().includes(s)
+        h.methode?.localite?.nom?.toLowerCase().includes(s) ||
+        h.idTerrain?.toLowerCase().includes(s)
       );
     }
     if (!sort) return list;
@@ -85,13 +86,15 @@ export default function HotesPage() {
   const columns = useMemo(() => [
     {
       key: 'id',
-      label: '#ID',
+      label: 'Identifiant',
       sortable: true,
       skeletonWidth: '40%',
-      width: '64px',
+      width: '110px',
       hidden: 'hidden sm:table-cell',
-      className: 'font-mono text-xs text-fg-subtle',
-      render: (h) => `#${h.id}`,
+      className: 'font-mono text-xs',
+      render: (h) => h.idTerrain
+        ? <span className="text-primary font-semibold">{h.idTerrain}</span>
+        : <span className="text-fg-subtle">{`#${h.id}`}</span>,
     },
     {
       key: 'espece',
@@ -206,7 +209,7 @@ export default function HotesPage() {
               <Search size={14} className="text-fg-subtle flex-shrink-0" />
               <input
                 type="text"
-                placeholder="Rechercher par espèce ou localité…"
+                placeholder="Rechercher par identifiant, espèce ou localité…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="flex-1 text-sm bg-transparent border-none outline-none text-fg placeholder-fg-subtle"
@@ -228,6 +231,7 @@ export default function HotesPage() {
             loading={false}
             sort={sort}
             onSort={(key, dir) => setSort({ key, dir })}
+            onRowClick={(h) => navigate(`/hotes/${h.id}`)}
             minWidth="720px"
             maxHeight="calc(100vh - 310px)"
             empty={

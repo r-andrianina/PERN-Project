@@ -1,18 +1,21 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
-  FolderOpen, MapPin, ChevronRight, User, Calendar,
-  Clock, Target, Bug, Activity, Layers, Users, UserPlus, Trash2, X, Loader2, Search,
+  FolderOpen, MapPin, ChevronRight, User, Calendar, Landmark,
+  Clock, Bug, Activity, Layers, Users, UserPlus, Trash2, X, Loader2, Search,
+  Pencil, Save,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, EmptyState, Spinner, Breadcrumb } from '../../components/ui';
+import { Card, Badge, EmptyState, Spinner, Breadcrumb, Button } from '../../components/ui';
+import FormField from '../../components/FormField';
+import AutocompleteUser from '../../components/AutocompleteUser';
 import useAuthStore from '../../store/authStore';
 import { hasMinRole, ROLE_LABELS, ROLE_COLORS } from '../../lib/roles';
+import { toast } from '../../lib/toast';
+import { dialog } from '../../lib/dialog';
 
 const STATUT_TONE  = { actif: 'success', termine: 'default', suspendu: 'warning' };
 const STATUT_LABEL = { actif: 'Actif', termine: 'Terminé', suspendu: 'Suspendu' };
-const MISSION_TONE  = { planifiee: 'info', en_cours: 'success', terminee: 'default', annulee: 'danger' };
-const MISSION_LABEL = { planifiee: 'Planifiée', en_cours: 'En cours', terminee: 'Terminée', annulee: 'Annulée' };
 
 const TYPE_COLOR = {
   moustique: 'bg-specimen-moustique',
@@ -132,6 +135,7 @@ function AddMembreModal({ projetId, currentMembres, onClose, onAdded }) {
 
 export default function ProjetDetail() {
   const { id }       = useParams();
+  const navigate      = useNavigate();
   const { user: me } = useAuthStore();
 
   const [projet,        setProjet]        = useState(null);
@@ -139,12 +143,75 @@ export default function ProjetDetail() {
   const [loadingStats,  setLoadingStats]  = useState(true);
   const [membres,       setMembres]       = useState([]);
   const [showAddMembre, setShowAddMembre] = useState(false);
+  const [users,         setUsers]         = useState([]);
+  const [editing,       setEditing]       = useState(false);
+  const [saving,        setSaving]        = useState(false);
+  const [deleting,      setDeleting]      = useState(false);
+  const [editForm,      setEditForm]      = useState({});
 
   const canManageMembres = hasMinRole(me?.role, 'superviseur');
+  const canEdit           = hasMinRole(me?.role, 'chercheur'); // aligné sur PUT /projets/:id
+  const isAdmin            = me?.role === 'admin';             // aligné sur DELETE /projets/:id
 
   useEffect(() => {
     api.get(`/projets/${id}`).then(r => setProjet(r.data.projet));
   }, [id]);
+
+  useEffect(() => {
+    api.get('/auth/users').then(r => setUsers(r.data.actifs || [])).catch(() => {});
+  }, []);
+
+  const startEdit = () => {
+    setEditForm({
+      nom:             projet.nom,
+      porteur:         projet.porteur || '',
+      posteAnalytique: projet.posteAnalytique || '',
+      responsableId:   projet.responsableId ? String(projet.responsableId) : '',
+      statut:          projet.statut,
+      dateDebut:       projet.dateDebut ? projet.dateDebut.split('T')[0] : '',
+      dateFin:         projet.dateFin   ? projet.dateFin.split('T')[0]   : '',
+    });
+    setEditing(true);
+  };
+
+  const handlePorteurChange = (text, userId) => {
+    setEditForm((f) => ({ ...f, porteur: text, responsableId: userId ? String(userId) : '' }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const r = await api.put(`/projets/${id}`, {
+        ...editForm,
+        responsableId: editForm.responsableId ? parseInt(editForm.responsableId) : null,
+      });
+      setProjet(r.data.projet);
+      setEditing(false);
+      toast.success('Projet mis à jour avec succès.');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur lors de la sauvegarde');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    const ok = await dialog.confirm({
+      title: 'Supprimer ce projet ?',
+      message: `« ${projet.nom} » sera définitivement supprimé. Cette action est irréversible et impossible si le projet contient des missions.`,
+      variant: 'danger',
+    });
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/projets/${id}`);
+      toast.success('Projet supprimé.');
+      navigate('/projets');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur lors de la suppression');
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -181,16 +248,7 @@ export default function ProjetDetail() {
     return { pct: Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100)), daysLeft: Math.ceil((end - now) / 86400000) };
   }, [projet]);
 
-  const missionStats = useMemo(() => {
-    const ms = projet?.missions ?? [];
-    return {
-      total:     ms.length,
-      en_cours:  ms.filter(m => m.statut === 'en_cours').length,
-      planifiee: ms.filter(m => m.statut === 'planifiee').length,
-      terminee:  ms.filter(m => m.statut === 'terminee').length,
-      annulee:   ms.filter(m => m.statut === 'annulee').length,
-    };
-  }, [projet]);
+  const totalMissions = projet?.missions?.length ?? 0;
 
   const totalLocalites = useMemo(
     () => (projet?.missions ?? []).reduce((s, m) => s + (m._count?.localites ?? 0), 0),
@@ -214,53 +272,94 @@ export default function ProjetDetail() {
 
   return (
     <>
-    <div className="max-w-screen-xl space-y-5">
+    <div className="max-w-screen-2xl space-y-5">
       <Breadcrumb items={[
         { label: 'Projets', to: '/projets' },
         { label: projet.nom },
       ]} />
 
       {/* Layout 2 colonnes */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr,300px] gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr,300px] 2xl:grid-cols-[1fr,400px] gap-5 2xl:gap-8 items-start">
 
         {/* ── Colonne gauche ── */}
         <div className="space-y-5">
 
           {/* Carte principale du projet */}
           <Card padding="md">
-            <div className="flex items-start gap-4 mb-4">
-              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <FolderOpen size={20} className="text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2.5 flex-wrap mb-1">
-                  <Badge tone={STATUT_TONE[projet.statut] ?? 'default'} dot>
-                    {STATUT_LABEL[projet.statut] ?? projet.statut}
-                  </Badge>
+            {editing ? (
+              <div className="space-y-4">
+                <FormField label="Nom du projet" name="nom"
+                  value={editForm.nom} onChange={(e) => setEditForm(f => ({ ...f, nom: e.target.value }))}
+                  required />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <AutocompleteUser
+                    label="Porteur du projet"
+                    value={editForm.porteur}
+                    onChange={handlePorteurChange}
+                    users={users}
+                    placeholder="Nom ou choisir un utilisateur"
+                  />
+                  <FormField label="Statut" name="statut" type="select"
+                    value={editForm.statut} onChange={(e) => setEditForm(f => ({ ...f, statut: e.target.value }))}
+                    options={[
+                      { value: 'actif',    label: 'Actif'    },
+                      { value: 'termine',  label: 'Terminé'  },
+                      { value: 'suspendu', label: 'Suspendu' },
+                    ]} />
                 </div>
-                <h1 className="text-xl font-bold text-fg">{projet.nom}</h1>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField label="Date de début" name="dateDebut" type="date"
+                    value={editForm.dateDebut} onChange={(e) => setEditForm(f => ({ ...f, dateDebut: e.target.value }))} />
+                  <FormField label="Date de fin" name="dateFin" type="date"
+                    value={editForm.dateFin} onChange={(e) => setEditForm(f => ({ ...f, dateFin: e.target.value }))} />
+                </div>
+                <FormField label="Poste analytique (PA)" name="posteAnalytique"
+                  value={editForm.posteAnalytique} onChange={(e) => setEditForm(f => ({ ...f, posteAnalytique: e.target.value }))}
+                  placeholder="ex: PA-2026-014" hint="Référence budgétaire du projet" />
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <FolderOpen size={20} className="text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap mb-1">
+                      <Badge tone={STATUT_TONE[projet.statut] ?? 'default'} dot>
+                        {STATUT_LABEL[projet.statut] ?? projet.statut}
+                      </Badge>
+                    </div>
+                    <h1 className="text-xl font-bold text-fg">{projet.nom}</h1>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              {(projet.porteur || projet.responsable) && (
-                <div className="text-xs">
-                  <p className="text-fg-subtle font-medium mb-0.5 flex items-center gap-1"><User size={11} /> Porteur</p>
-                  <p className="text-fg">
-                    {projet.porteur || `${projet.responsable.prenom} ${projet.responsable.nom}`}
-                  </p>
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  {(projet.porteur || projet.responsable) && (
+                    <div className="text-xs">
+                      <p className="text-fg-subtle font-medium mb-0.5 flex items-center gap-1"><User size={11} /> Porteur</p>
+                      <p className="text-fg">
+                        {projet.porteur || `${projet.responsable.prenom} ${projet.responsable.nom}`}
+                      </p>
+                    </div>
+                  )}
+                  {projet.dateDebut && (
+                    <div className="text-xs">
+                      <p className="text-fg-subtle font-medium mb-0.5 flex items-center gap-1"><Calendar size={11} /> Période</p>
+                      <p className="text-fg">
+                        {new Date(projet.dateDebut).toLocaleDateString('fr-FR')}
+                        {projet.dateFin && ` → ${new Date(projet.dateFin).toLocaleDateString('fr-FR')}`}
+                      </p>
+                    </div>
+                  )}
+                  {projet.posteAnalytique && (
+                    <div className="text-xs">
+                      <p className="text-fg-subtle font-medium mb-0.5 flex items-center gap-1"><Landmark size={11} /> Poste analytique</p>
+                      <p className="text-fg font-mono">{projet.posteAnalytique}</p>
+                    </div>
+                  )}
                 </div>
-              )}
-              {projet.dateDebut && (
-                <div className="text-xs">
-                  <p className="text-fg-subtle font-medium mb-0.5 flex items-center gap-1"><Calendar size={11} /> Période</p>
-                  <p className="text-fg">
-                    {new Date(projet.dateDebut).toLocaleDateString('fr-FR')}
-                    {projet.dateFin && ` → ${new Date(projet.dateFin).toLocaleDateString('fr-FR')}`}
-                  </p>
-                </div>
-              )}
-            </div>
+              </>
+            )}
           </Card>
 
           {/* Missions */}
@@ -286,12 +385,7 @@ export default function ProjetDetail() {
                       </p>
                       <p className="text-xs text-fg-subtle mt-0.5">{m._count?.localites ?? 0} localité(s)</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge tone={MISSION_TONE[m.statut] ?? 'default'} dot>
-                        {MISSION_LABEL[m.statut] ?? m.statut}
-                      </Badge>
-                      <ChevronRight size={14} className="text-fg-subtle group-hover:text-primary transition-colors" />
-                    </div>
+                    <ChevronRight size={14} className="text-fg-subtle group-hover:text-primary transition-colors" />
                   </Link>
                 ))}
               </div>
@@ -301,6 +395,34 @@ export default function ProjetDetail() {
 
         {/* ── Colonne droite — Tableau de bord du projet ── */}
         <div className="space-y-4">
+
+          {/* Actions */}
+          {(canEdit || isAdmin) && (
+            <Card padding="sm">
+              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">Actions</p>
+              <div className="space-y-2">
+                {editing ? (
+                  <>
+                    <Button variant="primary" className="w-full justify-center" icon={Save}
+                      loading={saving} onClick={handleSave}>Enregistrer</Button>
+                    <Button variant="secondary" className="w-full justify-center" icon={X}
+                      onClick={() => setEditing(false)} disabled={saving}>Annuler</Button>
+                  </>
+                ) : (
+                  <>
+                    {canEdit && (
+                      <Button variant="outline" className="w-full justify-center" icon={Pencil}
+                        onClick={startEdit}>Modifier</Button>
+                    )}
+                    {isAdmin && (
+                      <Button variant="danger" className="w-full justify-center" icon={Trash2}
+                        loading={deleting} onClick={handleDelete}>Supprimer</Button>
+                    )}
+                  </>
+                )}
+              </div>
+            </Card>
+          )}
 
           {/* Avancement temporel */}
           {progress !== null && (
@@ -336,34 +458,6 @@ export default function ProjetDetail() {
             </Card>
           )}
 
-          {/* Bilan des missions */}
-          <Card padding="md">
-            <div className="flex items-center gap-2 mb-3">
-              <Target size={14} className="text-fg-subtle" />
-              <span className="text-xs font-semibold text-fg uppercase tracking-wider">Bilan missions</span>
-              <span className="ml-auto text-xs font-bold text-fg">{missionStats.total}</span>
-            </div>
-            <div className="space-y-2.5">
-              {[
-                { key: 'en_cours',  label: 'En cours',  color: 'bg-success', tone: 'success' },
-                { key: 'planifiee', label: 'Planifiée', color: 'bg-info',    tone: 'info'    },
-                { key: 'terminee',  label: 'Terminée',  color: 'bg-fg-subtle', tone: 'default' },
-                { key: 'annulee',   label: 'Annulée',   color: 'bg-danger',  tone: 'danger'  },
-              ].map(({ key, label, color }) => (
-                <div key={key}>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <div className={`w-2 h-2 rounded-full ${color}`} />
-                      <span className="text-fg-muted">{label}</span>
-                    </div>
-                    <span className="font-semibold text-fg tabular-nums">{missionStats[key]}</span>
-                  </div>
-                  <MiniBar value={missionStats[key]} max={missionStats.total} colorClass={color} />
-                </div>
-              ))}
-            </div>
-          </Card>
-
           {/* Couverture terrain */}
           <Card padding="md">
             <div className="flex items-center gap-2 mb-3">
@@ -372,7 +466,7 @@ export default function ProjetDetail() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-surface-2 rounded-xl p-3 text-center">
-                <p className="text-xl font-bold text-fg">{missionStats.total}</p>
+                <p className="text-xl font-bold text-fg">{totalMissions}</p>
                 <p className="text-[10px] text-fg-subtle mt-0.5">Mission(s)</p>
               </div>
               <div className="bg-surface-2 rounded-xl p-3 text-center">
@@ -512,3 +606,4 @@ export default function ProjetDetail() {
     </>
   );
 }
+

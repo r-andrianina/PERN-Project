@@ -2,20 +2,15 @@ import { useParams } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import {
   MapPin, Loader2, Navigation, Hash, Plus, Edit2, X, Check, Tag,
-  Clock, Layers, Bug, Users,
+  Clock, Layers, Bug, Users, Beaker,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { Card, Breadcrumb } from '../../components/ui';
 import FormField from '../../components/FormField';
-import MapPicker from '../../components/MapPicker';
+import LocaliteFieldsForm from '../../components/LocaliteFieldsForm';
+import MethodeFieldsForm from '../../components/MethodeFieldsForm';
 import useAuthStore from '../../store/authStore';
-
-const STATUT = {
-  planifiee: { label: 'Planifiée', cls: 'bg-info/10 text-info border border-info/20'        },
-  en_cours:  { label: 'En cours',  cls: 'bg-success/10 text-success border border-success/20' },
-  terminee:  { label: 'Terminée',  cls: 'bg-surface-3 text-fg-muted border border-border-strong'       },
-  annulee:   { label: 'Annulée',   cls: 'bg-danger/10 text-danger border border-danger/20'          },
-};
+import { useApiQuery } from '../../hooks';
 
 const ROLE_LABEL = { admin: 'Admin', chercheur: 'Chercheur', terrain: 'Terrain', lecteur: 'Lecteur' };
 
@@ -50,74 +45,17 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
   const [form, setForm] = useState({
     code:      localite?.code      || '',
     nom:       localite?.nom       || '',
-    toponyme:  localite?.toponyme  || '',
     region:    localite?.region    || '',
     district:  localite?.district  || '',
     commune:   localite?.commune   || '',
     fokontany: localite?.fokontany || '',
-    contactNom:       localite?.contactNom       || '',
-    contactTelephone: localite?.contactTelephone || '',
-    contactStatut:    localite?.contactStatut    || '',
+    contacts:  localite?.contacts  || [],
     latitude:  localite?.latitude  ? String(localite.latitude)  : '',
     longitude: localite?.longitude ? String(localite.longitude) : '',
     altitudeM: localite?.altitudeM ? String(localite.altitudeM) : '',
   });
-  const [loading,      setLoading]      = useState(false);
-  const [autoFilling,  setAutoFilling]  = useState(false);
-  const [autoMatch,    setAutoMatch]    = useState(null);
-  const [altitudeLoading, setAltitudeLoading] = useState(false);
-  const [error,        setError]        = useState(null);
-
-  const lookupFokontany = async (lat, lng) => {
-    if (!lat || !lng) return;
-    setAutoFilling(true);
-    try {
-      const r = await api.get('/localites/lookup-fokontany', { params: { lat, lng } });
-      const data = r.data;
-      const filled = data.match ? data : data.nearest;
-      if (filled) {
-        setForm((f) => ({
-          ...f,
-          region:    filled.region    || f.region,
-          district:  filled.district  || f.district,
-          commune:   filled.commune   || f.commune,
-          fokontany: filled.fokontany || f.fokontany,
-        }));
-        setAutoMatch(data.match ? 'match' : 'nearest');
-      } else {
-        setAutoMatch('none');
-      }
-    } catch {
-      setAutoMatch('none');
-    } finally { setAutoFilling(false); }
-  };
-
-  const lookupAltitude = async (lat, lng) => {
-    if (!lat || !lng) return;
-    setAltitudeLoading(true);
-    try {
-      const r = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`);
-      const data = await r.json();
-      const elevation = data?.elevation?.[0];
-      if (elevation !== undefined && elevation !== null) {
-        setForm((f) => ({ ...f, altitudeM: String(Math.round(elevation)) }));
-      }
-    } catch {
-      // silencieux — l'utilisateur peut saisir l'altitude manuellement
-    } finally {
-      setAltitudeLoading(false);
-    }
-  };
-
-  const handleMapChange = ({ latitude, longitude }) => {
-    setForm((f) => ({ ...f, latitude, longitude, altitudeM: '' }));
-    if (latitude && longitude) {
-      lookupFokontany(latitude, longitude);
-      lookupAltitude(latitude, longitude);
-    } else {
-      setAutoMatch(null);
-    }
-  };
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(null);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -160,98 +98,21 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
         <div className="p-6">
           {error && <div className="mb-4 p-3 bg-danger/10 border border-red-200 rounded-xl text-sm text-danger">{error}</div>}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <FormField
-                  label="Code (3 lettres)" name="code"
-                  value={form.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                  placeholder="AKZ" required
-                  hint="Préfixe ID terrain"
-                />
-                <div className="col-span-2">
-                  <FormField
-                    label="Nom de la localité" name="nom"
-                    value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })}
-                    placeholder="ex: Ankazobe" required
-                  />
-                </div>
-              </div>
-
-              <FormField
-                label="Toponyme" name="toponyme"
-                value={form.toponyme} onChange={(e) => setForm({ ...form, toponyme: e.target.value })}
-                placeholder="Nom local / alternatif"
-              />
-
-              {autoFilling && (
-                <div className="p-2.5 bg-info/10 border border-info/20 rounded-xl flex items-center gap-2 text-xs text-info">
-                  <Loader2 size={12} className="animate-spin" />
-                  Recherche du fokontany à ces coordonnées…
-                </div>
-              )}
-              {autoMatch === 'match' && !autoFilling && (
-                <div className="p-2.5 bg-success/10 border border-success/20 rounded-xl flex items-center gap-2 text-xs text-success">
-                  <Check size={12} />
-                  Fokontany trouvé — champs pré-remplis (modifiables)
-                </div>
-              )}
-              {autoMatch === 'nearest' && !autoFilling && (
-                <div className="p-2.5 bg-warning/10 border border-warning/20 rounded-xl flex items-center gap-2 text-xs text-warning">
-                  <Tag size={12} />
-                  Point hors polygone — fokontany le plus proche utilisé
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="Région"     name="region"     value={form.region}     onChange={(e) => setForm({ ...form, region: e.target.value })} />
-                <FormField label="District"   name="district"   value={form.district}   onChange={(e) => setForm({ ...form, district: e.target.value })} />
-                <FormField label="Commune"    name="commune"    value={form.commune}    onChange={(e) => setForm({ ...form, commune: e.target.value })} />
-                <FormField label="Fokontany"  name="fokontany"  value={form.fokontany}  onChange={(e) => setForm({ ...form, fokontany: e.target.value })} />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <FormField label="Latitude"   name="latitude"  type="number"
-                  value={form.latitude}
-                  onChange={(e) => { setForm({ ...form, latitude: e.target.value }); }}
-                  onBlur={() => lookupFokontany(form.latitude, form.longitude)}
-                  placeholder="-18.9137" />
-                <FormField label="Longitude"  name="longitude" type="number"
-                  value={form.longitude}
-                  onChange={(e) => { setForm({ ...form, longitude: e.target.value }); }}
-                  onBlur={() => lookupFokontany(form.latitude, form.longitude)}
-                  placeholder="47.5361" />
-                <FormField label="Altitude (m)" name="altitudeM" type="number"
-                  value={form.altitudeM} onChange={(e) => setForm({ ...form, altitudeM: e.target.value })}
-                  placeholder={altitudeLoading ? 'Calcul…' : '1200'}
-                  disabled={altitudeLoading} />
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-fg-muted tracking-wide mb-2">Contact local</p>
-                <div className="grid grid-cols-3 gap-3">
-                  <FormField label="Nom"       name="contactNom"       value={form.contactNom}       onChange={(e) => setForm({ ...form, contactNom: e.target.value })} />
-                  <FormField label="Téléphone" name="contactTelephone" value={form.contactTelephone} onChange={(e) => setForm({ ...form, contactTelephone: e.target.value })} />
-                  <FormField label="Statut"    name="contactStatut"    value={form.contactStatut}    onChange={(e) => setForm({ ...form, contactStatut: e.target.value })} placeholder="ex: Chef fokontany" />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col">
-              <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-2">
-                Carte — cliquez pour placer le point GPS
-              </label>
-              <div className="flex-1 min-h-[240px] sm:min-h-[480px]">
-                <MapPicker
-                  latitude={form.latitude || undefined}
-                  longitude={form.longitude || undefined}
-                  onChange={handleMapChange}
-                  height="100%"
-                />
-              </div>
-            </div>
+          <div className="mb-6">
+            <FormField
+              label="Code (3 lettres)" name="code"
+              value={form.code}
+              onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+              placeholder="AKZ" required
+              hint="Préfixe ID terrain"
+            />
           </div>
+
+          <LocaliteFieldsForm
+            value={form}
+            onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+            excludeId={localite?.id}
+          />
 
           <div className="flex justify-end gap-2 pt-5 mt-5 border-t border-border">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
@@ -266,14 +127,228 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
   );
 }
 
+// ── Modal création / édition de méthode de collecte ────────────
+function MethodeModal({ localite, methode, onClose, onSaved }) {
+  const isEdit = !!methode?.id;
+  const [form, setForm] = useState({
+    typeMethodeId:       methode?.typeMethode?.id       ? String(methode.typeMethode.id)       : '',
+    numero:              methode?.numero ? String(methode.numero) : '1',
+    typeHabitatId:       methode?.typeHabitat?.id       ? String(methode.typeHabitat.id)       : '',
+    typeEnvironnementId: methode?.typeEnvironnement?.id ? String(methode.typeEnvironnement.id) : '',
+    interieurExterieur:  methode?.interieurExterieur || '',
+    datePose:            methode?.datePose   ? methode.datePose.slice(0, 16)   : '',
+    dateReleve:          methode?.dateReleve ? methode.dateReleve.slice(0, 16) : '',
+    notes:               methode?.notes      || '',
+    latitude:            methode?.latitude  ? String(methode.latitude)  : '',
+    longitude:           methode?.longitude ? String(methode.longitude) : '',
+    altitudeM:           methode?.altitudeM != null ? String(methode.altitudeM) : '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(null);
+
+  // Fetch léger juste pour l'identifiant du header (mis en cache par
+  // TanStack Query — MethodeFieldsForm refait le même fetch sans coût réseau).
+  const { data: typesMethode } = useApiQuery('/dictionnaire/types-methode', {
+    params: { actif: 'true' }, select: (r) => r.items ?? [],
+  });
+  const selectedType = (typesMethode ?? []).find((t) => t.id === parseInt(form.typeMethodeId));
+  const identifiant  = selectedType ? `${selectedType.code}_${form.numero || 1}` : null;
+
+  // Numéro auto-incrémenté : dès qu'un type de méthode est (re)choisi lors
+  // d'une création, on propose le prochain numéro libre pour ce type sur
+  // cette localité — évite de retomber sur "1" et de devoir corriger à la main.
+  const handleFieldsChange = (patch) => {
+    setForm((f) => {
+      const next = { ...f, ...patch };
+      if (!isEdit && patch.typeMethodeId !== undefined) {
+        const siblingNums = (localite.methodes || [])
+          .filter((m) => String(m.typeMethode?.id) === String(patch.typeMethodeId))
+          .map((m) => m.numero || 1);
+        next.numero = String((siblingNums.length ? Math.max(...siblingNums) : 0) + 1);
+      }
+      return next;
+    });
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const body = {
+        ...form,
+        typeMethodeId:       form.typeMethodeId       ? parseInt(form.typeMethodeId)       : null,
+        numero:              parseInt(form.numero) || 1,
+        typeHabitatId:       form.typeHabitatId       ? parseInt(form.typeHabitatId)       : null,
+        typeEnvironnementId: form.typeEnvironnementId ? parseInt(form.typeEnvironnementId) : null,
+        interieurExterieur:  form.interieurExterieur || null,
+        datePose:            form.datePose   || null,
+        dateReleve:          form.dateReleve || null,
+        latitude:            form.latitude     || null,
+        longitude:           form.longitude    || null,
+        altitudeM:           form.altitudeM    || null,
+      };
+      if (isEdit) await api.put(`/methodes/${methode.id}`, body);
+      else        await api.post('/methodes', { ...body, localiteId: localite.id });
+      onSaved();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Erreur');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <form onSubmit={submit} className="bg-surface rounded-2xl shadow-2xl w-full max-w-3xl my-4 sm:my-8">
+        <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between rounded-t-2xl">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
+              <Beaker size={16} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white">
+                {isEdit ? 'Modifier la méthode' : 'Nouvelle méthode'}
+              </h2>
+              <p className="text-xs text-white/80">{localite.nom}{identifiant ? ` — ${identifiant}` : ''}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {error && <div className="p-3 bg-danger/10 border border-red-200 rounded-xl text-sm text-danger">{error}</div>}
+
+          <MethodeFieldsForm
+            value={form}
+            onChange={handleFieldsChange}
+            localiteCoords={localite}
+            excludeMethodeId={methode?.id}
+          />
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-border">
+            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+              {isEdit ? 'Enregistrer' : 'Créer la méthode'}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Modal de génération en série : "type de méthode + nombre" → N méthodes
+//    persistées d'un coup (ex: CDC_2, CDC_3, CDC_4), chacune vide à part son
+//    type/numéro — à compléter individuellement via le crayon d'édition.
+function MethodeBulkModal({ localite, onClose, onGenerated }) {
+  const [typeMethodeId, setTypeMethodeId] = useState('');
+  const [count, setCount] = useState('1');
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(null);
+
+  const { data: typesMethode } = useApiQuery('/dictionnaire/types-methode', {
+    params: { actif: 'true' }, select: (r) => r.items ?? [],
+  });
+  const selectedType = (typesMethode ?? []).find((t) => t.id === parseInt(typeMethodeId));
+  const typeOptions  = (typesMethode ?? []).map((t) => ({ value: t.id, label: t.nom, keywords: t.code }));
+
+  const nextNumero = selectedType
+    ? (() => {
+        const siblingNums = (localite.methodes || [])
+          .filter((m) => String(m.typeMethode?.id) === String(typeMethodeId))
+          .map((m) => m.numero || 1);
+        return (siblingNums.length ? Math.max(...siblingNums) : 0) + 1;
+      })()
+    : 1;
+
+  const n = Math.max(1, Math.min(20, parseInt(count) || 1));
+  const preview = selectedType
+    ? Array.from({ length: n }, (_, i) => `${selectedType.code}_${nextNumero + i}`)
+    : [];
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!typeMethodeId) return;
+    setError(null);
+    setLoading(true);
+    try {
+      for (let i = 0; i < n; i++) {
+        await api.post('/methodes', {
+          localiteId:    localite.id,
+          typeMethodeId: parseInt(typeMethodeId),
+          numero:        nextNumero + i,
+        });
+      }
+      onGenerated();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Erreur');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <form onSubmit={submit} className="bg-surface rounded-2xl shadow-2xl w-full max-w-md my-4 sm:my-8">
+        <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between rounded-t-2xl">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
+              <Layers size={16} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white">Générer des pièges en série</h2>
+              <p className="text-xs text-white/80">{localite.nom}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {error && <div className="p-3 bg-danger/10 border border-red-200 rounded-xl text-sm text-danger">{error}</div>}
+
+          <FormField label="Type de méthode" name="typeMethodeId" type="select"
+            value={typeMethodeId} onChange={(e) => setTypeMethodeId(e.target.value)}
+            options={typeOptions} required />
+          <FormField label="Nombre de pièges" name="count" type="number"
+            value={count} onChange={(e) => setCount(e.target.value)}
+            hint="Une méthode sera créée par piège, à compléter individuellement (habitat, environnement, position…)." />
+
+          {preview.length > 0 && (
+            <div className="text-xs text-fg-subtle bg-surface-2/60 rounded-lg px-3 py-2">
+              <span className="font-medium text-fg-muted">Génèrera : </span>
+              <span className="font-mono">{preview.join(', ')}</span>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-border">
+            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="submit" disabled={!typeMethodeId || loading} className="btn-primary">
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+              Générer{n > 1 ? ` (${n})` : ''}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // ── Page principale ───────────────────────────────────────────
 export default function MissionDetail() {
   const { id } = useParams();
   const { user } = useAuthStore();
   const canEdit = isMin(user?.role, 'chercheur');
 
-  const [mission, setMission] = useState(null);
-  const [modal,   setModal]   = useState(null);
+  const [mission,       setMission]       = useState(null);
+  const [modal,         setModal]         = useState(null);
+  const [methodeModal,  setMethodeModal]  = useState(null);
+  const [bulkModal,     setBulkModal]     = useState(null);
 
   const refresh = () => {
     api.get(`/missions/${id}`).then((r) => setMission(r.data.mission));
@@ -322,7 +397,6 @@ export default function MissionDetail() {
     );
   }
 
-  const s = STATUT[mission.statut] ?? {};
   const progressColor = !progress
     ? 'bg-primary'
     : progress.daysLeft < 0
@@ -332,7 +406,7 @@ export default function MissionDetail() {
         : 'bg-info';
 
   return (
-    <div className="max-w-screen-xl space-y-5">
+    <div className="max-w-screen-2xl space-y-5">
       <Breadcrumb items={[
         { label: 'Projets',              to: '/projets' },
         { label: mission.projet?.nom,    to: `/projets/${mission.projet?.id}` },
@@ -341,7 +415,7 @@ export default function MissionDetail() {
       ]} />
 
       {/* Layout 2 colonnes */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr,300px] gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr,300px] 2xl:grid-cols-[1fr,400px] gap-5 2xl:gap-8 items-start">
 
         {/* ── Colonne gauche ── */}
         <div className="space-y-5">
@@ -358,7 +432,6 @@ export default function MissionDetail() {
                     <span className="inline-flex items-center gap-1 text-xs font-mono bg-surface-3 text-fg-muted px-2 py-0.5 rounded-lg border border-border-strong">
                       <Hash size={10} /> {mission.ordreMission}
                     </span>
-                    <span className={`badge ${s.cls}`}>{s.label}</span>
                   </div>
                   <h1 className="text-xl font-bold text-fg">{mission.ordreMission}</h1>
                   <p className="text-sm text-fg-subtle mt-0.5">{mission.projet?.nom}</p>
@@ -458,7 +531,12 @@ export default function MissionDetail() {
                           </span>
                         )}
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-fg">{l.nom}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-fg">{l.nom}</p>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-info/10 text-info border border-info/20 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                              <Beaker size={9} /> {l.methodes?.length ?? 0} méthode{(l.methodes?.length ?? 0) > 1 ? 's' : ''}
+                            </span>
+                          </div>
                           <p className="text-xs text-fg-subtle mt-0.5">
                             {[l.fokontany, l.commune, l.district, l.region].filter(Boolean).join(', ') || '—'}
                           </p>
@@ -470,9 +548,6 @@ export default function MissionDetail() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs text-fg-subtle bg-surface-2 border border-border rounded-lg px-2 py-1">
-                          {l.methodes?.length ?? 0} méthode(s)
-                        </span>
                         {canEdit && (
                           <button
                             onClick={() => setModal({ type: 'edit', localite: l })}
@@ -482,6 +557,91 @@ export default function MissionDetail() {
                           </button>
                         )}
                       </div>
+                    </div>
+
+                    {/* Méthodes de collecte — encadré pour bien montrer qu'elles sont
+                        groupées sous cette localité, pas juste listées en dessous */}
+                    <div className="mt-3 pl-2.5 pr-2 py-2.5 rounded-xl border border-border bg-surface-2/30">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider flex items-center gap-1">
+                          <Beaker size={10} /> Méthodes ({l.methodes?.length ?? 0})
+                        </p>
+                        {canEdit && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setBulkModal({ localite: l })}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-fg-subtle hover:text-primary-600 transition-colors"
+                            >
+                              <Layers size={11} /> Série
+                            </button>
+                            <button
+                              onClick={() => setMethodeModal({ localite: l })}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary-600 transition-colors"
+                            >
+                              <Plus size={11} /> Ajouter
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {l.methodes?.length > 0 ? (
+                        <div className="space-y-1">
+                          {l.methodes.map((m) => {
+                            const identifiant = m.typeMethode ? `${m.typeMethode.code}_${m.numero}` : `#${m.id}`;
+                            const specimensTotal = (m._count?.moustiques ?? 0) + (m._count?.tiques ?? 0) + (m._count?.puces ?? 0);
+                            // Position propre au piège si précisée, sinon héritée de la localité.
+                            const lat = m.latitude  ?? l.latitude;
+                            const lng = m.longitude ?? l.longitude;
+                            const alt = m.altitudeM ?? l.altitudeM;
+                            return (
+                              <div key={m.id} className="flex items-center justify-between gap-2 text-xs bg-surface-2/60 rounded-lg px-2.5 py-1.5 group/m">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="font-mono font-semibold text-fg flex-shrink-0">{identifiant}</span>
+                                  <span className="text-fg-subtle truncate">
+                                    {[
+                                      m.typeHabitat?.nom,
+                                      m.typeEnvironnement?.nom,
+                                      m.interieurExterieur === 'interieur' ? 'Intérieur' : m.interieurExterieur === 'exterieur' ? 'Extérieur' : null,
+                                    ].filter(Boolean).join(' · ')}
+                                  </span>
+                                  {m.datePose && (
+                                    <span className="text-fg-subtle whitespace-nowrap">
+                                      {new Date(m.datePose).toLocaleDateString('fr-FR')}
+                                    </span>
+                                  )}
+                                  {lat != null && lng != null && (
+                                    <span
+                                      className={`inline-flex items-center gap-1 font-mono whitespace-nowrap ${m.latitude != null ? 'text-fg-subtle' : 'text-fg-subtle/60'}`}
+                                      title={m.latitude != null ? 'Position propre au piège' : 'Position héritée de la localité'}
+                                    >
+                                      <MapPin size={9} />
+                                      {lat.toFixed(4)}, {lng.toFixed(4)}
+                                      {alt != null && ` · ${Math.round(alt)} m`}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  {specimensTotal > 0 && (
+                                    <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5">
+                                      {specimensTotal}
+                                    </span>
+                                  )}
+                                  {canEdit && (
+                                    <button
+                                      onClick={() => setMethodeModal({ localite: l, methode: m })}
+                                      className="p-1 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded opacity-0 group-hover/m:opacity-100 transition-opacity"
+                                    >
+                                      <Edit2 size={11} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-fg-subtle italic">Aucune méthode enregistrée.</p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -638,6 +798,24 @@ export default function MissionDetail() {
           onSaved={() => { setModal(null); refresh(); }}
         />
       )}
+
+      {methodeModal && (
+        <MethodeModal
+          localite={methodeModal.localite}
+          methode={methodeModal.methode}
+          onClose={() => setMethodeModal(null)}
+          onSaved={() => { setMethodeModal(null); refresh(); }}
+        />
+      )}
+
+      {bulkModal && (
+        <MethodeBulkModal
+          localite={bulkModal.localite}
+          onClose={() => setBulkModal(null)}
+          onGenerated={() => { setBulkModal(null); refresh(); }}
+        />
+      )}
     </div>
   );
 }
+

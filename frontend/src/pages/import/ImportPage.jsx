@@ -575,7 +575,7 @@ export default function ImportPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 max-w-screen-2xl">
       <PageHeader
         icon={Upload} iconTone="info"
         title="Import de données"
@@ -615,7 +615,7 @@ export default function ImportPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px] gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px] 2xl:grid-cols-[1fr,380px] gap-5 2xl:gap-8 items-start">
         <div className="space-y-4">
           {phase === 'select' && (
             <PhaseSelect
@@ -650,3 +650,4 @@ export default function ImportPage() {
     </div>
   );
 }
+

@@ -65,14 +65,15 @@ const create = async (data, creatorId) => {
   const projet = await prisma.$transaction(async (tx) => {
     const created = await tx.projet.create({
       data: {
-        code:          '__TEMP__',
-        nom:           data.nom,
-        description:   data.description  ?? null,
-        porteur:       data.porteur       ?? null,
-        responsableId: data.responsableId ?? null,
-        dateDebut:     data.dateDebut     ? new Date(data.dateDebut) : null,
-        dateFin:       data.dateFin       ? new Date(data.dateFin)   : null,
-        statut:        data.statut        ?? 'actif',
+        code:            '__TEMP__',
+        nom:             data.nom,
+        description:     data.description     ?? null,
+        porteur:         data.porteur          ?? null,
+        posteAnalytique: data.posteAnalytique  ?? null,
+        responsableId:   data.responsableId    ?? null,
+        dateDebut:       data.dateDebut        ? new Date(data.dateDebut) : null,
+        dateFin:         data.dateFin          ? new Date(data.dateFin)   : null,
+        statut:          data.statut           ?? 'actif',
       },
     });
     return tx.projet.update({
@@ -94,13 +95,14 @@ const create = async (data, creatorId) => {
 
 const update = async (id, data) => {
   const update = {};
-  if (data.nom         !== undefined) update.nom           = data.nom;
-  if (data.description !== undefined) update.description   = data.description;
-  if (data.porteur     !== undefined) update.porteur       = data.porteur;
-  if (data.responsableId !== undefined) update.responsableId = data.responsableId;
-  if (data.dateDebut   !== undefined) update.dateDebut     = data.dateDebut ? new Date(data.dateDebut) : null;
-  if (data.dateFin     !== undefined) update.dateFin       = data.dateFin   ? new Date(data.dateFin)   : null;
-  if (data.statut      !== undefined) update.statut        = data.statut;
+  if (data.nom             !== undefined) update.nom             = data.nom;
+  if (data.description     !== undefined) update.description     = data.description;
+  if (data.porteur         !== undefined) update.porteur         = data.porteur;
+  if (data.posteAnalytique !== undefined) update.posteAnalytique = data.posteAnalytique;
+  if (data.responsableId   !== undefined) update.responsableId   = data.responsableId;
+  if (data.dateDebut       !== undefined) update.dateDebut       = data.dateDebut ? new Date(data.dateDebut) : null;
+  if (data.dateFin         !== undefined) update.dateFin         = data.dateFin   ? new Date(data.dateFin)   : null;
+  if (data.statut          !== undefined) update.statut          = data.statut;
 
   return prisma.projet.update({
     where: { id },

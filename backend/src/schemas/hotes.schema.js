@@ -5,6 +5,7 @@ const intId = z.coerce.number().int().positive();
 const createHote = z.object({
   methodeId:       intId,
   taxonomieHoteId: intId,
+  idTerrain:       z.string().max(50).optional().nullable(),
   especeLocale:    z.string().max(200).optional().nullable(),
   age:             z.string().max(50).optional().nullable(),
   sexe:            z.enum(['M', 'F', 'inconnu']).default('inconnu'),

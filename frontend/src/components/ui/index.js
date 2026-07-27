@@ -14,3 +14,4 @@ export { ToastProvider }                    from './Toast';
 export { ConfirmDialogProvider }            from './ConfirmDialog';
 export { default as Select }      from './Select';
 export { default as Breadcrumb }  from './Breadcrumb';
+export { default as DatePicker }  from './DatePicker';

@@ -29,14 +29,15 @@ async function nextCounter(localiteId, code) {
   const ids = methodes.map((x) => x.id);
 
   // Récupère tous les idTerrain existants sur cette localité
-  const [m, t, p] = await Promise.all([
-    prisma.moustique.findMany({ where: { methodeId: { in: ids } }, select: { idTerrain: true } }),
-    prisma.tique.findMany    ({ where: { methodeId: { in: ids } }, select: { idTerrain: true } }),
-    prisma.puce.findMany     ({ where: { methodeId: { in: ids } }, select: { idTerrain: true } }),
+  const [m, t, p, a] = await Promise.all([
+    prisma.moustique.findMany     ({ where: { methodeId: { in: ids } }, select: { idTerrain: true } }),
+    prisma.tique.findMany         ({ where: { methodeId: { in: ids } }, select: { idTerrain: true } }),
+    prisma.puce.findMany          ({ where: { methodeId: { in: ids } }, select: { idTerrain: true } }),
+    prisma.autreSpecimen.findMany ({ where: { methodeId: { in: ids } }, select: { idTerrain: true } }),
   ]);
 
   const re = new RegExp(`^${code}_(\\d+)$`);
-  const maxN = [...m, ...t, ...p]
+  const maxN = [...m, ...t, ...p, ...a]
     .map((x) => x.idTerrain)
     .filter(Boolean)
     .map((id) => { const mm = id.match(re); return mm ? parseInt(mm[1]) : 0; })
@@ -75,12 +76,42 @@ async function generateMany(methodeId, count) {
 async function isIdTerrainUnique(value, ignoreType = null, ignoreId = null) {
   if (!value) return true;
   const where = { idTerrain: value };
-  const [m, t, p] = await Promise.all([
-    prisma.moustique.findFirst({ where: ignoreType === 'moustique' ? { ...where, NOT: { id: ignoreId } } : where }),
-    prisma.tique.findFirst    ({ where: ignoreType === 'tique'     ? { ...where, NOT: { id: ignoreId } } : where }),
-    prisma.puce.findFirst     ({ where: ignoreType === 'puce'      ? { ...where, NOT: { id: ignoreId } } : where }),
+  const [m, t, p, a] = await Promise.all([
+    prisma.moustique.findFirst    ({ where: ignoreType === 'moustique'    ? { ...where, NOT: { id: ignoreId } } : where }),
+    prisma.tique.findFirst        ({ where: ignoreType === 'tique'        ? { ...where, NOT: { id: ignoreId } } : where }),
+    prisma.puce.findFirst         ({ where: ignoreType === 'puce'         ? { ...where, NOT: { id: ignoreId } } : where }),
+    prisma.autreSpecimen.findFirst({ where: ignoreType === 'autreSpecimen'? { ...where, NOT: { id: ignoreId } } : where }),
   ]);
-  return !m && !t && !p;
+  return !m && !t && !p && !a;
 }
 
-module.exports = { generateIdTerrain, generateMany, isIdTerrainUnique, getLocaliteByMethode };
+/**
+ * Génère un idTerrain pour un hôte : HOTE_<AAAAMM>_<n>.
+ * AAAAMM vient de la date de pose (datePose) de la méthode de collecte liée
+ * (date de terrain réelle), ou de la date du jour si elle n'est pas
+ * renseignée. Compteur global par mois, indépendant de la localité —
+ * contrairement aux spécimens, un hôte n'est pas rattaché au code de site.
+ */
+async function generateHoteId(methodeId) {
+  const methode = await prisma.methodeCollecte.findUnique({
+    where: { id: parseInt(methodeId) },
+    select: { datePose: true },
+  });
+  const ref = methode?.datePose ? new Date(methode.datePose) : new Date();
+  const key = `${ref.getFullYear()}${String(ref.getMonth() + 1).padStart(2, '0')}`;
+
+  const existing = await prisma.hote.findMany({
+    where: { idTerrain: { startsWith: `HOTE_${key}_` } },
+    select: { idTerrain: true },
+  });
+  const re = new RegExp(`^HOTE_${key}_(\\d+)$`);
+  const maxN = existing
+    .map((h) => h.idTerrain)
+    .filter(Boolean)
+    .map((id) => { const m = id.match(re); return m ? parseInt(m[1]) : 0; })
+    .reduce((a, b) => Math.max(a, b), 0);
+
+  return `HOTE_${key}_${maxN + 1}`;
+}
+
+module.exports = { generateIdTerrain, generateMany, isIdTerrainUnique, getLocaliteByMethode, generateHoteId };

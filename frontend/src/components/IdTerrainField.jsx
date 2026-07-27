@@ -1,11 +1,19 @@
 // Champ "ID terrain" qui interroge le backend pour générer le prochain ID
 // dès qu'une méthode est sélectionnée. Éditable manuellement si besoin.
+//
+// Réutilisé pour les spécimens (défaut : <CODE_LOCALITE>_<n>) et pour les
+// hôtes (buildPreviewUrl/formatHint personnalisés : HOTE_<AAAAMM>_<n>).
 
 import { useEffect, useState } from 'react';
 import { Tag, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import api from '../api/axios';
 
-export default function IdTerrainField({ methodeId, value, onChange, error }) {
+export default function IdTerrainField({
+  methodeId, value, onChange, error,
+  buildPreviewUrl = (id) => `/methodes/${id}/preview-id-terrain`,
+  label = 'ID terrain',
+  formatHint = <>{'<CODE>'}_{'<n>'}</>,
+}) {
   const [loading, setLoading] = useState(false);
   const [warning, setWarning] = useState(null);
   const [auto, setAuto] = useState(true); // l'utilisateur n'a pas encore édité
@@ -15,7 +23,7 @@ export default function IdTerrainField({ methodeId, value, onChange, error }) {
     if (!methodeId) { onChange(''); setWarning(null); return; }
     setLoading(true);
     try {
-      const r = await api.get(`/methodes/${methodeId}/preview-id-terrain`);
+      const r = await api.get(buildPreviewUrl(methodeId));
       setWarning(r.data.warning || null);
       if (auto) onChange(r.data.idTerrain || '');
     } catch {
@@ -51,7 +59,7 @@ export default function IdTerrainField({ methodeId, value, onChange, error }) {
       <div className="flex items-center justify-between">
         <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
           <Tag size={12} className="text-primary" />
-          ID terrain
+          {label}
           {auto && <span className="text-[10px] text-primary normal-case font-normal">(auto)</span>}
         </label>
         {!auto && (
@@ -90,7 +98,7 @@ export default function IdTerrainField({ methodeId, value, onChange, error }) {
       )}
       {!error && !warning && methodeId && (
         <p className="text-xs text-fg-subtle">
-          Format : <span className="font-mono">{'<CODE>'}_{'<n>'}</span> — modifiable si besoin
+          Format : <span className="font-mono">{formatHint}</span> — modifiable si besoin
         </p>
       )}
     </div>

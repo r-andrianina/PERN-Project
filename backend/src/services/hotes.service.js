@@ -1,5 +1,6 @@
 const prisma   = require('../config/prisma');
 const AppError = require('../utils/AppError');
+const { generateHoteId } = require('../utils/idTerrain');
 
 const INCLUDE_BASE = {
   methode: {
@@ -28,7 +29,7 @@ const getById = async (id) => {
 };
 
 const create = async (data) => {
-  const { methodeId, taxonomieHoteId, especeLocale, age, sexe, etatSante, vaccination, notes } = data;
+  const { methodeId, taxonomieHoteId, idTerrain, especeLocale, age, sexe, etatSante, vaccination, notes } = data;
 
   const [methode, taxo] = await Promise.all([
     prisma.methodeCollecte.findUnique({ where: { id: parseInt(methodeId) } }),
@@ -42,6 +43,7 @@ const create = async (data) => {
     data: {
       methodeId:       parseInt(methodeId),
       taxonomieHoteId: parseInt(taxonomieHoteId),
+      idTerrain:       idTerrain || await generateHoteId(methodeId),
       especeLocale:    especeLocale || null,
       age:             age          || null,
       sexe:            sexe         || 'inconnu',
@@ -54,9 +56,10 @@ const create = async (data) => {
 };
 
 const update = async (id, data) => {
-  const { taxonomieHoteId, especeLocale, age, sexe, etatSante, vaccination, notes } = data;
+  const { taxonomieHoteId, idTerrain, especeLocale, age, sexe, etatSante, vaccination, notes } = data;
   const patch = {};
   if (taxonomieHoteId !== undefined) patch.taxonomieHoteId = parseInt(taxonomieHoteId);
+  if (idTerrain       !== undefined) patch.idTerrain       = idTerrain;
   if (especeLocale    !== undefined) patch.especeLocale    = especeLocale;
   if (age             !== undefined) patch.age             = age;
   if (sexe            !== undefined) patch.sexe            = sexe;

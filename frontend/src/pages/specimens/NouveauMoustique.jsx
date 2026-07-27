@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { ChevronLeft, Microscope, FlaskConical, FileText, Check, Loader2, Info, Tag } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
@@ -37,6 +38,9 @@ export default function NouveauMoustique() {
   const [solutions,  setSolutions]  = useState([]);
   const [isLoading,  setIsLoading]  = useState(false);
   const [errors,     setErrors]     = useState({});
+  const [isDirty,    setIsDirty]    = useState(false);
+
+  useUnsavedChanges(isDirty);
 
   useEffect(() => {
     Promise.all([
@@ -51,6 +55,7 @@ export default function NouveauMoustique() {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setErrors({ ...errors, [name]: null });
+    setIsDirty(true);
     setForm((f) => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
   };
 
@@ -107,6 +112,7 @@ export default function NouveauMoustique() {
         dateCollecte: form.dateCollecte || null,
       };
       await api.post('/moustiques', payload);
+      setIsDirty(false);
       navigate('/specimens/moustiques');
     } catch (err) {
       setErrors({ submit: err.response?.data?.error || 'Erreur lors de la création' });

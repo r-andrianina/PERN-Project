@@ -9,7 +9,7 @@ import {
   TrendingUp, Hash, SlidersHorizontal,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, Button, EmptyState, PageHeader, Select, DataTable } from '../../components/ui';
+import { Card, Badge, Button, EmptyState, PageHeader, Select, DataTable, DatePicker } from '../../components/ui';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS } from '../../utils/gorgement';
 
@@ -443,11 +443,11 @@ export default function RecherchePage() {
           <FilterSection title="Période" icon={Calendar}>
             <div className="space-y-1.5">
               <label className="text-xs text-fg-subtle">Du</label>
-              <input type="date" className={inputCls} value={f.dateDebut || ''} onChange={(e) => setFilter('dateDebut', e.target.value)} />
+              <DatePicker value={f.dateDebut || ''} onChange={(val) => setFilter('dateDebut', val)} />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs text-fg-subtle">Au</label>
-              <input type="date" className={inputCls} value={f.dateFin || ''} onChange={(e) => setFilter('dateFin', e.target.value)} />
+              <DatePicker value={f.dateFin || ''} onChange={(val) => setFilter('dateFin', val)} />
             </div>
           </FilterSection>
 

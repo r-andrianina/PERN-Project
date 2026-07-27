@@ -3,8 +3,12 @@ const service  = require('../services/localites.service');
 const AppError = require('../utils/AppError');
 const { logAudit, ACTIONS } = require('../utils/audit');
 
-// Champs suivis dans l'historique d'audit (inclut le point GPS et l'altitude)
-const AUDIT_FIELDS = { nom: true, code: true, region: true, district: true, commune: true, fokontany: true, contactNom: true, contactTelephone: true, contactStatut: true, latitude: true, longitude: true, altitudeM: true };
+// Champs suivis dans l'historique d'audit (inclut le point GPS, l'altitude et les contacts)
+const AUDIT_FIELDS = {
+  nom: true, code: true, region: true, district: true, commune: true, fokontany: true,
+  contacts: { select: { nom: true, telephone: true, statut: true }, orderBy: { id: 'asc' } },
+  latitude: true, longitude: true, altitudeM: true,
+};
 
 const listLocalites = async (req, res) => {
   const localites = await service.list(req.query);
@@ -23,7 +27,15 @@ const updateLocalite = async (req, res) => {
   const id = parseInt(req.params.id);
   const before = await prisma.localite.findUnique({ where: { id }, select: AUDIT_FIELDS });
   const localite = await service.update(id, req.body);
-  await logAudit({ req, action: ACTIONS.UPDATE, entity: 'Localite', entityId: id, oldValues: before, newValues: { nom: localite.nom, code: localite.code, region: localite.region, district: localite.district, commune: localite.commune, fokontany: localite.fokontany, contactNom: localite.contactNom, contactTelephone: localite.contactTelephone, contactStatut: localite.contactStatut, latitude: localite.latitude, longitude: localite.longitude, altitudeM: localite.altitudeM } });
+  await logAudit({
+    req, action: ACTIONS.UPDATE, entity: 'Localite', entityId: id, oldValues: before,
+    newValues: {
+      nom: localite.nom, code: localite.code, region: localite.region, district: localite.district,
+      commune: localite.commune, fokontany: localite.fokontany,
+      contacts: localite.contacts.map(c => ({ nom: c.nom, telephone: c.telephone, statut: c.statut })),
+      latitude: localite.latitude, longitude: localite.longitude, altitudeM: localite.altitudeM,
+    },
+  });
   res.json({ message: 'Localité mise à jour avec succès', localite });
 };
 

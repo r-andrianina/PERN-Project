@@ -36,7 +36,7 @@ const FIELD_LABELS = {
   role: 'rôle', capacity: 'capacité', type: 'type',
   taxonomieId: 'taxonomie', solutionId: 'solution', dateCollecte: 'date de collecte',
   region: 'région', district: 'district', commune: 'commune', fokontany: 'fokontany',
-  contactNom: 'nom du contact local', contactTelephone: 'téléphone du contact local', contactStatut: 'statut du contact local',
+  contacts: 'contacts locaux',
   typeMethodeId: 'type de méthode', typeHabitatId: 'habitat', typeEnvironnementId: 'environnement',
 };
 
@@ -95,9 +95,9 @@ export function resolveEntityUrl(entity, entityId, action) {
     Puce:                 isDelete ? '/specimens/puces'       : `/specimens/puces/${entityId}`,
     Mission:              isDelete ? '/missions'              : `/missions/${entityId}`,
     Projet:               isDelete ? '/projets'               : `/projets/${entityId}`,
-    Hote:                 '/hotes',
+    Hote:                 isDelete ? '/hotes'                   : `/hotes/${entityId}`,
     Container:            '/missions',
-    MethodeCollecte:      '/methodes',
+    MethodeCollecte:      '/missions',
     Localite:             '/missions',
     TaxonomieSpecimen:    '/dictionnaire/taxonomie-specimens',
     TaxonomieHote:        '/dictionnaire/taxonomie-hotes',

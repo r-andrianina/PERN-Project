@@ -14,9 +14,6 @@ import SpecimenIcon from './SpecimenIcon';
 const TYPE_LABEL = { moustique: 'Moustique', tique: 'Tique', puce: 'Puce' };
 const TYPE_TONE  = { moustique: '#1D9E75',   tique: '#f59e0b', puce: '#ef4444' };
 
-const STATUT_MISSION = {
-  planifiee: 'Planifiée', en_cours: 'En cours', terminee: 'Terminée', annulee: 'Annulée',
-};
 const STATUT_PROJET = { actif: 'Actif', termine: 'Terminé', suspendu: 'Suspendu' };
 
 // Surligne toutes les occurrences de `query` dans `text` (insensible à la casse).
@@ -377,7 +374,6 @@ export default function GlobalSearch() {
                         <p className="text-sm font-medium text-fg truncate"><Highlight text={m.ordreMission} query={query} /></p>
                         <p className="text-xs text-fg-subtle truncate"><Highlight text={m.projet?.nom || m.projet?.code || '—'} query={query} /></p>
                       </div>
-                      <span className="text-[10px] text-fg-subtle flex-shrink-0">{STATUT_MISSION[m.statut] || m.statut}</span>
                     </button>
                   );
                 })}

@@ -134,7 +134,7 @@ async function findOrCreateMission(ordreMission, projetId, dateDebut, logs) {
 
   const debut = dateDebut ?? new Date();
   mission = await prisma.mission.create({
-    data: { ordreMission, projetId, dateDebut: debut, statut: 'planifiee' },
+    data: { ordreMission, projetId, dateDebut: debut },
     select: { id: true, dateDebut: true },
   });
   logs.push({

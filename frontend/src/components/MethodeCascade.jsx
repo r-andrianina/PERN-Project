@@ -118,7 +118,7 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
               { value: '', label: '— Sélectionner —' },
               ...methodes.map((m) => ({
                 value: m.id,
-                label: `${m.typeMethode?.code ? `[${m.typeMethode.code}] ` : ''}${m.typeMethode?.nom || `Méthode #${m.id}`}${m.dateCollecte ? ` — ${new Date(m.dateCollecte).toLocaleDateString('fr-FR')}` : ''}`,
+                label: `${m.typeMethode?.code ? `[${m.typeMethode.code}] ` : ''}${m.typeMethode?.nom || `Méthode #${m.id}`}${m.datePose ? ` — ${new Date(m.datePose).toLocaleDateString('fr-FR')}` : ''}`,
               })),
             ]}
           />

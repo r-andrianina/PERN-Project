@@ -5,7 +5,7 @@ import {
   Pencil, Trash2, Save, X, MapPin, Beaker,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, Button, PageHeader, Spinner, Select, Breadcrumb } from '../../components/ui';
+import { Card, Badge, Button, PageHeader, Spinner, Select, Breadcrumb, DatePicker } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
@@ -290,9 +290,8 @@ export default function MoustiqueDetail() {
                   options={solutionOptions} />
                 <div>
                   <label className="text-xs text-fg-subtle font-medium block mb-1">Date de collecte</label>
-                  <input type="date" value={editForm.dateCollecte}
-                    onChange={e => setEditForm(f => ({ ...f, dateCollecte: e.target.value }))}
-                    className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg"
+                  <DatePicker value={editForm.dateCollecte}
+                    onChange={val => setEditForm(f => ({ ...f, dateCollecte: val }))}
                   />
                 </div>
               </div>

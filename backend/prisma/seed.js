@@ -220,6 +220,30 @@ async function main() {
   }
   console.log('Types habitat OK');
 
+  // ── Pathogènes cibles ──────────────────────────────────────
+  const pathogenes = [
+    { code: 'PLASMO_FALCIPARUM', nom: 'Plasmodium falciparum', famille: 'Plasmodiidae',      typeOrg: 'parasite', typeAN: 'adn' },
+    { code: 'PLASMO_VIVAX',      nom: 'Plasmodium vivax',      famille: 'Plasmodiidae',      typeOrg: 'parasite', typeAN: 'adn' },
+    { code: 'PLASMO_MALARIAE',   nom: 'Plasmodium malariae',   famille: 'Plasmodiidae',      typeOrg: 'parasite', typeAN: 'adn' },
+    { code: 'PLASMO_OVALE',      nom: 'Plasmodium ovale',      famille: 'Plasmodiidae',      typeOrg: 'parasite', typeAN: 'adn' },
+    { code: 'DENGUE',            nom: 'Virus Dengue (DENV)',   famille: 'Flaviviridae',      typeOrg: 'virus',    typeAN: 'arn' },
+    { code: 'ZIKA',              nom: 'Virus Zika (ZIKV)',     famille: 'Flaviviridae',      typeOrg: 'virus',    typeAN: 'arn' },
+    { code: 'CHIKV',             nom: 'Chikungunya (CHIKV)',   famille: 'Togaviridae',       typeOrg: 'virus',    typeAN: 'arn' },
+    { code: 'RIFTVALLEY',        nom: 'Fièvre de la Vallée du Rift (RVFV)', famille: 'Phenuiviridae', typeOrg: 'virus', typeAN: 'arn' },
+    { code: 'WNV',               nom: 'West Nile Virus (WNV)', famille: 'Flaviviridae',      typeOrg: 'virus',    typeAN: 'arn' },
+    { code: 'YERSINIA_PESTIS',   nom: 'Yersinia pestis',       famille: 'Yersiniaceae',      typeOrg: 'bacterie', typeAN: 'adn' },
+    { code: 'BARTONELLA',        nom: 'Bartonella spp.',        famille: 'Bartonellaceae',    typeOrg: 'bacterie', typeAN: 'adn' },
+    { code: 'BORRELIA',          nom: 'Borrelia spp.',          famille: 'Spirochaetaceae',   typeOrg: 'bacterie', typeAN: 'adn' },
+    { code: 'RICKETTSIA',        nom: 'Rickettsia spp.',        famille: 'Rickettsiaceae',    typeOrg: 'bacterie', typeAN: 'adn' },
+    { code: 'WUCHERERIA',        nom: 'Wuchereria bancrofti',   famille: 'Onchocercidae',     typeOrg: 'parasite', typeAN: 'adn' },
+    { code: 'COI_BARCODING',     nom: 'COI — Barcoding espèce', famille: null,               typeOrg: 'marqueur', typeAN: 'adn', description: 'Identification moléculaire d\'espèce (COI 658 bp)' },
+    { code: 'ITS2',              nom: 'ITS2 — Identification',  famille: null,               typeOrg: 'marqueur', typeAN: 'adn', description: 'Marqueur ITS2 pour identification d\'espèce' },
+  ];
+  for (const p of pathogenes) {
+    await prisma.pathogeneCible.upsert({ where: { code: p.code }, update: {}, create: p });
+  }
+  console.log('Pathogènes cibles OK');
+
   console.log('\nSeed terminé avec succès !');
   console.log('Connexion : andrianinar@pasteur.mg / Admin1234!');
 }

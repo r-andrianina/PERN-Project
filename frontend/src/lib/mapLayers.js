@@ -1,11 +1,8 @@
 // frontend/src/lib/mapLayers.js
-// Couches de fond partagées entre CartePage et MapPicker.
-//
-// Contexte "Map data not yet available" : pour certaines zones de
-// Madagascar, Esri World_Imagery n'a tout simplement pas d'imagerie
-// haute résolution (même dans la limite de `maxNativeZoom`) et renvoie
-// une tuile placeholder portant ce texte. La couche Google (satellite
-// public, sans clé API) sert d'alternative pour ces zones.
+// Couche de fond partagée entre CartePage et MapPicker.
+// Google Satellite (pas de clé API requise) — Esri World_Imagery a été
+// retiré : il n'a pas d'imagerie haute résolution sur une bonne partie de
+// Madagascar et renvoyait une tuile "Map data not yet available".
 
 // Tuile transparente 1x1 — utilisée comme `errorTileUrl` pour qu'une
 // tuile en échec (réseau/CORS) laisse voir la tuile parente zoomée au
@@ -15,16 +12,8 @@ export const ERROR_TILE_URL =
 
 export const BASE_LAYERS = {
   satellite: {
-    label: 'Satellite (Esri)',
+    label: 'Satellite',
     icon: '🛰',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '© Esri, Maxar, Earthstar Geographics',
-    maxZoom: 22,
-    maxNativeZoom: 18,
-  },
-  hybrid: {
-    label: 'Satellite (Google)',
-    icon: '🌐',
     url: 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
     attribution: '© Google',

@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Loader2, ChevronLeft,
-  ChevronRight, ChevronDown, X, Bug,
+  ChevronRight, ChevronDown, ChevronUp, X, Bug, Info,
 } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
@@ -26,6 +26,16 @@ const NIVEAUX = [
   { value: 'sous_espece',  label: 'Sous-espèce' },
 ];
 const NIVEAU_LABEL = Object.fromEntries(NIVEAUX.map((n) => [n.value, n.label]));
+
+const NIVEAU_DESC = {
+  ordre:        "Le grand groupe biologique — ex: Diptera regroupe tous les insectes à 2 ailes, dont les moustiques.",
+  famille:      "Regroupe les genres proches — ex: Culicidae, la famille des moustiques.",
+  sous_famille: "Subdivision optionnelle de la famille — ex: Anophelinae et Culicinae chez les moustiques.",
+  genre:        "Le groupe d'espèces partageant des caractéristiques communes — ex: Anopheles, Aedes.",
+  sous_genre:   "Subdivision optionnelle du genre, utilisée quand il est très diversifié — ex: Anopheles (Cellia).",
+  espece:       "L'unité de base — combinée au genre, elle forme le nom binomial (ex: Anopheles gambiae).",
+  sous_espece:  "Subdivision optionnelle de l'espèce, pour des populations ou variétés distinctes.",
+};
 
 const NIVEAU_ENFANT = {
   ordre:        ['famille'],
@@ -48,6 +58,63 @@ const TYPE_COLOR = {
   tique:     'bg-specimen-tique/10 text-specimen-tique border-rose-100',
   puce:      'bg-specimen-puce/10 text-specimen-puce border-amber-100',
 };
+
+// ----- panneau d'explication de la hiérarchie, repliable (état mémorisé par utilisateur)
+const INFO_STORAGE_KEY = 'taxonomieSpecimens.infoOpen';
+
+function HierarchyInfoPanel() {
+  const [open, setOpen] = useState(() => localStorage.getItem(INFO_STORAGE_KEY) === 'true');
+
+  const toggle = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem(INFO_STORAGE_KEY, String(next));
+      return next;
+    });
+  };
+
+  return (
+    <div className="card overflow-hidden">
+      <button
+        onClick={toggle}
+        className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-surface-2 transition-colors"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-fg">
+          <Info size={15} className="text-primary" /> Comprendre la hiérarchie
+        </span>
+        {open ? <ChevronUp size={15} className="text-fg-subtle" /> : <ChevronDown size={15} className="text-fg-subtle" />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
+            {NIVEAUX.map((n) => (
+              <div key={n.value} className="flex items-start gap-2.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle w-24 flex-shrink-0 pt-0.5">
+                  {n.label}
+                </span>
+                <span className="text-xs text-fg-muted leading-relaxed">{NIVEAU_DESC[n.value]}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div className="px-3 py-2.5 bg-surface-2 rounded-xl text-xs text-fg-muted leading-relaxed">
+              <span className="font-mono font-semibold text-fg">« sp. »</span> au niveau espèce signifie
+              « espèce non déterminée » — le genre (ou sous-genre) est connu, mais l'espèce précise
+              n'a pas encore été identifiée sur le terrain (ex: <span className="italic">Anopheles sp.</span>).
+            </div>
+            <div className="px-3 py-2.5 bg-surface-2 rounded-xl text-xs text-fg-muted leading-relaxed">
+              Un sous-genre ou une sous-espèce peut porter le <strong>même nom</strong> que son genre/espèce
+              parent (ex: sous-genre <span className="italic">Aedes</span> sous le genre <span className="italic">Aedes</span>) —
+              c'est la convention du sous-genre/sous-espèce <strong>nominotypique</strong>, pas une erreur ni un doublon.
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ----- noeud d'arbre récursif
 function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, canEdit, canDelete, expandedIds, setExpandedIds }) {
@@ -274,6 +341,8 @@ export default function TaxonomieSpecimensPage() {
           </button>
         ))}
       </div>
+
+      <HierarchyInfoPanel />
 
       {loading ? (
         <div className="flex items-center justify-center h-32 text-fg-subtle text-sm">
