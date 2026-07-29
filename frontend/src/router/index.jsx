@@ -12,6 +12,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { hasMinRole } from '../lib/roles';
 import { Spinner } from '../components/ui';
+import RouteErrorBoundary from '../components/RouteErrorBoundary';
 
 // Chargement synchrone : pages critiques (premier rendu visible)
 import LoginPage    from '../pages/auth/LoginPage';
@@ -92,11 +93,12 @@ const MinRoleRoute = ({ children, minRole }) => {
 };
 
 const router = createBrowserRouter([
-  { path: '/login',    element: <PublicRoute><LoginPage /></PublicRoute> },
-  { path: '/register', element: <PublicRoute><RegisterPage /></PublicRoute> },
+  { path: '/login',    element: <PublicRoute><LoginPage /></PublicRoute>, errorElement: <RouteErrorBoundary /> },
+  { path: '/register', element: <PublicRoute><RegisterPage /></PublicRoute>, errorElement: <RouteErrorBoundary /> },
   {
     path: '/',
     element: <ProtectedRoute><MainLayout /></ProtectedRoute>,
+    errorElement: <RouteErrorBoundary />,
     children: [
       { index: true,                        element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard',                  element: <Suspense fallback={<PageLoader />}><DashboardPage /></Suspense> },

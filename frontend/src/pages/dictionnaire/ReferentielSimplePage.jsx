@@ -8,7 +8,7 @@ import FormField from '../../components/FormField';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, Button, PageHeader, Spinner, DataTable, Pagination, Select } from '../../components/ui';
 
-const ROLES = { admin: 4, chercheur: 3, terrain: 2, lecteur: 1 };
+const ROLES = { admin: 5, superviseur: 4, chercheur: 3, technicien: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
 
 export default function ReferentielSimplePage({ config }) {

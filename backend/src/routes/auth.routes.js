@@ -15,6 +15,7 @@ router.post('/login',    loginLimiter,  validate(schema.login),    asyncHandler(
 
 // ── Authentifiées ─────────────────────────────────────────────
 router.get('/me', verifyToken, asyncHandler(authCtrl.me));
+router.patch('/me/password', verifyToken, validate(schema.changePassword), asyncHandler(authCtrl.changePassword));
 
 // ── Admin ─────────────────────────────────────────────────────
 // Superviseur+ peut lister les utilisateurs (pour le picker d'ajout de membres)

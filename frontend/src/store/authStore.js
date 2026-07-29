@@ -10,12 +10,13 @@ const useAuthStore = create((set) => ({
   token: localStorage.getItem('token') || null,
   isLoading: false,
   error: null,
+  isNetworkError: false,
 
   // =============================================================
   //  LOGIN
   // =============================================================
   login: async (email, password) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, isNetworkError: false });
     try {
       const res = await api.post('/auth/login', { email, password });
       const { token, user } = res.data;
@@ -25,13 +26,17 @@ const useAuthStore = create((set) => ({
       localStorage.setItem('user', JSON.stringify(user));
 
       // user contient déjà specimensAutorises depuis la réponse login
-      set({ token, user, isLoading: false, error: null });
+      set({ token, user, isLoading: false, error: null, isNetworkError: false });
       return { success: true };
 
     } catch (err) {
+      // Pas de réponse du tout (panne réseau/serveur injoignable/timeout) vs
+      // une réponse HTTP avec un message métier (identifiants invalides…) —
+      // deux cas très différents, affichés différemment par LoginPage.
+      const isNetworkError = !err.response;
       const message = err.response?.data?.error || 'Erreur de connexion';
-      set({ isLoading: false, error: message });
-      return { success: false, error: message };
+      set({ isLoading: false, error: message, isNetworkError });
+      return { success: false, error: message, isNetworkError };
     }
   },
 
@@ -59,7 +64,7 @@ const useAuthStore = create((set) => ({
   // =============================================================
   //  CLEAR ERROR
   // =============================================================
-  clearError: () => set({ error: null }),
+  clearError: () => set({ error: null, isNetworkError: false }),
 }));
 
 export default useAuthStore;

@@ -21,7 +21,7 @@ const TYPE_COLOR = {
 };
 const TYPE_LABEL = { moustique: 'Moustiques', tique: 'Tiques', puce: 'Puces' };
 
-const ROLES = { admin: 4, chercheur: 3, terrain: 2, lecteur: 1 };
+const ROLES = { admin: 5, superviseur: 4, chercheur: 3, technicien: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
 
 function MiniBar({ value, max, colorClass = 'bg-primary' }) {

@@ -12,7 +12,7 @@ import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 
-const ROLES = { admin: 4, chercheur: 3, terrain: 2, lecteur: 1 };
+const ROLES = { admin: 5, superviseur: 4, chercheur: 3, technicien: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
 
 const NIVEAUX = [

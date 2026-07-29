@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FolderOpen, MapPin, BookOpen, PawPrint, Users, Upload,
-  Menu, X, LogOut, FlaskConical, Map, Radio, Microscope,
+  Menu, X, LogOut, Map, Radio, Microscope, KeyRound,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import ThemeToggle from '../ThemeToggle';
@@ -10,6 +10,8 @@ import { Badge } from '../ui';
 import SpecimenIcon from '../SpecimenIcon';
 import GlobalSearch from '../GlobalSearch';
 import NotificationBell from '../NotificationBell';
+import ConnectionBanner from '../ConnectionBanner';
+import ChangePasswordModal from '../ChangePasswordModal';
 import Footer from './Footer';
 import Clock from './Clock';
 import { useT } from '../../lib/i18n';
@@ -61,6 +63,7 @@ export default function MainLayout() {
   const t                = useT();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const handleLogout = () => { logout(); navigate('/login'); };
   const closeSidebar = () => setSidebarOpen(false);
@@ -88,6 +91,8 @@ export default function MainLayout() {
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
 
+      <ConnectionBanner />
+
       {/* ── BACKDROP MOBILE ── */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm" onClick={closeSidebar} />
@@ -105,8 +110,8 @@ export default function MainLayout() {
         {/* Logo */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-card flex-shrink-0">
-              <FlaskConical size={20} className="text-fg-on-primary" />
+            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-card flex-shrink-0 ring-1 ring-border">
+              <img src="/icons/logo.png" alt="SpécimenManager" className="w-9 h-9 object-contain" />
             </div>
             <div>
               <p className="text-base font-bold text-fg leading-tight tracking-tight">
@@ -175,6 +180,10 @@ export default function MainLayout() {
               <p className="text-sm font-medium text-fg truncate">{user?.prenom} {user?.nom}</p>
               <Badge tone={ROLE_TONE[user?.role] ?? 'default'} size="xs" className="mt-0.5">{user?.role}</Badge>
             </div>
+            <button onClick={() => setShowPasswordModal(true)} title="Changer mon mot de passe"
+              className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
+              <KeyRound size={16} />
+            </button>
             <button onClick={handleLogout} title={t('common.logout')}
               className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors">
               <LogOut size={16} />
@@ -182,6 +191,8 @@ export default function MainLayout() {
           </div>
         </div>
       </aside>
+
+      {showPasswordModal && <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />}
 
       {/* ── CONTENU PRINCIPAL ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -195,8 +206,8 @@ export default function MainLayout() {
 
           {/* Marque — visible quand la sidebar est masquée (mobile/tablette) */}
           <div className="flex items-center gap-2 lg:hidden flex-shrink-0">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <FlaskConical size={14} className="text-fg-on-primary" />
+            <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center ring-1 ring-border">
+              <img src="/icons/logo.png" alt="SpécimenManager" className="w-7 h-7 object-contain" />
             </div>
             <span className="hidden sm:inline text-sm font-bold text-fg tracking-tight whitespace-nowrap">
               Spécimen<span className="text-primary">Manager</span>

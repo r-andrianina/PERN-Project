@@ -8,7 +8,7 @@ import { dialog } from '../../lib/dialog';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner, Pagination, DataTable } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
 
-const ROLES = { admin: 4, chercheur: 3, terrain: 2, lecteur: 1 };
+const ROLES = { admin: 5, superviseur: 4, chercheur: 3, technicien: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };

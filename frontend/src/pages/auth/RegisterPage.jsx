@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FlaskConical, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import api from '../../api/axios';
 import { Spinner } from '../../components/ui';
 
@@ -27,11 +27,11 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary-800 via-primary-700 to-primary-500 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-white/15 rounded-2xl mb-4 ring-1 ring-white/20">
-            <FlaskConical size={28} className="text-white" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl mb-4 shadow-lg">
+            <img src="/icons/logo.png" alt="SpécimenManager" className="w-16 h-16 object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">SpécimenManager</h1>
-          <p className="text-primary-200 text-sm mt-1.5">Institut Pasteur de Madagascar</p>
+          <p className="text-primary-200 text-sm mt-1.5">Unité Entomologie Médicale</p>
         </div>
         {content}
       </div>

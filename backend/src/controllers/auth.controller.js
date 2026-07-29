@@ -273,6 +273,24 @@ const resetPassword = async (req, res) => {
 };
 
 // =============================================================
+//  CHANGE PASSWORD (self-service) — utilisateur déjà authentifié
+// =============================================================
+
+const changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
+  const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!ok) return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+  return res.json({ message: 'Mot de passe modifié avec succès' });
+};
+
+// =============================================================
 //  PRESENCE — utilisateurs ayant une connexion SSE active
 // =============================================================
 
@@ -316,6 +334,6 @@ module.exports = {
   register, login, me,
   listUsers, createUser, updateUser,
   activateUser, updateSpecimenAccess,
-  deleteUser, resetPassword,
+  deleteUser, resetPassword, changePassword,
   getPresence, kickUser,
 };

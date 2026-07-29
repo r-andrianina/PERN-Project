@@ -3,6 +3,7 @@
 
 import axios from 'axios';
 import { toast } from '../lib/toast';
+import useConnectionStore from '../store/connectionStore';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1',
@@ -21,12 +22,21 @@ api.interceptors.request.use(
 
 // Intercepteur réponse — gestion centralisée des erreurs
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Toute requête qui aboutit prouve que le serveur est de nouveau joignable
+    useConnectionStore.getState().setUp();
+    return response;
+  },
   (error) => {
     const status  = error.response?.status;
     const message = error.response?.data?.error;
 
-    if (status === 401) {
+    if (!error.response) {
+      // Aucune réponse du tout : panne réseau, backend injoignable, timeout,
+      // CORS bloqué… — signalé via <ConnectionBanner />, pas un toast (qui
+      // spammerait un message par requête en échec au lieu d'un état global).
+      useConnectionStore.getState().setDown();
+    } else if (status === 401) {
       // Session expirée ou token invalide → redirection login
       localStorage.removeItem('token');
       localStorage.removeItem('user');

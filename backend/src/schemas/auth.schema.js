@@ -51,4 +51,9 @@ const resetPassword = z.object({
   password: passwordStr,
 });
 
-module.exports = { login, register, createUser, updateUser, activateUser, updateSpecimens, resetPassword };
+const changePassword = z.object({
+  currentPassword: z.string().min(1, 'Mot de passe actuel requis'),
+  newPassword:     passwordStr,
+});
+
+module.exports = { login, register, createUser, updateUser, activateUser, updateSpecimens, resetPassword, changePassword };
