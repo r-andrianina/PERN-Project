@@ -8,6 +8,7 @@ const fs      = require('fs');
 const { resolveSpecimenTaxonomyId, libelleTaxonomie } = require('../utils/taxonomyResolve');
 const { generateIdTerrain, generateMany, isIdTerrainUnique } = require('../utils/idTerrain');
 const { validatePlacement, nextAvailablePositions } = require('../utils/container');
+const { countSpecimenRefs, refsReason } = require('../utils/specimenRefs');
 const { logAudit, ACTIONS } = require('../utils/audit');
 const { BLOOD_MEAL, normalizeKey } = require('../utils/importMappings');
 
@@ -216,6 +217,12 @@ const deleteTique = async (req, res) => {
     select: { idTerrain:true, taxonomieId:true, nombre:true, sexe:true, stade:true, gorge:true, methodeId:true, hoteId:true, dateCollecte:true },
   });
   if (!before) return res.status(404).json({ error: 'Tique introuvable' });
+
+  // B6 — refuse la suppression tant que le spécimen est référencé en labo/pool.
+  const refs = await countSpecimenRefs('tique', id);
+  if (refs.total > 0)
+    return res.status(409).json({ error: `Suppression impossible : cette tique est référencée par ${refsReason(refs)}. Détachez-la du laboratoire / du pool avant de la supprimer.` });
+
   await prisma.tique.delete({ where: { id } });
   await logAudit({ req, action: ACTIONS.DELETE, entity: 'Tique', entityId: id, oldValues: before });
   return res.json({ message: 'Tique supprimée' });

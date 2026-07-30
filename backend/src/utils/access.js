@@ -3,8 +3,7 @@
 // les autres rôles ne voient que les projets dont ils sont membres.
 
 const prisma = require('../config/prisma');
-
-const BYPASS_ROLES = ['admin', 'superviseur'];
+const { BYPASS_ROLES } = require('../config/rbac'); // source unique (F2)
 
 /**
  * Retourne les projetIds accessibles pour un utilisateur.

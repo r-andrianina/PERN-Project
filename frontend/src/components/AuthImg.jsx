@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- ce fichier exporte aussi un utilitaire de cache d'images ; faux positif HMR (cf. router/index.jsx) */
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
 

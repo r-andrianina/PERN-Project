@@ -29,6 +29,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', app: 'SpécimenMan
 
 // ── Routes ────────────────────────────────────────────────────
 app.use('/api/v1/auth',       require('./routes/auth.routes'));
+app.use('/api/v1/rbac',       require('./routes/rbac.routes'));
 app.use('/api/v1/projets',    require('./routes/projets.routes'));
 app.use('/api/v1/missions',   require('./routes/missions.routes'));
 app.use('/api/v1/localites',  require('./routes/localites.routes'));

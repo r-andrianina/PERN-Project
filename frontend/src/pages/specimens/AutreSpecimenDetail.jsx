@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Bug, FlaskConical, FileText, Pencil, Trash2, Save, X, MapPin, Beaker, Plus, Minus, Microscope } from 'lucide-react';
 import api from '../../api/axios';
 import { Card, Badge, Button, PageHeader, Spinner, Breadcrumb, DatePicker } from '../../components/ui';
@@ -42,16 +42,6 @@ export default function AutreSpecimenDetail() {
   const [editForm,  setEditForm]  = useState({});
   const [editAttrs, setEditAttrs] = useState([]);
 
-  useEffect(() => {
-    api.get(`/autres-specimens/${id}`)
-      .then((r) => {
-        setSpecimen(r.data.specimen);
-        initEdit(r.data.specimen);
-      })
-      .catch(() => toast.error('Spécimen introuvable'))
-      .finally(() => setLoading(false));
-  }, [id]);
-
   const initEdit = (s) => {
     setEditForm({
       notes:       s.notes       || '',
@@ -63,6 +53,16 @@ export default function AutreSpecimenDetail() {
     const attrs = s.attributs ? Object.entries(s.attributs).map(([cle, valeur]) => ({ cle, valeur: String(valeur) })) : [];
     setEditAttrs(attrs.length ? attrs : [{ cle: '', valeur: '' }]);
   };
+
+  useEffect(() => {
+    api.get(`/autres-specimens/${id}`)
+      .then((r) => {
+        setSpecimen(r.data.specimen);
+        initEdit(r.data.specimen);
+      })
+      .catch(() => toast.error('Spécimen introuvable'))
+      .finally(() => setLoading(false));
+  }, [id]);
 
   const handleSave = async () => {
     setSaving(true);

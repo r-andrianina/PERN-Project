@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import api from '../../api/axios';
 import {
   LayoutDashboard, FolderOpen, MapPin, BookOpen, PawPrint, Users, Upload,
   Menu, X, LogOut, Map, Radio, Microscope, KeyRound,
@@ -15,7 +16,7 @@ import ChangePasswordModal from '../ChangePasswordModal';
 import Footer from './Footer';
 import Clock from './Clock';
 import { useT } from '../../lib/i18n';
-import { canBypass, ROLE_TONE as ROLE_TONE_MAP } from '../../lib/roles';
+import { canBypass, hydrateRbac, ROLE_TONE as ROLE_TONE_MAP } from '../../lib/roles';
 
 const ROLE_TONE = {
   ...ROLE_TONE_MAP,
@@ -64,6 +65,14 @@ export default function MainLayout() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+
+  // F2 — hydrate la config RBAC depuis le backend (source unique) une fois en
+  // zone authentifiée ; en cas d'échec on garde le repli statique de lib/roles.
+  useEffect(() => {
+    api.get('/rbac/config')
+      .then((r) => hydrateRbac(r.data))
+      .catch(() => { /* repli statique conservé */ });
+  }, []);
 
   const handleLogout = () => { logout(); navigate('/login'); };
   const closeSidebar = () => setSidebarOpen(false);

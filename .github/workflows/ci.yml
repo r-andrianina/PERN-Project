@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# Annule les exécutions redondantes sur une même branche.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Frontend : lint + tests unitaires (Vitest/RTL) + build ─────────
+  frontend:
+    name: Frontend (lint · tests · build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  # ── Backend : tests unitaires (sans DB) + smoke test end-to-end ────
+  backend:
+    name: Backend (unit · migrate · smoke)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: specimenmanager
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/specimenmanager?schema=public
+      JWT_SECRET: ci-test-secret-not-for-production
+      SEED_ADMIN_PASSWORD: Admin1234!
+      NODE_ENV: test
+      PORT: '3000'
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+      - name: Générer le client Prisma
+        run: npx prisma generate
+
+      # Tests unitaires purs (logique RBAC, schémas Zod) — ne touchent pas la DB.
+      - name: Tests unitaires (Vitest)
+        run: npm test
+
+      # Applique le schéma + les données de référence sur la base de CI.
+      - name: Appliquer les migrations
+        run: npx prisma migrate deploy
+      - name: Seed
+        run: npm run seed
+
+      # Démarre l'API et lance le smoke test end-to-end (28 cas) dans le même step
+      # pour que le serveur reste vivant le temps du test.
+      - name: Smoke test end-to-end
+        run: |
+          npm start &
+          SERVER_PID=$!
+          echo "Attente de l'API…"
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then
+              echo "API prête."; break
+            fi
+            sleep 2
+          done
+          npm run test:smoke
+          STATUS=$?
+          kill $SERVER_PID 2>/dev/null || true
+          exit $STATUS

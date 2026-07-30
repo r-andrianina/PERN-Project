@@ -188,7 +188,7 @@ function LogTable({ logs, defaultTab = 'erreur' }) {
 
 // ── Phase 1 — Sélection du fichier ──────────────────────────────
 
-function PhaseSelect({ file, setFile, onAnalyse, loading, error, type, activeType, setActiveType, reset }) {
+function PhaseSelect({ file, setFile, onAnalyse, loading, error, type, reset }) {
   return (
     <>
       <div className="space-y-4">

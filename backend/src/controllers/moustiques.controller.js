@@ -8,6 +8,7 @@ const fs      = require('fs');
 const { resolveSpecimenTaxonomyId, libelleTaxonomie } = require('../utils/taxonomyResolve');
 const { generateIdTerrain, generateMany, isIdTerrainUnique } = require('../utils/idTerrain');
 const { validatePlacement, nextAvailablePositions } = require('../utils/container');
+const { countSpecimenRefs, refsReason, findReferencedSpecimenIds } = require('../utils/specimenRefs');
 const { logAudit, ACTIONS } = require('../utils/audit');
 const { toParietéSOP, BLOOD_MEAL, normalizeKey } = require('../utils/importMappings');
 
@@ -243,6 +244,12 @@ const deleteMoustique = async (req, res) => {
       parite:true, repasSang:true, methodeId:true, dateCollecte:true },
   });
   if (!before) return res.status(404).json({ error: 'Moustique introuvable' });
+
+  // B6 — refuse la suppression tant que le spécimen est référencé en labo/pool.
+  const refs = await countSpecimenRefs('moustique', id);
+  if (refs.total > 0)
+    return res.status(409).json({ error: `Suppression impossible : ce moustique est référencé par ${refsReason(refs)}. Détachez-le du laboratoire / du pool avant de le supprimer.` });
+
   await prisma.moustique.delete({ where: { id } });
   await logAudit({ req, action: ACTIONS.DELETE, entity: 'Moustique', entityId: id, oldValues: before });
   return res.json({ message: 'Moustique supprimé' });
@@ -448,12 +455,23 @@ const bulkDeleteMoustiques = async (req, res) => {
     }
   }
 
-  const { count } = await prisma.moustique.deleteMany({ where });
+  // B6 — n'inclure que les spécimens non référencés en labo/pool ; les autres
+  // sont épargnés (résultats scientifiques préservés) plutôt que de bloquer le lot.
+  const matching   = await prisma.moustique.findMany({ where, select: { id: true } });
+  const referenced = await findReferencedSpecimenIds('moustique', matching.map((r) => r.id));
+  const deletable  = matching.map((r) => r.id).filter((i) => !referenced.has(i));
+
+  const { count } = await prisma.moustique.deleteMany({ where: { id: { in: deletable } } });
+  const skipped = referenced.size;
   await logAudit({
     req, action: ACTIONS.DELETE, entity: 'Moustique', entityId: null,
-    oldValues: { bulkDelete: true, deleted: count, criteria: JSON.stringify(where) },
+    oldValues: { bulkDelete: true, deleted: count, skipped, criteria: JSON.stringify(where) },
   });
-  return res.json({ deleted: count, message: `${count} moustique(s) supprimé(s)` });
+  return res.json({
+    deleted: count,
+    skipped,
+    message: `${count} moustique(s) supprimé(s)${skipped ? ` — ${skipped} conservé(s) car référencé(s) en laboratoire ou dans un pool` : ''}`,
+  });
 };
 
 module.exports = {

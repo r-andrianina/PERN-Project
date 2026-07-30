@@ -5,10 +5,7 @@ const jwt        = require('jsonwebtoken');
 const prisma     = require('../config/prisma');
 const sseManager = require('../utils/sseManager');
 const { logAudit, ACTIONS } = require('../utils/audit');
-const { invalidateSpecimenCache } = require('../middlewares/auth.middleware');
-
-const ROLES_VALIDES     = ['admin', 'superviseur', 'chercheur', 'technicien', 'lecteur'];
-const SPECIMENS_VALIDES = ['moustique', 'tique', 'puce'];
+const { invalidateSpecimenCache, invalidateUserStatus } = require('../middlewares/auth.middleware');
 
 const USER_SELECT = {
   id: true, nom: true, prenom: true, email: true,
@@ -21,25 +18,15 @@ const USER_SELECT = {
 // =============================================================
 
 const register = async (req, res) => {
+  // req.body déjà validé + normalisé (trim/lowercase) par validate(schema.register)
   const { nom, prenom, email, password } = req.body;
 
-  if (!nom || !prenom || !email || !password)
-    return res.status(400).json({ error: 'Tous les champs sont obligatoires' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    return res.status(400).json({ error: 'Format email invalide' });
-  if (password.length < 8)
-    return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères' });
-
-  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
 
   const passwordHash = await bcrypt.hash(password, 10);
   const newUser = await prisma.user.create({
-    data: {
-      nom: nom.trim(), prenom: prenom.trim(),
-      email: email.toLowerCase(), passwordHash,
-      role: 'lecteur', actif: false,
-    },
+    data: { nom, prenom, email, passwordHash, role: 'lecteur', actif: false },
     select: USER_SELECT,
   });
   return res.status(201).json({
@@ -53,10 +40,10 @@ const register = async (req, res) => {
 // =============================================================
 
 const login = async (req, res) => {
+  // req.body déjà validé (email/password requis, email en minuscules) par Zod
   const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
 
-  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  const user = await prisma.user.findUnique({ where: { email } });
   if (!user)      return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
   if (!user.actif) return res.status(403).json({ error: 'Votre compte est en attente de validation par un administrateur.' });
 
@@ -121,27 +108,15 @@ const listUsers = async (req, res) => {
 // =============================================================
 
 const createUser = async (req, res) => {
+  // req.body validé + defaults appliqués (role, actif, specimensAutorises) par Zod
   const { nom, prenom, email, password, role, actif, specimensAutorises } = req.body;
 
-  if (!nom || !prenom || !email || !password)
-    return res.status(400).json({ error: 'nom, prenom, email et password sont obligatoires' });
-  if (password.length < 8)
-    return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères' });
-  if (role && !ROLES_VALIDES.includes(role))
-    return res.status(400).json({ error: 'Rôle invalide' });
-
-  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
-    data: {
-      nom: nom.trim(), prenom: prenom.trim(),
-      email: email.toLowerCase(), passwordHash,
-      role:               role  || 'lecteur',
-      actif:              actif !== undefined ? Boolean(actif) : true,
-      specimensAutorises: specimensAutorises ?? SPECIMENS_VALIDES,
-    },
+    data: { nom, prenom, email, passwordHash, role, actif, specimensAutorises },
     select: USER_SELECT,
   });
   await logAudit({ req, action: ACTIONS.CREATE, entity: 'User', entityId: user.id, newValues: { nom: user.nom, prenom: user.prenom, email: user.email, role: user.role } });
@@ -154,19 +129,14 @@ const createUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   const id = parseInt(req.params.id);
+  // req.body validé par Zod (champs optionnels normalisés, ≥1 champ garanti)
   const { nom, prenom, email, role } = req.body;
 
-  if (role && !ROLES_VALIDES.includes(role))
-    return res.status(400).json({ error: 'Rôle invalide' });
-
   const data = {};
-  if (nom)    data.nom    = nom.trim();
-  if (prenom) data.prenom = prenom.trim();
-  if (email)  data.email  = email.toLowerCase();
-  if (role)   data.role   = role;
-
-  if (Object.keys(data).length === 0)
-    return res.status(400).json({ error: 'Aucune modification fournie' });
+  if (nom    !== undefined) data.nom    = nom;
+  if (prenom !== undefined) data.prenom = prenom;
+  if (email  !== undefined) data.email  = email;
+  if (role   !== undefined) data.role   = role;
 
   if (data.email) {
     const conflict = await prisma.user.findFirst({ where: { email: data.email, NOT: { id } } });
@@ -174,6 +144,10 @@ const updateUser = async (req, res) => {
   }
   const before = await prisma.user.findUnique({ where: { id }, select: { nom: true, prenom: true, email: true, role: true } });
   const user = await prisma.user.update({ where: { id }, data, select: USER_SELECT });
+  if (data.role) {
+    invalidateUserStatus(id); // révocation immédiate du rôle en cache (B2)
+    sseManager.sendToUser(id, 'account_updated', { role: user.role, message: 'Votre rôle a été mis à jour.' }); // F1
+  }
   await logAudit({ req, action: ACTIONS.UPDATE, entity: 'User', entityId: id, oldValues: before, newValues: { nom: user.nom, prenom: user.prenom, email: user.email, role: user.role } });
   return res.json({ message: 'Utilisateur mis à jour', user });
 };
@@ -184,23 +158,21 @@ const updateUser = async (req, res) => {
 
 const activateUser = async (req, res) => {
   const id = parseInt(req.params.id);
+  // req.body validé par Zod (actif ou role garanti). Reste la règle métier ci-dessous.
   const { actif, role } = req.body;
 
   if (id === req.user.id && actif === false)
     return res.status(400).json({ error: 'Vous ne pouvez pas désactiver votre propre compte' });
 
-  if (role && !ROLES_VALIDES.includes(role))
-    return res.status(400).json({ error: 'Rôle invalide' });
-
   const data = {};
   if (typeof actif === 'boolean') data.actif = actif;
   if (role) data.role = role;
 
-  if (Object.keys(data).length === 0)
-    return res.status(400).json({ error: 'Aucune modification fournie (actif ou role attendu)' });
-
   const before = await prisma.user.findUnique({ where: { id }, select: { actif: true, role: true } });
   const user   = await prisma.user.update({ where: { id }, data, select: USER_SELECT });
+  invalidateUserStatus(id); // révocation immédiate (actif/rôle) — B2
+  if (data.role) // notifie le changement de rôle en temps réel (F1)
+    sseManager.sendToUser(id, 'account_updated', { role: user.role, message: 'Votre rôle a été mis à jour.' });
   const action = typeof actif === 'boolean'
     ? (actif ? ACTIONS.ACTIVATE : ACTIONS.DEACTIVATE)
     : ACTIONS.UPDATE;
@@ -216,14 +188,8 @@ const activateUser = async (req, res) => {
 
 const updateSpecimenAccess = async (req, res) => {
   const id = parseInt(req.params.id);
+  // specimensAutorises validé par Zod (tableau d'enum de types valides)
   const { specimensAutorises } = req.body;
-
-  if (!Array.isArray(specimensAutorises))
-    return res.status(400).json({ error: 'specimensAutorises doit être un tableau' });
-
-  const invalides = specimensAutorises.filter(s => !SPECIMENS_VALIDES.includes(s));
-  if (invalides.length > 0)
-    return res.status(400).json({ error: `Types invalides : ${invalides.join(', ')}` });
 
   const user = await prisma.user.update({
     where: { id },
@@ -254,6 +220,8 @@ const deleteUser = async (req, res) => {
   const before = await prisma.user.findUnique({ where: { id }, select: { nom: true, prenom: true, email: true, role: true } });
   if (!before) return res.status(404).json({ error: 'Utilisateur introuvable' });
   await prisma.user.delete({ where: { id } });
+  invalidateUserStatus(id);     // coupe l'accès du compte supprimé (B2)
+  invalidateSpecimenCache(id);
   await logAudit({ req, action: ACTIONS.DELETE, entity: 'User', entityId: id, oldValues: { nom: before.nom, prenom: before.prenom, email: before.email, role: before.role } });
   return res.json({ message: 'Utilisateur supprimé' });
 };
@@ -264,9 +232,7 @@ const deleteUser = async (req, res) => {
 
 const resetPassword = async (req, res) => {
   const id = parseInt(req.params.id);
-  const { password } = req.body;
-  if (!password || password.length < 8)
-    return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères' });
+  const { password } = req.body; // longueur ≥8 validée par Zod
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.user.update({ where: { id }, data: { passwordHash } });
   return res.json({ message: 'Mot de passe réinitialisé' });

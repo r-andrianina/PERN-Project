@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- ce fichier exporte aussi la constante MODULES ; faux positif HMR (cf. router/index.jsx) */
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {

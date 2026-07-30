@@ -1,9 +1,10 @@
 const { z } = require('zod');
+const { ROLE_ORDER, SPECIMEN_TYPES, DEFAULT_SPECIMEN_ACCESS } = require('../config/rbac'); // source unique (F2)
 
 const emailStr    = z.string().email('Format email invalide').toLowerCase();
 const passwordStr = z.string().min(8, 'Le mot de passe doit contenir au moins 8 caracteres');
-const roleEnum    = z.enum(['admin', 'superviseur', 'chercheur', 'technicien', 'lecteur']);
-const specimensEnum = z.array(z.enum(['moustique', 'tique', 'puce']));
+const roleEnum    = z.enum(ROLE_ORDER);
+const specimensEnum = z.array(z.enum(SPECIMEN_TYPES));
 
 const login = z.object({
   email:    emailStr,
@@ -24,7 +25,7 @@ const createUser = z.object({
   password:          passwordStr,
   role:              roleEnum.default('lecteur'),
   actif:             z.boolean().default(true),
-  specimensAutorises: specimensEnum.default(['moustique', 'tique', 'puce']),
+  specimensAutorises: specimensEnum.default(DEFAULT_SPECIMEN_ACCESS),
 });
 
 const updateUser = z.object({

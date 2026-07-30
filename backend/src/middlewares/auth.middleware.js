@@ -3,57 +3,104 @@
 
 const jwt    = require('jsonwebtoken');
 const prisma = require('../config/prisma');
+const { ROLE_LEVELS, BYPASS_ROLES } = require('../config/rbac');
+
+// =============================================================
+//  RÉVOCATION DE SESSION (B2)
+//  Le JWT seul (durée 8 h) ne suffit pas : désactiver, rétrograder
+//  ou supprimer un compte doit couper l'accès sans attendre l'expiration.
+//  On revérifie donc l'état du compte en base, avec un cache court (30 s)
+//  pour éviter une requête à chaque appel API.
+// =============================================================
+
+const _userStatusCache   = new Map(); // userId -> { actif, role, expiresAt }
+const USER_STATUS_TTL_MS = 30_000;
+
+async function loadUserStatus(userId) {
+  const now    = Date.now();
+  const cached = _userStatusCache.get(userId);
+  if (cached && cached.expiresAt > now) return cached;
+
+  const user = await prisma.user.findUnique({
+    where:  { id: userId },
+    select: { actif: true, role: true },
+  });
+  const status = user
+    ? { actif: user.actif, role: user.role, expiresAt: now + USER_STATUS_TTL_MS }
+    : { actif: false, role: null, expiresAt: now + USER_STATUS_TTL_MS };
+  _userStatusCache.set(userId, status);
+  return status;
+}
+
+// Appelée après désactivation / changement de rôle / suppression d'un compte.
+const invalidateUserStatus = (userId) => _userStatusCache.delete(userId);
+
+// Enforce la révocation. Renvoie true si la requête peut continuer.
+// Fail-open en cas d'indisponibilité DB : on retombe sur le JWT signé
+// (disponibilité préservée ; la révocation reste best-effort).
+async function enforceAccountActive(req, res) {
+  try {
+    const status = await loadUserStatus(req.user.id);
+    if (!status.actif) {
+      res.status(401).json({ error: 'Compte désactivé ou introuvable — veuillez vous reconnecter.' });
+      return false;
+    }
+    if (status.role) req.user.role = status.role; // rôle rafraîchi (≤ 30 s)
+    return true;
+  } catch (err) {
+    console.error('[auth] statut compte indisponible, repli sur le JWT :', err.message);
+    return true;
+  }
+}
 
 // =============================================================
 //  VÉRIFICATION DU TOKEN JWT
 // =============================================================
 
-const verifyToken = (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) return res.status(401).json({ error: 'Accès refusé — token manquant' });
 
+  let decoded;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { id, email, role, nom, prenom, specimensAutorises }
-    next();
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch {
     // 401 = non authentifié (token absent/expiré/invalide)
     // L'intercepteur Axios redirige automatiquement vers /login sur 401
     return res.status(401).json({ error: 'Session expirée — veuillez vous reconnecter.' });
   }
+
+  req.user = decoded; // { id, email, role, nom, prenom, specimensAutorises }
+  if (!(await enforceAccountActive(req, res))) return;
+  next();
 };
 
 // Variante SSE : EventSource (navigateur) ne peut pas envoyer de headers personnalisés,
 // donc on accepte le token depuis le header Authorization OU depuis ?token= en query param.
-const verifyTokenSSE = (req, res, next) => {
+const verifyTokenSSE = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = (authHeader && authHeader.split(' ')[1]) || req.query.token;
 
   if (!token) return res.status(401).json({ error: 'Accès refusé — token manquant' });
 
+  let decoded;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch {
     return res.status(401).json({ error: 'Session expirée — veuillez vous reconnecter.' });
   }
+
+  req.user = decoded;
+  if (!(await enforceAccountActive(req, res))) return;
+  next();
 };
 
 // =============================================================
-//  HIÉRARCHIE DES RÔLES
+//  HIÉRARCHIE DES RÔLES — source unique dans config/rbac.js (F2)
 //  admin > superviseur > chercheur > technicien > lecteur
 // =============================================================
-
-const ROLES_HIERARCHY = {
-  admin:       5,
-  superviseur: 4,
-  chercheur:   3,
-  technicien:  2,
-  lecteur:     1,
-};
 
 // Guard : autorise uniquement les rôles listés (correspondance exacte)
 const requireRole = (...rolesAutorises) => (req, res, next) => {
@@ -70,8 +117,8 @@ const requireRole = (...rolesAutorises) => (req, res, next) => {
 // Guard : autorise si le rôle est >= au niveau minimum
 const requireMinRole = (roleMinimum) => (req, res, next) => {
   if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
-  const niveauUser = ROLES_HIERARCHY[req.user.role] || 0;
-  const niveauMin  = ROLES_HIERARCHY[roleMinimum]   || 0;
+  const niveauUser = ROLE_LEVELS[req.user.role] || 0;
+  const niveauMin  = ROLE_LEVELS[roleMinimum]   || 0;
   if (niveauUser < niveauMin) {
     return res.status(403).json({
       error: `Accès interdit — niveau minimum requis : ${roleMinimum}`,
@@ -98,7 +145,7 @@ const CACHE_TTL_MS   = 60_000; // 1 minute
 const checkSpecimenAccess = (type) => async (req, res, next) => {
   try {
     if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
-    if (req.user.role === 'admin' || req.user.role === 'superviseur') return next();
+    if (BYPASS_ROLES.includes(req.user.role)) return next();
 
     const userId = req.user.id;
     const now    = Date.now();
@@ -135,4 +182,4 @@ const checkSpecimenAccess = (type) => async (req, res, next) => {
 // Invalidation du cache pour un utilisateur (appelée après updateSpecimenAccess).
 const invalidateSpecimenCache = (userId) => _specimenCache.delete(userId);
 
-module.exports = { verifyToken, verifyTokenSSE, requireRole, requireMinRole, checkSpecimenAccess, invalidateSpecimenCache };
+module.exports = { verifyToken, verifyTokenSSE, requireRole, requireMinRole, checkSpecimenAccess, invalidateSpecimenCache, invalidateUserStatus };

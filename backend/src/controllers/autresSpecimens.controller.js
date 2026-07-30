@@ -4,6 +4,7 @@
 const prisma  = require('../config/prisma');
 const { generateIdTerrain, generateMany, isIdTerrainUnique } = require('../utils/idTerrain');
 const { validatePlacement, nextAvailablePositions } = require('../utils/container');
+const { countSpecimenRefs, refsReason } = require('../utils/specimenRefs');
 const { logAudit, ACTIONS } = require('../utils/audit');
 
 const includeBase = {
@@ -187,6 +188,12 @@ const deleteAutreSpecimen = async (req, res) => {
   const id = parseInt(req.params.id);
   const before = await prisma.autreSpecimen.findUnique({ where: { id } });
   if (!before) return res.status(404).json({ error: 'Spécimen introuvable' });
+
+  // B6 — refuse la suppression tant que le spécimen est référencé en labo/pool.
+  const refs = await countSpecimenRefs('autre', id);
+  if (refs.total > 0)
+    return res.status(409).json({ error: `Suppression impossible : ce spécimen est référencé par ${refsReason(refs)}. Détachez-le du laboratoire / du pool avant de le supprimer.` });
+
   await prisma.autreSpecimen.delete({ where: { id } });
   await logAudit({ req, action: ACTIONS.DELETE, entity: 'AutreSpecimen', entityId: id, oldValues: before });
   return res.json({ message: 'Spécimen supprimé' });
