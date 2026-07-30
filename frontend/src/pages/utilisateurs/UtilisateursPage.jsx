@@ -24,6 +24,7 @@ const SPECIMENS = [
   { value: 'moustique', label: 'Moustique', color: 'bg-specimen-moustique/10 text-specimen-moustique border-specimen-moustique/20' },
   { value: 'tique',     label: 'Tique',     color: 'bg-specimen-tique/10 text-specimen-tique border-specimen-tique/20'             },
   { value: 'puce',      label: 'Puce',      color: 'bg-specimen-puce/10 text-specimen-puce border-specimen-puce/20'                },
+  { value: 'autre',     label: 'Autres',    color: 'bg-fg-subtle/10 text-fg-muted border-border'                                  },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────

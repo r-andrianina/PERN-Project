@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SpécimenManager — Livre de Conception</title>
+<script src="mermaid.min.js"></script>
+<style>
+  :root{
+    --green:#15803d; --green-d:#166534; --green-l:#dcfce7;
+    --ink:#1a2230; --muted:#5b6572; --line:#d9dee6; --soft:#f4f6f9;
+    --red:#b91c1c; --red-l:#fee2e2; --amber:#b45309; --amber-l:#fef3c7;
+    --blue:#1d4ed8; --blue-l:#dbeafe;
+  }
+  *{box-sizing:border-box}
+  html{font-family:"Segoe UI",Arial,sans-serif;color:var(--ink);font-size:11pt;line-height:1.5}
+  body{margin:0}
+  h1,h2,h3,h4{color:var(--green-d);line-height:1.2;margin:0 0 .4em}
+  h2{font-size:20pt;border-bottom:3px solid var(--green);padding-bottom:.15em;margin-top:0}
+  h3{font-size:14pt;margin-top:1.4em;color:var(--green)}
+  h4{font-size:11.5pt;margin-top:1em;color:var(--ink)}
+  p{margin:.5em 0}
+  a{color:var(--blue);text-decoration:none}
+  code{background:var(--soft);border:1px solid var(--line);border-radius:3px;padding:.05em .35em;font-family:"Consolas",monospace;font-size:.88em}
+  ul,ol{margin:.4em 0 .8em;padding-left:1.3em}
+  li{margin:.2em 0}
+  small{color:var(--muted)}
+
+  /* ---- pagination ---- */
+  @page{ size:A4; margin:16mm 15mm; }
+  .page{ page-break-after:always; }
+  .page:last-child{ page-break-after:auto; }
+  .nobreak{ page-break-inside:avoid; }
+  h2,h3{ page-break-after:avoid; }
+
+  /* ---- cover ---- */
+  .cover{ height:265mm; display:flex; flex-direction:column; justify-content:center;
+    background:linear-gradient(150deg,#166534,#15803d 55%,#22a05a); color:#fff; text-align:center;
+    margin:-16mm -15mm; padding:0 22mm; }
+  .cover .badge{ width:96px;height:96px;border-radius:22px;background:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 26px;box-shadow:0 10px 30px rgba(0,0,0,.25);font-size:52px }
+  .cover h1{ color:#fff;font-size:34pt;letter-spacing:-.5px;margin:.1em 0 }
+  .cover .sub{ font-size:15pt;color:#dcfce7;font-weight:600 }
+  .cover .meta{ margin-top:40px;font-size:11pt;color:#e6f4ea;line-height:1.9 }
+  .cover .rule{ width:70px;height:4px;background:#bbf7d0;margin:22px auto;border-radius:3px }
+  .cover .tag{ font-size:10pt;color:#bbf7d0;text-transform:uppercase;letter-spacing:3px }
+
+  /* ---- tables ---- */
+  table{ border-collapse:collapse; width:100%; margin:.7em 0; font-size:9.6pt; }
+  th,td{ border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  th{ background:var(--green-d); color:#fff; font-weight:600; }
+  tr:nth-child(even) td{ background:var(--soft); }
+  table.small{ font-size:9pt }
+
+  /* ---- callouts / badges ---- */
+  .sev{ display:inline-block; font-size:8pt; font-weight:700; padding:1px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:.5px; white-space:nowrap }
+  .sev.maj{ background:var(--red-l); color:var(--red); }
+  .sev.moy{ background:var(--amber-l); color:var(--amber); }
+  .sev.min{ background:var(--blue-l); color:var(--blue); }
+  .sev.ok{ background:var(--green-l); color:var(--green-d); }
+
+  .note{ border-left:4px solid var(--green); background:var(--green-l); padding:.6em .9em; border-radius:0 6px 6px 0; margin:.8em 0; font-size:10pt }
+  .warn{ border-left:4px solid var(--amber); background:var(--amber-l); padding:.6em .9em; border-radius:0 6px 6px 0; margin:.8em 0; font-size:10pt }
+
+  /* ---- mermaid ---- */
+  .diagram{ text-align:center; margin:1.1em 0; page-break-inside:avoid; }
+  .diagram .mermaid{ display:inline-block; max-width:100%; }
+  .diagram svg{ max-width:100%; height:auto; }
+  .caption{ font-size:8.8pt; color:var(--muted); font-style:italic; margin-top:.3em; text-align:center }
+
+  /* ---- toc ---- */
+  .toc{ font-size:11pt; }
+  .toc li{ margin:.35em 0; }
+  .toc .num{ color:var(--green); font-weight:700; display:inline-block; width:2.4em; }
+  .toc .l2{ margin-left:2.6em; font-size:10pt; color:var(--muted); }
+
+  .kpi{ display:flex; gap:10px; flex-wrap:wrap; margin:1em 0 }
+  .kpi .card{ flex:1; min-width:120px; border:1px solid var(--line); border-radius:10px; padding:12px; text-align:center; background:var(--soft) }
+  .kpi .n{ font-size:22pt; font-weight:800; color:var(--green-d); line-height:1 }
+  .kpi .t{ font-size:8.6pt; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-top:4px }
+
+  .chip{display:inline-block;background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:2px 10px;font-size:8.8pt;margin:2px 3px}
+  .foot{font-size:8pt;color:var(--muted);text-align:center;border-top:1px solid var(--line);padding-top:6px;margin-top:12px}
+</style>
+</head>
+<body>
+
+<!-- ================= COVER ================= -->
+<section class="page">
+  <div class="cover">
+    <div class="badge">🦟</div>
+    <div class="tag">Institut Pasteur de Madagascar</div>
+    <h1>SpécimenManager</h1>
+    <div class="sub">Livre de Conception &amp; Audit Technique</div>
+    <div class="rule"></div>
+    <div class="meta">
+      Unité d'Entomologie Médicale<br>
+      Application de gestion des spécimens entomologiques de terrain<br>
+      <strong>Version 1.0</strong> &nbsp;•&nbsp; 29 juillet 2026<br>
+      Document technique — Architecture, modélisation UML &amp; audit qualité
+    </div>
+  </div>
+</section>
+
+<!-- ================= SOMMAIRE ================= -->
+<section class="page">
+  <h2>Sommaire</h2>
+  <ol class="toc" style="list-style:none;padding:0">
+    <li><span class="num">1.</span> Présentation générale</li>
+    <li class="l2">1.1 Contexte &amp; objectifs — 1.2 Périmètre fonctionnel — 1.3 Glossaire métier</li>
+    <li><span class="num">2.</span> Architecture technique</li>
+    <li class="l2">2.1 Pile technologique — 2.2 Architecture en couches — 2.3 Sécurité &amp; contrôle d'accès</li>
+    <li><span class="num">3.</span> Modèle de données</li>
+    <li class="l2">3.1 Hiérarchie du domaine — 3.2 Diagramme de classes (cœur) — 3.3 Module Laboratoire — 3.4 Référentiels &amp; énumérations</li>
+    <li><span class="num">4.</span> Diagrammes de comportement</li>
+    <li class="l2">4.1 Cas d'utilisation &amp; matrice RBAC — 4.2 Séquence : authentification — 4.3 Séquence : saisie spécimen — 4.4 Séquence : workflow labo — 4.5 Diagrammes d'états</li>
+    <li><span class="num">5.</span> Audit qualité — bugs &amp; améliorations</li>
+    <li class="l2">5.1 Méthode — 5.2 Anomalies backend — 5.3 Anomalies frontend — 5.4 Améliorations transverses</li>
+    <li><span class="num">6.</span> Feuille de route de finalisation</li>
+  </ol>
+
+  <h3>Synthèse en un coup d'œil</h3>
+  <div class="kpi">
+    <div class="card"><div class="n">35</div><div class="t">Entités de données</div></div>
+    <div class="card"><div class="n">24</div><div class="t">Contrôleurs API</div></div>
+    <div class="card"><div class="n">44</div><div class="t">Pages React</div></div>
+    <div class="card"><div class="n">5</div><div class="t">Rôles utilisateurs</div></div>
+    <div class="card"><div class="n">17</div><div class="t">Migrations DB</div></div>
+  </div>
+  <div class="note"><strong>Objet du document.</strong> Ce livre décrit la conception de SpécimenManager (modélisation UML complète) et présente un audit technique identifiant les anomalies probables et les améliorations recommandées avant la mise en production finale.</div>
+</section>
+
+<!-- ================= 1. PRESENTATION ================= -->
+<section class="page">
+  <h2>1. Présentation générale</h2>
+
+  <h3>1.1 Contexte &amp; objectifs</h3>
+  <p>SpécimenManager est une application web développée pour l'<strong>Unité d'Entomologie Médicale de l'Institut Pasteur de Madagascar</strong>. Elle assure la traçabilité complète des spécimens entomologiques (moustiques, tiques, puces et autres arthropodes) collectés lors des missions de terrain, depuis la collecte jusqu'aux analyses de laboratoire (biologie moléculaire).</p>
+  <p>L'application répond à trois besoins :</p>
+  <ul>
+    <li><strong>Saisie structurée &amp; normalisée</strong> — toute donnée scientifique structurante référence un dictionnaire (taxonomie, méthode de collecte, solution de conservation…), interdisant le texte libre incohérent.</li>
+    <li><strong>Chaîne de traçabilité</strong> — un spécimen est toujours rattaché à sa méthode de collecte, elle-même rattachée à une localité, une mission, un projet.</li>
+    <li><strong>Analyses de laboratoire</strong> — un module complet documente les 9 types de manipulations (identification morphologique, extraction ADN/ARN, PCR, qPCR, PCR nichée, séquençage, microscopie…) avec validation scientifique et audit immuable.</li>
+  </ul>
+
+  <h3>1.2 Périmètre fonctionnel</h3>
+  <table>
+    <tr><th>Domaine</th><th>Fonctions couvertes</th></tr>
+    <tr><td>Terrain</td><td>Projets, missions, localités (GPS), méthodes de collecte, hôtes, containers (plaques 96 puits / boîtes 81 tubes)</td></tr>
+    <tr><td>Spécimens</td><td>Moustiques, tiques, puces, autres — saisie unitaire, import Excel, positionnement en plaque</td></tr>
+    <tr><td>Laboratoire</td><td>9 modules de manipulation, pools d'analyse, pathogènes cibles, upload de gels/fichiers de séquençage</td></tr>
+    <tr><td>Dictionnaires</td><td>Taxonomies hiérarchiques, référentiels simples, activation/désactivation, historique d'audit</td></tr>
+    <tr><td>Transverse</td><td>Cartographie Leaflet, tableau de bord, recherche globale, notifications temps réel (SSE), gestion des utilisateurs</td></tr>
+  </table>
+
+  <h3>1.3 Glossaire métier</h3>
+  <table class="small">
+    <tr><th>Terme</th><th>Définition</th></tr>
+    <tr><td><strong>Projet</strong></td><td>Programme de recherche cadre, porteur de missions.</td></tr>
+    <tr><td><strong>Mission</strong></td><td>Campagne de terrain rattachée à un projet, avec ordre de mission et chef de mission.</td></tr>
+    <tr><td><strong>Localité</strong></td><td>Site géolocalisé (région / district / commune / fokontany) visité pendant une mission.</td></tr>
+    <tr><td><strong>Méthode de collecte</strong></td><td>Instance opérationnelle d'un type de piège (CDC-LT, BG-Sentinel, capture humaine…) posée sur une localité. <em>Pivot central : tout spécimen y est rattaché.</em></td></tr>
+    <tr><td><strong>Hôte</strong></td><td>Animal sur lequel des tiques/puces sont prélevées, rattaché à une méthode de collecte.</td></tr>
+    <tr><td><strong>Pool</strong></td><td>Regroupement de plusieurs spécimens analysés ensemble (broyage groupé).</td></tr>
+    <tr><td><strong>Manipulation</strong></td><td>Opération de laboratoire (une par type) portant sur un spécimen individuel ou un pool.</td></tr>
+    <tr><td><strong>Container</strong></td><td>Support physique de conservation : plaque 96 puits ou boîte 81 tubes.</td></tr>
+  </table>
+</section>
+
+<!-- ================= 2. ARCHITECTURE ================= -->
+<section class="page">
+  <h2>2. Architecture technique</h2>
+
+  <h3>2.1 Pile technologique</h3>
+  <table>
+    <tr><th>Couche</th><th>Technologies</th></tr>
+    <tr><td>Frontend</td><td>React 19, Vite 5, React Router v7, TanStack Query v5, Zustand, Tailwind CSS v3, Leaflet / react-leaflet, Recharts, Axios</td></tr>
+    <tr><td>Backend</td><td>Node.js, Express 4, Prisma 5 (ORM), Zod v4 (validation), JWT (auth), Helmet, express-rate-limit, Multer (upload), ExcelJS (import/export)</td></tr>
+    <tr><td>Base de données</td><td>PostgreSQL (port 5435, conteneurisée via Docker Compose)</td></tr>
+    <tr><td>Temps réel</td><td>Server-Sent Events (SSE) — notifications, présence, changement de permissions</td></tr>
+    <tr><td>Déploiement</td><td>NAS Synology (Docker), accès distant via Tailscale VPN, reverse-proxy nginx</td></tr>
+  </table>
+
+  <h3>2.2 Architecture en couches</h3>
+  <div class="diagram">
+    <pre class="mermaid">
+flowchart TB
+  subgraph CLIENT["🖥️ Navigateur — React 19 / Vite"]
+    UI["Pages &amp; composants<br/>(44 pages)"]
+    ST["Zustand<br/>(auth, connexion)"]
+    RQ["TanStack Query<br/>(cache serveur)"]
+    AX["Axios<br/>(intercepteurs JWT / 401)"]
+    UI --> ST
+    UI --> RQ --> AX
+    ST --> AX
+  end
+
+  subgraph API["⚙️ API Express — /api/v1"]
+    MW["Middlewares<br/>helmet · CORS · rate-limit<br/>verifyToken · RBAC · validate(Zod)"]
+    RT["Routes (28)"]
+    CT["Contrôleurs (24)"]
+    SV["Services (6)"]
+    MW --> RT --> CT --> SV
+  end
+
+  subgraph DATA["🗄️ Persistance"]
+    PR["Prisma Client<br/>(singleton)"]
+    PG[("PostgreSQL<br/>35 tables")]
+    FS["Système de fichiers<br/>/uploads (gels, séquences)"]
+    PR --> PG
+  end
+
+  AX -- "HTTPS / JSON + Bearer JWT" --> MW
+  SV --> PR
+  CT --> FS
+  CT -. "SSE (flux temps réel)" .-> AX
+    </pre>
+    <div class="caption">Figure 2.1 — Architecture applicative en couches (client → API → persistance).</div>
+  </div>
+
+  <p>Le backend applique une chaîne de middlewares homogène : <code>helmet</code> (en-têtes de sécurité) → <code>CORS</code> restreint à <code>CLIENT_URL</code> → journalisation (avec masquage des <code>?token=</code>) → authentification JWT → garde de rôle → validation Zod → contrôleur. Un gestionnaire d'erreurs global traduit les codes Prisma (P2002, P2003, P2025…) et les <code>ZodError</code> en réponses HTTP cohérentes.</p>
+</section>
+
+<section class="page">
+  <h3>2.3 Sécurité &amp; contrôle d'accès</h3>
+  <p>Trois mécanismes se superposent :</p>
+  <ul>
+    <li><strong>Hiérarchie de rôles</strong> — <code>admin (5) &gt; superviseur (4) &gt; chercheur (3) &gt; technicien (2) &gt; lecteur (1)</code>. Deux gardes : <code>requireRole(...)</code> (correspondance exacte) et <code>requireMinRole(r)</code> (niveau ≥).</li>
+    <li><strong>Cloisonnement par projet</strong> — les rôles non-privilégiés ne voient que les projets dont ils sont <em>membres</em> (<code>MembreProjet</code>). Admin et superviseur ont un accès global (<em>bypass</em>).</li>
+    <li><strong>Accès par type de spécimen</strong> — chaque utilisateur possède un tableau <code>specimensAutorises</code> ; <code>checkSpecimenAccess(type)</code> revérifie l'état en base (cache 60 s) pour refléter immédiatement les changements de l'admin.</li>
+  </ul>
+  <table class="small">
+    <tr><th>Contrôle</th><th>Mise en œuvre</th><th>Statut</th></tr>
+    <tr><td>Mots de passe</td><td>bcrypt (coût 10)</td><td><span class="sev ok">OK</span></td></tr>
+    <tr><td>Jeton de session</td><td>JWT signé, expiration 8 h</td><td><span class="sev ok">OK</span></td></tr>
+    <tr><td>Force brute login</td><td>rate-limit 5 essais / 15 min par IP</td><td><span class="sev ok">OK</span></td></tr>
+    <tr><td>En-têtes HTTP</td><td>Helmet activé</td><td><span class="sev ok">OK</span></td></tr>
+    <tr><td>Secrets</td><td><code>.env</code> hors dépôt, pas de fallback JWT</td><td><span class="sev ok">OK</span></td></tr>
+    <tr><td>Révocation de session</td><td>non enforced hors routes spécimen</td><td><span class="sev moy">À corriger</span></td></tr>
+    <tr><td>Mot de passe admin seed</td><td><code>Admin1234!</code> par défaut</td><td><span class="sev moy">À changer</span></td></tr>
+  </table>
+  <div class="note">Détail des deux derniers points au chapitre 5 (anomalies B2 et amélioration sécurité).</div>
+</section>
+
+<!-- ================= 3. MODELE DE DONNEES ================= -->
+<section class="page">
+  <h2>3. Modèle de données</h2>
+
+  <h3>3.1 Hiérarchie du domaine</h3>
+  <p>Le cœur métier suit une chaîne de containment stricte. Un spécimen n'est <em>jamais</em> rattaché directement à une localité ou une mission : toujours via une méthode de collecte.</p>
+  <div class="diagram">
+    <pre class="mermaid">
+flowchart LR
+  P["Projet"] --> M["Mission"]
+  M --> L["Localité"]
+  L --> MC["Méthode de<br/>collecte"]
+  MC --> MO["Moustique"]
+  MC --> TQ["Tique"]
+  MC --> PU["Puce"]
+  MC --> AU["Autre<br/>spécimen"]
+  MC --> H["Hôte"]
+  H -.-> TQ
+  H -.-> PU
+  M --> C["Container<br/>(plaque / boîte)"]
+  C -.-> MO
+  C -.-> TQ
+  C -.-> PU
+    </pre>
+    <div class="caption">Figure 3.1 — Chaîne de containment. Trait plein = composition (cascade à la suppression) ; pointillé = référence optionnelle.</div>
+  </div>
+
+  <h3>3.2 Diagramme de classes — cœur du domaine</h3>
+  <div class="diagram">
+    <pre class="mermaid">
+classDiagram
+  direction TB
+  class User{
+    +int id
+    +string nom
+    +string prenom
+    +string email
+    +Role role
+    +TypeSpecimen[] specimensAutorises
+    +bool actif
+  }
+  class Projet{
+    +int id
+    +string code
+    +string nom
+    +StatutProjet statut
+    +date dateDebut
+    +date dateFin
+  }
+  class MembreProjet{
+    +int projetId
+    +int userId
+  }
+  class Mission{
+    +int id
+    +string ordreMission
+    +string chefMissionNom
+    +date dateDebut
+  }
+  class Localite{
+    +int id
+    +string nom
+    +float latitude
+    +float longitude
+    +float altitudeM
+  }
+  class MethodeCollecte{
+    +int id
+    +int numero
+    +string interieurExterieur
+    +datetime datePose
+    +datetime dateReleve
+  }
+  class Hote{
+    +int id
+    +string idTerrain
+    +Sexe sexe
+  }
+  class Container{
+    +int id
+    +string code
+    +ContainerType type
+    +int capacity
+  }
+  class Moustique{
+    +int id
+    +string idTerrain
+    +int nombre
+    +Sexe sexe
+    +string repasSang
+    +string position
+  }
+  class Tique{
+    +int id
+    +string idTerrain
+    +string gorge
+  }
+  class Puce{
+    +int id
+    +string idTerrain
+  }
+  class AutreSpecimen{
+    +int id
+    +json attributs
+  }
+
+  User "1" --> "*" Projet : responsable
+  User "1" --> "*" MembreProjet
+  Projet "1" --> "*" MembreProjet
+  Projet "1" *-- "*" Mission
+  Mission "1" *-- "*" Localite
+  Mission "1" *-- "*" Container
+  Localite "1" *-- "*" MethodeCollecte
+  MethodeCollecte "1" *-- "*" Moustique
+  MethodeCollecte "1" *-- "*" Tique
+  MethodeCollecte "1" *-- "*" Puce
+  MethodeCollecte "1" *-- "*" AutreSpecimen
+  MethodeCollecte "1" *-- "*" Hote
+  Hote "1" --> "*" Tique
+  Hote "1" --> "*" Puce
+  Container "1" --> "*" Moustique
+    </pre>
+    <div class="caption">Figure 3.2 — Diagramme de classes du domaine terrain (attributs principaux ; les liens vers les référentiels sont détaillés en 3.4).</div>
+  </div>
+</section>
+
+<section class="page">
+  <h3>3.3 Module Laboratoire</h3>
+  <p>Une table pivot <code>ManipulationLabo</code> porte les attributs communs (opérateur, dates, statut de validation) et se spécialise via une relation 1–1 vers l'un des 9 modules selon <code>typeManipulation</code>. Chaque manipulation cible <strong>soit</strong> un spécimen individuel <strong>soit</strong> un pool (contrainte applicative). Les <code>ManipulationEvent</code> forment un journal immuable (audit scientifique).</p>
+  <div class="diagram">
+    <pre class="mermaid">
+classDiagram
+  direction LR
+  class ManipulationLabo{
+    +int id
+    +TypeSpecimen specimenType
+    +int specimenId
+    +int poolId
+    +TypeManipulation type
+    +StatutResultat statut
+    +int operateurId
+    +int valideParId
+    +datetime valideLe
+  }
+  class ManipulationEvent{
+    +int id
+    +string typeEvent
+    +datetime dateHeure
+    +json payload
+  }
+  class Pool{
+    +int id
+    +string code
+    +int nombreIndividus
+  }
+  class PoolMembre{
+    +TypeSpecimen specimenType
+    +int specimenId
+  }
+  class PathogeneCible{
+    +int id
+    +string nom
+    +string typeOrg
+  }
+  class ModIdentification
+  class ModExtraction
+  class ModPCR
+  class ModqPCR
+  class ModNestedPCR
+  class ModSequencage
+  class ModMicroscopie
+  class ModBroyage
+  class ModDessication
+
+  ManipulationLabo "1" --> "0..1" ModIdentification
+  ManipulationLabo "1" --> "0..1" ModExtraction
+  ManipulationLabo "1" --> "0..1" ModPCR
+  ManipulationLabo "1" --> "0..1" ModqPCR
+  ManipulationLabo "1" --> "0..1" ModNestedPCR
+  ManipulationLabo "1" --> "0..1" ModSequencage
+  ManipulationLabo "1" --> "0..1" ModMicroscopie
+  ManipulationLabo "1" --> "0..1" ModBroyage
+  ManipulationLabo "1" --> "0..1" ModDessication
+  ManipulationLabo "1" *-- "*" ManipulationEvent
+  Pool "1" --> "*" ManipulationLabo
+  Pool "1" *-- "*" PoolMembre
+  PathogeneCible "1" --> "*" ModPCR
+  PathogeneCible "1" --> "*" ModqPCR
+  PathogeneCible "1" --> "*" ModNestedPCR
+    </pre>
+    <div class="caption">Figure 3.3 — Module Laboratoire : héritage par composition (table-per-type) autour de la table pivot ManipulationLabo.</div>
+  </div>
+
+  <h3>3.4 Référentiels &amp; énumérations</h3>
+  <p>Les dictionnaires garantissent la normalisation des données. Tous partagent le motif <code>actif / createdBy / updatedBy</code> pour l'activation et l'audit.</p>
+  <table class="small">
+    <tr><th>Référentiel</th><th>Rôle</th><th>Utilisé par</th></tr>
+    <tr><td>TaxonomieSpecimen</td><td>Arbre taxonomique (ordre → espèce)</td><td>tous les spécimens</td></tr>
+    <tr><td>TaxonomieHote</td><td>Arbre taxonomique des hôtes</td><td>Hôte</td></tr>
+    <tr><td>TypeMethodeCollecte</td><td>Types de piège (CDC-LT, BG…)</td><td>MéthodeCollecte</td></tr>
+    <tr><td>SolutionConservation</td><td>Éthanol 70 %, RNAlater…</td><td>tous les spécimens</td></tr>
+    <tr><td>TypeEnvironnement / TypeHabitat</td><td>Contexte écologique</td><td>MéthodeCollecte</td></tr>
+    <tr><td>TypeAutreSpecimen</td><td>Phlébotomes, Culicoïdes…</td><td>AutreSpecimen</td></tr>
+    <tr><td>PathogeneCible</td><td>Agent recherché (PCR/qPCR)</td><td>modules moléculaires</td></tr>
+  </table>
+  <table class="small">
+    <tr><th>Énumération</th><th>Valeurs</th></tr>
+    <tr><td>Role</td><td>admin · superviseur · chercheur · technicien · lecteur</td></tr>
+    <tr><td>StatutProjet</td><td>actif · termine · suspendu</td></tr>
+    <tr><td>StatutResultat</td><td>brut · valide · invalide</td></tr>
+    <tr><td>TypeManipulation</td><td>identification_morpho · broyage_pool · dessication · extraction · amplification_pcr · qpcr · nested_pcr · sequencage · microscopie</td></tr>
+    <tr><td>ContainerType</td><td>PLAQUE (96 puits) · BOITE (81 tubes)</td></tr>
+    <tr><td>Sexe</td><td>M · F · inconnu</td></tr>
+  </table>
+</section>
+
+<!-- ================= 4. COMPORTEMENT ================= -->
+<section class="page">
+  <h2>4. Diagrammes de comportement</h2>
+
+  <h3>4.1 Cas d'utilisation &amp; matrice RBAC</h3>
+  <div class="diagram">
+    <pre class="mermaid">
+flowchart LR
+  L(("👁️ Lecteur"))
+  T(("🧪 Technicien"))
+  C(("🔬 Chercheur"))
+  S(("📋 Superviseur"))
+  A(("🛠️ Admin"))
+
+  L --- U1["Consulter données<br/>&amp; cartographie"]
+  T --- U2["Saisir spécimens<br/>&amp; manipulations labo"]
+  C --- U3["Valider / invalider<br/>résultats labo"]
+  S --- U4["Superviser tous<br/>les projets"]
+  A --- U5["Gérer utilisateurs<br/>&amp; référentiels"]
+
+  T -.hérite.-> L
+  C -.hérite.-> T
+  S -.hérite.-> C
+  A -.hérite.-> S
+    </pre>
+    <div class="caption">Figure 4.1 — Cas d'utilisation par rôle (les rôles supérieurs héritent des capacités des rôles inférieurs).</div>
+  </div>
+  <table class="small">
+    <tr><th>Action</th><th>Lecteur</th><th>Technicien</th><th>Chercheur</th><th>Superviseur</th><th>Admin</th></tr>
+    <tr><td>Consulter (spécimens, cartes, tableaux)</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+    <tr><td>Créer / éditer spécimens &amp; manipulations</td><td>—</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+    <tr><td>Valider / invalider résultats labo</td><td>—</td><td>—</td><td>✅</td><td>✅</td><td>✅</td></tr>
+    <tr><td>Accès à tous les projets (bypass cloisonnement)</td><td>—</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+    <tr><td>Gérer utilisateurs / activer comptes</td><td>—</td><td>—</td><td>—</td><td>—</td><td>✅</td></tr>
+    <tr><td>Modifier un résultat déjà validé</td><td>—</td><td>—</td><td>—</td><td>—</td><td>✅</td></tr>
+  </table>
+
+  <h3>4.2 Séquence — authentification</h3>
+  <div class="diagram">
+    <pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor U as Utilisateur
+  participant R as React (LoginPage)
+  participant A as API /auth/login
+  participant DB as PostgreSQL
+  U->>R: saisit email + mot de passe
+  R->>A: POST /auth/login
+  A->>DB: findUnique(email)
+  DB-->>A: user + passwordHash
+  A->>A: bcrypt.compare()
+  alt identifiants valides et compte actif
+    A->>A: jwt.sign({id,role,specimens}, 8h)
+    A-->>R: 200 { token, user }
+    R->>R: localStorage + Zustand
+    R-->>U: redirection /dashboard
+  else échec
+    A-->>R: 401 / 403
+    R-->>U: message d'erreur
+  end
+    </pre>
+    <div class="caption">Figure 4.2 — Séquence de connexion (JWT).</div>
+  </div>
+</section>
+
+<section class="page">
+  <h3>4.3 Séquence — saisie d'un spécimen de terrain</h3>
+  <div class="diagram">
+    <pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor T as Technicien
+  participant R as React
+  participant MW as Middlewares
+  participant CT as Contrôleur spécimen
+  participant DB as PostgreSQL
+  T->>R: remplit le formulaire (taxonomie, méthode…)
+  R->>MW: POST /moustiques (Bearer JWT)
+  MW->>MW: verifyToken → requireMinRole(technicien)
+  MW->>MW: checkSpecimenAccess('moustique')
+  MW->>MW: validate(schema Zod)
+  MW->>CT: req validée
+  CT->>DB: create(moustique) + génération idTerrain
+  CT->>DB: logAudit(CREATE)
+  DB-->>CT: spécimen créé
+  CT-->>R: 201 { moustique }
+  CT-->>R: SSE → notification aux autres utilisateurs
+  R-->>T: confirmation + invalidation cache TanStack
+    </pre>
+    <div class="caption">Figure 4.3 — Création d'un spécimen : gardes de sécurité en cascade puis persistance + audit + notification temps réel.</div>
+  </div>
+
+  <h3>4.4 Séquence — workflow de manipulation de laboratoire</h3>
+  <div class="diagram">
+    <pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor Te as Technicien
+  actor Ch as Chercheur
+  participant A as API /labo
+  participant DB as PostgreSQL
+  Te->>A: POST /labo (type, cible spécimen|pool)
+  A->>DB: create ManipulationLabo (statut=brut)
+  A->>DB: ManipulationEvent(CREATION) — immuable
+  Te->>A: PUT /labo/:id (données du module)
+  A->>DB: upsert module + Event(MODIFICATION)
+  Note over Ch: revue scientifique
+  Ch->>A: POST /labo/:id/valider
+  A->>DB: statut=valide, valideParId, valideLe
+  A->>DB: ManipulationEvent(VALIDATION)
+  Note over A,DB: statut « valide » ⇒ édition verrouillée (sauf admin)
+    </pre>
+    <div class="caption">Figure 4.4 — Cycle de vie d'une manipulation : saisie (technicien) → validation (chercheur) → verrouillage.</div>
+  </div>
+</section>
+
+<section class="page">
+  <h3>4.5 Diagrammes d'états</h3>
+  <div class="diagram">
+    <pre class="mermaid">
+stateDiagram-v2
+  [*] --> brut : création
+  brut --> valide : valider (chercheur+)
+  brut --> invalide : invalider (chercheur+)
+  invalide --> valide : re-valider
+  valide --> invalide : invalider + motif
+  valide --> [*] : verrouillé (édition admin uniquement)
+  note right of valide
+    Édition bloquée sauf admin.
+    valideParId + valideLe renseignés.
+  end note
+    </pre>
+    <div class="caption">Figure 4.5 — États d'une ManipulationLabo (StatutResultat).</div>
+  </div>
+  <div class="diagram">
+    <pre class="mermaid">
+stateDiagram-v2
+  [*] --> actif : création du projet
+  actif --> suspendu : mise en pause
+  suspendu --> actif : reprise
+  actif --> termine : clôture
+  termine --> [*]
+    </pre>
+    <div class="caption">Figure 4.6 — États d'un Projet (StatutProjet).</div>
+  </div>
+</section>
+
+<!-- ================= 5. AUDIT ================= -->
+<section class="page">
+  <h2>5. Audit qualité — bugs &amp; améliorations</h2>
+
+  <h3>5.1 Méthode</h3>
+  <p>L'audit résulte d'une lecture ciblée du schéma Prisma, des middlewares de sécurité, des contrôleurs critiques (auth, labo, notifications) et des couches frontend d'authentification. Chaque anomalie est classée par sévérité et accompagnée d'un correctif concret.</p>
+  <p><span class="sev maj">Majeur</span> impact fonctionnel/sécurité — à traiter avant production. &nbsp; <span class="sev moy">Moyen</span> dégrade l'expérience ou l'intégrité. &nbsp; <span class="sev min">Mineur</span> dette technique / robustesse.</p>
+
+  <h3>5.2 Anomalies — Backend</h3>
+
+  <div class="nobreak">
+  <h4>B1 <span class="sev maj">Majeur</span> — Fichiers de laboratoire jamais supprimés du disque</h4>
+  <p><small><code>labo.controller.js › deleteManipulation</code></small></p>
+  <p>Le chemin de suppression est reconstruit par <code>p.replace(/^labo\/[^/]+\//, '')</code>, qui retire le sous-dossier (<code>images/</code>, <code>sequencage/</code>). Or <code>UPLOADS_ROOT</code> se termine déjà par <code>/labo</code> : la jointure vise donc <code>uploads/labo/&lt;fichier&gt;</code> au lieu de <code>uploads/labo/images/&lt;fichier&gt;</code>. <code>fs.existsSync()</code> renvoie faux et le fichier n'est jamais effacé.</p>
+  <p><strong>Conséquence :</strong> accumulation de fichiers orphelins (images de gels, fichiers <code>.fastq</code> jusqu'à 500 Mo) à chaque suppression de manipulation.</p>
+  <p><strong>Correctif :</strong> ne retirer que le préfixe <code>labo/</code> : <code>p.replace(/^labo\//, '')</code>.</p>
+  </div>
+
+  <div class="nobreak">
+  <h4>B2 <span class="sev maj">Majeur</span> — Absence de révocation de session</h4>
+  <p><small><code>auth.middleware.js › verifyToken</code></small></p>
+  <p><code>verifyToken</code> se fie uniquement à la signature du JWT (durée 8 h) sans revérifier l'état du compte. Désactiver (<code>actif=false</code>), rétrograder ou supprimer un utilisateur ne coupe pas son accès aux routes non-spécimen (projets, missions, labo, dashboard) jusqu'à l'expiration du token. <code>kickUser</code> ne ferme que le flux SSE. Seul <code>checkSpecimenAccess</code> revérifie <code>actif</code>.</p>
+  <p><strong>Correctif :</strong> revérifier <code>actif</code> + <code>role</code> en base dans <code>verifyToken</code> (avec cache court partagé), ou introduire un <code>tokenVersion</code> incrémenté à chaque changement sensible et comparé au claim du JWT.</p>
+  </div>
+
+  <div class="nobreak">
+  <h4>B3 <span class="sev moy">Moyen</span> — État « lu » des notifications global au lieu de par-utilisateur</h4>
+  <p><small><code>notifications.controller.js</code> — réutilise <code>audit_logs.isRead</code></small></p>
+  <p><code>isRead</code> est un booléen unique porté par la ligne d'audit, partagé par tous les utilisateurs. Lorsqu'un utilisateur marque une notification comme lue, elle disparaît pour <em>tout le monde</em>, et le <code>unreadCount</code> individuel est faussé.</p>
+  <p><strong>Correctif :</strong> introduire une table de jonction <code>NotificationRead(userId, auditLogId)</code>, ou générer une notification par destinataire.</p>
+  </div>
+
+  <div class="nobreak">
+  <h4>B4 <span class="sev moy">Moyen</span> — Mise à jour partielle qui écrase les données scientifiques</h4>
+  <p><small><code>labo.controller.js › updateManipulation / buildModuleData</code></small></p>
+  <p><code>buildModuleData</code> renvoie <em>tous</em> les champs du module (les absents deviennent <code>null</code>), et <code>upsert.update: modData</code> réécrit l'ensemble. Un <code>PUT</code> partiel (par ex. modifier seulement <code>notes</code>) remet à <code>null</code> toutes les valeurs du module (Ct, concentrations, séquences…).</p>
+  <p><strong>Correctif :</strong> ne conserver dans <code>modData</code> que les clés effectivement présentes dans <code>req.body</code> avant l'upsert.</p>
+  </div>
+
+  <div class="nobreak">
+  <h4>B5 <span class="sev moy">Moyen</span> — « Autres spécimens » inaccessibles aux rôles non privilégiés</h4>
+  <p><small><code>auth.controller.js › SPECIMENS_VALIDES</code></small></p>
+  <p><code>SPECIMENS_VALIDES = ['moustique','tique','puce']</code> et <code>updateSpecimenAccess</code> rejette la valeur <code>'autre'</code>. Or <code>checkSpecimenAccess('autre')</code> exige que <code>'autre'</code> figure dans <code>specimensAutorises</code>. Un chercheur/technicien/lecteur reçoit donc toujours 403 sur les autres spécimens, et l'entrée n'apparaît jamais dans sa barre latérale. Incohérence introduite lors de l'ajout tardif du type <code>autre</code>.</p>
+  <p><strong>Correctif :</strong> ajouter <code>'autre'</code> à <code>SPECIMENS_VALIDES</code> (et, si souhaité, au défaut de <code>specimensAutorises</code>).</p>
+  </div>
+
+  <div class="nobreak">
+  <h4>B6 <span class="sev min">Mineur</span> — Relations polymorphes sans intégrité référentielle</h4>
+  <p><small><code>schema.prisma › PoolMembre, ManipulationLabo</code></small></p>
+  <p>Le ciblage d'un spécimen (<code>specimenType</code> + <code>specimenId</code>) n'est pas une clé étrangère : supprimer un spécimen laisse des <code>PoolMembre</code> et manipulations pendantes. La contrainte « spécimen ⊕ pool » n'existe qu'au niveau applicatif.</p>
+  <p><strong>Correctif :</strong> nettoyage applicatif à la suppression d'un spécimen (ou contrainte <code>CHECK</code> + trigger), et documenter la règle d'exclusivité.</p>
+  </div>
+
+  <div class="nobreak">
+  <h4>B7 <span class="sev min">Mineur</span> — Code mort &amp; double validation</h4>
+  <p>Plusieurs contrôleurs (<code>register</code>, <code>createUser</code>, <code>updateUser</code>…) refont une validation manuelle alors que les routes appliquent déjà <code>validate(schema.*)</code> (Zod). Par ailleurs <code>upload.middleware.js</code> exporte <code>uploadGel</code>/<code>uploadFichier</code> inutilisés (<code>labo.routes.js</code> redéfinit son propre <code>makeUpload</code>).</p>
+  <p><strong>Correctif :</strong> supprimer les validations redondantes et le code d'upload mort.</p>
+  </div>
+</section>
+
+<section class="page">
+  <h3>5.3 Anomalies — Frontend</h3>
+
+  <div class="nobreak">
+  <h4>F1 <span class="sev moy">Moyen</span> — Rôle affiché figé après modification par l'admin</h4>
+  <p><small><code>store/authStore.js</code>, SSE <code>permissions_changed</code></small></p>
+  <p><code>user.role</code> provient du token / localStorage. Le SSE ne pousse que les <code>specimensAutorises</code> (via <code>updateUser</code>), pas le rôle. Un utilisateur promu/rétrogradé conserve donc une interface (barre latérale, boutons d'action) obsolète jusqu'à reconnexion.</p>
+  <p><strong>Correctif :</strong> pousser aussi le rôle via SSE, ou rafraîchir périodiquement l'utilisateur depuis <code>/auth/me</code>.</p>
+  </div>
+
+  <div class="nobreak">
+  <h4>F2 <span class="sev min">Mineur</span> — Duplication de la logique de rôles back/front</h4>
+  <p>La hiérarchie des rôles et la liste des types de spécimens sont dupliquées entre le backend et <code>frontend/src/lib/roles.js</code>. Cette dérive a déjà causé un bug (blocage du <em>superviseur</em>, corrigé récemment).</p>
+  <p><strong>Correctif :</strong> exposer la configuration RBAC via un endpoint unique, ou centraliser dans un module partagé.</p>
+  </div>
+
+  <div class="nobreak">
+  <h4>F3 <span class="sev min">Mineur</span> — Redirection 401 non protégée contre les rafales</h4>
+  <p><small><code>api/axios.js</code></small></p>
+  <p>Sur 401, l'intercepteur planifie <code>window.location.href = '/login'</code> après 1200 ms. Plusieurs requêtes échouant simultanément peuvent empiler redirections et toasts.</p>
+  <p><strong>Correctif :</strong> ajouter un garde (drapeau <code>isRedirecting</code>) pour ne déclencher la redirection qu'une seule fois.</p>
+  </div>
+
+  <h3>5.4 Améliorations transverses</h3>
+  <table class="small">
+    <tr><th>Axe</th><th>Recommandation</th><th>Priorité</th></tr>
+    <tr><td>Tests</td><td>Aucun framework (backend : stub ; frontend : néant). Ajouter Vitest + Supertest côté API et React Testing Library côté UI ; câbler le <code>smoke-test.js</code> existant.</td><td><span class="sev maj">Haute</span></td></tr>
+    <tr><td>CI/CD</td><td><code>.github/</code> vide. Workflow lint + smoke-test + <code>prisma migrate diff</code> à chaque push.</td><td><span class="sev maj">Haute</span></td></tr>
+    <tr><td>Sécurité</td><td>Forcer le changement du mot de passe admin seed au 1<sup>er</sup> login ; envisager des URLs signées pour les fichiers d'upload.</td><td><span class="sev moy">Moyenne</span></td></tr>
+    <tr><td>Scalabilité</td><td>Cache de permissions in-memory par processus : basculer sur Redis si déploiement multi-instances (PM2 cluster).</td><td><span class="sev moy">Moyenne</span></td></tr>
+    <tr><td>Observabilité</td><td>Remplacer <code>console.log</code> par un logger structuré (pino/winston) avec niveaux et rotation.</td><td><span class="sev min">Basse</span></td></tr>
+    <tr><td>Données</td><td>Valider le champ libre <code>AutreSpecimen.attributs</code> (JSON) via un schéma Zod par type.</td><td><span class="sev min">Basse</span></td></tr>
+    <tr><td>Dépôt</td><td>Sortir les binaires <code>presentation/*.pptx|docx</code> (~8–10 Mo) du dépôt Git (LFS ou stockage externe).</td><td><span class="sev min">Basse</span></td></tr>
+    <tr><td>i18n</td><td>Compléter la traduction (<code>useT</code> partiellement déployé).</td><td><span class="sev min">Basse</span></td></tr>
+  </table>
+</section>
+
+<!-- ================= 6. ROADMAP ================= -->
+<section class="page">
+  <h2>6. Feuille de route de finalisation</h2>
+  <p>Séquence recommandée pour clôturer la version 1.0, du plus critique au confort.</p>
+
+  <h3>Sprint 1 — Correctifs bloquants (avant production)</h3>
+  <ol>
+    <li><strong>B1</strong> — corriger le chemin de suppression des fichiers labo.</li>
+    <li><strong>B2</strong> — enforcer la révocation de session (vérification <code>actif</code>/rôle).</li>
+    <li><strong>B5</strong> — rendre les « autres spécimens » attribuables aux rôles standards.</li>
+    <li>Changer le mot de passe admin par défaut.</li>
+  </ol>
+
+  <h3>Sprint 2 — Intégrité &amp; expérience</h3>
+  <ol>
+    <li><strong>B3</strong> — notifications « lu » par utilisateur.</li>
+    <li><strong>B4</strong> — mises à jour partielles non destructrices en labo.</li>
+    <li><strong>F1</strong> — synchronisation du rôle en temps réel.</li>
+    <li><strong>F3</strong> — garde de redirection 401.</li>
+  </ol>
+
+  <h3>Sprint 3 — Fiabilisation &amp; industrialisation</h3>
+  <ol>
+    <li>Mise en place des tests (API + UI) et de la CI GitHub Actions.</li>
+    <li>Nettoyage du code mort (<strong>B7</strong>) et centralisation RBAC (<strong>F2</strong>).</li>
+    <li>Logger structuré, nettoyage du dépôt, complétion i18n.</li>
+    <li><strong>B6</strong> — intégrité des relations polymorphes.</li>
+  </ol>
+
+  <div class="note" style="margin-top:2em">
+    <strong>Conclusion.</strong> SpécimenManager présente une architecture saine et cohérente : modèle de données rigoureux, sécurité multi-niveaux (JWT, RBAC hiérarchique, cloisonnement par projet), et un module laboratoire abouti. Les anomalies identifiées sont ciblées et corrigeables rapidement ; aucune ne remet en cause la conception d'ensemble. Le principal chantier de maturité reste l'<strong>automatisation des tests et de l'intégration continue</strong>, indispensable pour sécuriser les évolutions futures.
+  </div>
+
+  <div class="foot">
+    SpécimenManager — Livre de Conception v1.0 — Unité d'Entomologie Médicale, Institut Pasteur de Madagascar — 29 juillet 2026
+  </div>
+</section>
+
+<script>
+  mermaid.initialize({
+    startOnLoad:true,
+    theme:'neutral',
+    themeVariables:{ fontFamily:'Segoe UI, Arial, sans-serif', fontSize:'13px', primaryColor:'#dcfce7', primaryBorderColor:'#15803d', lineColor:'#4b5563' },
+    flowchart:{ useMaxWidth:true, htmlLabels:true, curve:'basis' },
+    sequence:{ useMaxWidth:true, wrap:true },
+    class:{ useMaxWidth:true }
+  });
+</script>
+</body>
+</html>

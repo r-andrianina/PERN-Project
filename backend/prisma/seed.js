@@ -35,7 +35,12 @@ async function main() {
   // ============================================================
   //  COMPTE ADMIN
   // ============================================================
-  const passwordHash = await bcrypt.hash('Admin1234!', 10);
+  // Mot de passe admin : configurable via SEED_ADMIN_PASSWORD (recommandé en prod).
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin1234!';
+  if (!process.env.SEED_ADMIN_PASSWORD) {
+    console.warn('⚠️  SEED_ADMIN_PASSWORD non défini — mot de passe admin par défaut utilisé. À CHANGER dès la première connexion.');
+  }
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
   await prisma.user.upsert({
     where:  { email: 'andrianinar@pasteur.mg' },
     update: {},
