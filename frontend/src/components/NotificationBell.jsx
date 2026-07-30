@@ -109,6 +109,18 @@ export default function NotificationBell() {
     } catch { /* non bloquant */ }
   }, []);
 
+  // ── Handler SSE account_updated — changement de rôle en temps réel (F1) ──
+  const handleAccountUpdated = useCallback((e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.role) updateUserRef.current({ role: data.role });
+      toast.info(data.message || 'Votre compte a été mis à jour.', {
+        title:    'Compte modifié',
+        duration: 8000,
+      });
+    } catch { /* non bloquant */ }
+  }, []);
+
   // ── SSE + polling de secours ────────────────────────────────────
   useEffect(() => {
     fetchNotifications();
@@ -126,6 +138,7 @@ export default function NotificationBell() {
 
     es.addEventListener('new_activity', handleNewActivity);
     es.addEventListener('permissions_changed', handlePermissionsChanged);
+    es.addEventListener('account_updated', handleAccountUpdated);
     es.onopen  = () => setSseStatus('connected');
     es.onerror = () => setSseStatus('offline');
 
@@ -136,7 +149,7 @@ export default function NotificationBell() {
       es.close();
       clearInterval(tid);
     };
-  }, [fetchNotifications, handleNewActivity, handlePermissionsChanged]);
+  }, [fetchNotifications, handleNewActivity, handlePermissionsChanged, handleAccountUpdated]);
 
   // ── Ouverture / fermeture du dropdown ─────────────────────────
   const openMenu = () => {

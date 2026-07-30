@@ -334,14 +334,22 @@ const updateManipulation = async (req, res) => {
   if (dateFin   !== undefined) baseData.dateFin   = dateFin ? new Date(dateFin) : null;
   if (notes     !== undefined) baseData.notes     = notes;
 
-  const rel     = MODULE_RELATION[manip.typeManipulation];
-  const modData = rel ? buildModuleData(manip.typeManipulation, req.body) : null;
+  const rel = MODULE_RELATION[manip.typeManipulation];
+  let modData = rel ? buildModuleData(manip.typeManipulation, req.body) : null;
+  // B4 — ne conserver que les champs réellement transmis, sinon un PUT partiel
+  // (ex. { notes }) remettrait à null toutes les données scientifiques du module.
+  if (modData) {
+    modData = Object.fromEntries(
+      Object.entries(modData).filter(([k]) => req.body[k] !== undefined)
+    );
+  }
+  const hasModData = modData && Object.keys(modData).length > 0;
 
   const updated = await prisma.manipulationLabo.update({
     where: { id },
     data: {
       ...baseData,
-      ...(rel && modData ? { [rel]: { upsert: { create: modData, update: modData } } } : {}),
+      ...(rel && hasModData ? { [rel]: { upsert: { create: modData, update: modData } } } : {}),
     },
     include: includeManip,
   });
@@ -401,7 +409,10 @@ const deleteManipulation = async (req, res) => {
   ]);
   for (const p of [pcr?.imageGelPath, seq?.fichierRawPath, nested?.imageGelPath, micro?.imageMicroPath]) {
     if (p) {
-      const abs = path.join(UPLOADS_ROOT, p.replace(/^labo\/[^/]+\//, ''));
+      // Les chemins stockés sont de la forme "labo/<sous-dossier>/<fichier>" et
+      // UPLOADS_ROOT se termine déjà par "/labo" : on ne retire QUE le préfixe
+      // "labo/" pour conserver le sous-dossier (images/, sequencage/).
+      const abs = path.join(UPLOADS_ROOT, p.replace(/^labo\//, ''));
       if (fs.existsSync(abs)) fs.unlinkSync(abs);
     }
   }

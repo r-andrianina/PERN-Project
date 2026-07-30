@@ -20,6 +20,10 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Garde : évite d'empiler redirections + toasts quand plusieurs requêtes
+// échouent en 401 simultanément (F3).
+let isRedirecting401 = false;
+
 // Intercepteur réponse — gestion centralisée des erreurs
 api.interceptors.response.use(
   (response) => {
@@ -37,11 +41,14 @@ api.interceptors.response.use(
       // spammerait un message par requête en échec au lieu d'un état global).
       useConnectionStore.getState().setDown();
     } else if (status === 401) {
-      // Session expirée ou token invalide → redirection login
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      toast.warning('Session expirée — veuillez vous reconnecter.');
-      setTimeout(() => { window.location.href = '/login'; }, 1200);
+      // Session expirée ou token invalide → redirection login (une seule fois)
+      if (!isRedirecting401) {
+        isRedirecting401 = true;
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        toast.warning('Session expirée — veuillez vous reconnecter.');
+        setTimeout(() => { window.location.href = '/login'; }, 1200);
+      }
     } else if (status === 429) {
       // Rate limit atteint
       toast.error(message || 'Trop de tentatives — réessayez dans quelques minutes.');

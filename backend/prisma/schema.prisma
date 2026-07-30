@@ -159,6 +159,7 @@ model User {
   manipulationsLabo   ManipulationLabo[]   @relation("OperateurManipulation")
   validationsLabo     ManipulationLabo[]   @relation("ValidateurManipulation")
   eventsLabo          ManipulationEvent[]
+  notificationReads   NotificationRead[]
 
   @@map("users")
 }
@@ -1009,14 +1010,35 @@ model AuditLog {
   oldValues Json?       @map("old_values")
   newValues Json?       @map("new_values")
   metadata  Json?
-  isRead    Boolean     @default(false) @map("is_read")
+  isRead    Boolean     @default(false) @map("is_read") // hérité — conservé pour compat ; l'état "lu" par utilisateur vit dans NotificationRead
   createdAt DateTime    @default(now()) @map("created_at")
 
-  user User? @relation(fields: [userId], references: [id])
+  user  User?              @relation(fields: [userId], references: [id])
+  reads NotificationRead[]
 
   @@index([entity, entityId])
   @@index([userId])
   @@index([createdAt])
   @@index([isRead])
   @@map("audit_logs")
+}
+
+// =============================================================
+//  NOTIFICATIONS — état "lu" par utilisateur (B3)
+//  Une ligne = un audit_log marqué lu par un utilisateur donné.
+//  L'absence de ligne signifie "non lu" pour cet utilisateur.
+// =============================================================
+
+model NotificationRead {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  auditLogId Int      @map("audit_log_id")
+  readAt     DateTime @default(now()) @map("read_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auditLog AuditLog @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, auditLogId])
+  @@index([userId])
+  @@map("notification_reads")
 }
