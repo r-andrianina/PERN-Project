@@ -9,6 +9,7 @@ import {
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
 import { Select, DatePicker } from '../../components/ui';
+import { useT } from '../../lib/i18n';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 const HOURS   = Array.from({ length: 24 }, (_, i) => ({ value: pad2(i), label: pad2(i) }));
@@ -16,55 +17,55 @@ const MINUTES = Array.from({ length: 12 }, (_, i) => ({ value: pad2(i * 5), labe
 
 // ── Configuration des modules ─────────────────────────────────
 
-export const MODULES = [
-  { value: 'identification_morpho', label: 'Identification morpho.',  Icon: Eye,          color: 'text-fg-muted', bg: 'bg-surface-2',  desc: 'Clé dichotomique, parité, gorgement' },
-  { value: 'broyage_pool',          label: 'Broyage / Pool',          Icon: Layers,       color: 'text-info',     bg: 'bg-info/10',    desc: "Constitution d'un pool de spécimens" },
-  { value: 'dessication',           label: 'Dessication',             Icon: TestTube,     color: 'text-info',     bg: 'bg-info/10',    desc: 'Conservation à sec' },
-  { value: 'extraction',            label: 'Extraction ADN/ARN',      Icon: Dna,          color: 'text-success',  bg: 'bg-success/10', desc: 'Extraction et contrôle qualité' },
-  { value: 'amplification_pcr',     label: 'PCR Standard',            Icon: Zap,          color: 'text-warning',  bg: 'bg-warning/10', desc: "Détection qualitative, gel d'électrophorèse" },
-  { value: 'qpcr',                  label: 'qPCR / RT-qPCR',          Icon: FlaskConical, color: 'text-primary',  bg: 'bg-primary/10', desc: 'Quantitatif, valeur Ct' },
-  { value: 'nested_pcr',            label: 'PCR Nichée (Nested)',      Icon: GitBranch,    color: 'text-warning',  bg: 'bg-warning/10', desc: "2 rounds d'amplification, sensibilité max" },
-  { value: 'sequencage',            label: 'Séquençage',              Icon: Waves,        color: 'text-primary',  bg: 'bg-primary/10', desc: 'Sanger / NGS + BLAST' },
-  { value: 'microscopie',           label: 'Microscopie',             Icon: Microscope,   color: 'text-danger',   bg: 'bg-danger/10',  desc: 'Glandes salivaires, frottis, oocystes' },
+export const getModules = (t) => [
+  { value: 'identification_morpho', label: t('nouvelleManip.moduleLabelMorpho'), Icon: Eye,          color: 'text-fg-muted', bg: 'bg-surface-2',  desc: t('nouvelleManip.moduleDescMorpho') },
+  { value: 'broyage_pool',          label: t('laboPage.typeBroyage'),      Icon: Layers,       color: 'text-info',     bg: 'bg-info/10',    desc: t('nouvelleManip.moduleDescBroyage') },
+  { value: 'dessication',           label: t('laboPage.typeDessication'),  Icon: TestTube,     color: 'text-info',     bg: 'bg-info/10',    desc: t('nouvelleManip.moduleDescDessication') },
+  { value: 'extraction',            label: t('laboPage.typeExtraction'),   Icon: Dna,          color: 'text-success',  bg: 'bg-success/10', desc: t('nouvelleManip.moduleDescExtraction') },
+  { value: 'amplification_pcr',     label: t('laboPage.typePcr'),          Icon: Zap,          color: 'text-warning',  bg: 'bg-warning/10', desc: t('nouvelleManip.moduleDescPcr') },
+  { value: 'qpcr',                  label: t('laboPage.typeQpcr'),         Icon: FlaskConical, color: 'text-primary',  bg: 'bg-primary/10', desc: t('nouvelleManip.moduleDescQpcr') },
+  { value: 'nested_pcr',            label: t('manipDetail.typeNestedPcrFull'), Icon: GitBranch,    color: 'text-warning',  bg: 'bg-warning/10', desc: t('nouvelleManip.moduleDescNested') },
+  { value: 'sequencage',            label: t('laboPage.typeSequencage'),   Icon: Waves,        color: 'text-primary',  bg: 'bg-primary/10', desc: t('nouvelleManip.moduleDescSeq') },
+  { value: 'microscopie',           label: t('laboPage.typeMicroscopie'),  Icon: Microscope,   color: 'text-danger',   bg: 'bg-danger/10',  desc: t('nouvelleManip.moduleDescMicro') },
 ];
 
 // ── Options de formulaire ─────────────────────────────────────
 
 const SPECIMEN_ENDPOINTS = { moustique: 'moustiques', tique: 'tiques', puce: 'puces', autre: 'autres-specimens' };
-const SPECIMEN_TYPE_OPTIONS = [
-  { value: 'moustique', label: 'Moustique' }, { value: 'tique', label: 'Tique' },
-  { value: 'puce', label: 'Puce' }, { value: 'autre', label: 'Autre spécimen' },
+const getSpecimenTypeOptions = (t) => [
+  { value: 'moustique', label: t('specimenTypes.moustique') }, { value: 'tique', label: t('specimenTypes.tique') },
+  { value: 'puce', label: t('specimenTypes.puce') }, { value: 'autre', label: t('specimenTypes.autre') },
 ];
-const NIVEAU_CONFIANCE_OPTIONS = [
-  { value: 'certain', label: 'Certain' }, { value: 'probable', label: 'Probable' }, { value: 'douteux', label: 'Douteux' },
+const getNiveauConfianceOptions = (t) => [
+  { value: 'certain', label: t('nouvelleManip.confianceCertain') }, { value: 'probable', label: t('nouvelleManip.confianceProbable') }, { value: 'douteux', label: t('nouvelleManip.confianceDouteux') },
 ];
-const TYPE_BROYAGE_OPTIONS = [
-  { value: 'tissuelyser', label: 'TissueLyser' }, { value: 'pilon_mortier', label: 'Pilon et mortier' },
-  { value: 'billes_verre', label: 'Billes de verre' }, { value: 'sonication', label: 'Sonication' }, { value: 'manuel', label: 'Manuel' },
+const getTypeBroyageOptions = (t) => [
+  { value: 'tissuelyser', label: 'TissueLyser' }, { value: 'pilon_mortier', label: t('nouvelleManip.broyagePilonMortier') },
+  { value: 'billes_verre', label: t('nouvelleManip.broyageBillesVerre') }, { value: 'sonication', label: t('nouvelleManip.broyageSonication') }, { value: 'manuel', label: t('nouvelleManip.broyageManuel') },
 ];
-const TEMP_STOCKAGE_OPTIONS = [
-  { value: '-80°C', label: '-80°C (congélateur profond)' }, { value: '-20°C', label: '-20°C' },
-  { value: '+4°C', label: '+4°C (réfrigérateur)' }, { value: 'TA', label: 'Température ambiante' },
+const getTempStockageOptions = (t) => [
+  { value: '-80°C', label: t('nouvelleManip.tempDeepFreezer') }, { value: '-20°C', label: '-20°C' },
+  { value: '+4°C', label: t('nouvelleManip.tempFridge') }, { value: 'TA', label: t('nouvelleManip.tempAmbient') },
 ];
-const TYPE_AN_OPTIONS = [
-  { value: 'adn', label: 'ADN génomique' }, { value: 'arn', label: 'ARN total' }, { value: 'adn_arn', label: 'ADN + ARN' },
+const getTypeAnOptions = (t) => [
+  { value: 'adn', label: t('nouvelleManip.typeAnGenomicDna') }, { value: 'arn', label: t('nouvelleManip.typeAnTotalRna') }, { value: 'adn_arn', label: t('nouvelleManip.typeAnDnaRna') },
 ];
-const METHODE_EXTRACT_OPTIONS = [
-  { value: 'destructive', label: 'Destructive (corps entier)' }, { value: 'non_destructive', label: 'Non-destructive' },
+const getMethodeExtractOptions = (t) => [
+  { value: 'destructive', label: t('nouvelleManip.extractDestructiveFull') }, { value: 'non_destructive', label: t('manipDetail.nonDestructive') },
 ];
-const STATUT_BANDE_OPTIONS = [
-  { value: 'positif', label: 'Positif ✓' }, { value: 'negatif', label: 'Négatif ✗' }, { value: 'inconclusif', label: 'Inconclusif ?' },
+const getStatutBandeOptions = (t) => [
+  { value: 'positif', label: t('nouvelleManip.statutPositifCheck') }, { value: 'negatif', label: t('nouvelleManip.statutNegatifCross') }, { value: 'inconclusif', label: t('nouvelleManip.statutInconclusifQ') },
 ];
-const METHODE_SEQ_OPTIONS = [
-  { value: 'sanger', label: 'Sanger (Capillaire)' }, { value: 'ngs_illumina', label: 'NGS Illumina' }, { value: 'oxford_nanopore', label: 'Oxford Nanopore' },
+const getMethodeSeqOptions = (t) => [
+  { value: 'sanger', label: t('nouvelleManip.methodeSeqSangerCapillaire') }, { value: 'ngs_illumina', label: 'NGS Illumina' }, { value: 'oxford_nanopore', label: 'Oxford Nanopore' },
 ];
-const TYPE_EXAMEN_OPTIONS = [
-  { value: 'glandes_salivaires', label: 'Glandes salivaires' }, { value: 'frottis_sanguin', label: 'Frottis sanguin' },
-  { value: 'estomac_moustique', label: 'Estomac moustique (oocystes)' }, { value: 'ovaires', label: 'Ovaires (parité)' },
-  { value: 'corps_entier', label: 'Corps entier' },
+const getTypeExamenOptions = (t) => [
+  { value: 'glandes_salivaires', label: t('nouvelleManip.examSalivaryGlands') }, { value: 'frottis_sanguin', label: t('nouvelleManip.examBloodSmear') },
+  { value: 'estomac_moustique', label: t('nouvelleManip.examMosquitoStomach') }, { value: 'ovaires', label: t('nouvelleManip.examOvaries') },
+  { value: 'corps_entier', label: t('nouvelleManip.examWholeBody') },
 ];
-const GROSSISSEMENT_OPTIONS = [
-  { value: '10x', label: '10×' }, { value: '40x', label: '40×' }, { value: '100x', label: '100× (immersion huile)' },
+const getGrossissementOptions = (t) => [
+  { value: '10x', label: '10×' }, { value: '40x', label: '40×' }, { value: '100x', label: t('nouvelleManip.grossissement100Oil') },
 ];
 const WELLS = [];
 for (const r of 'ABCDEFGH') for (let c = 1; c <= 12; c++) WELLS.push({ value: `${r}${c}`, label: `${r}${c}` });
@@ -144,6 +145,7 @@ function DateTimeField({ label, value, onChange, required }) {
 
 // Badge durée calculée entre début et fin
 function DurationBadge({ start, end }) {
+  const t = useT();
   if (!start || !end) return null;
   const diff = new Date(end) - new Date(start);
   if (isNaN(diff)) return null;
@@ -151,7 +153,7 @@ function DurationBadge({ start, end }) {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-danger/8 text-danger rounded-lg text-xs font-medium">
         <AlertTriangle size={11} />
-        Date de fin antérieure au début
+        {t('nouvelleManip.durationWarning')}
       </span>
     );
   }
@@ -161,18 +163,19 @@ function DurationBadge({ start, end }) {
   return (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/8 text-primary rounded-lg text-xs font-medium">
       <Timer size={11} />
-      Durée : {label}
+      {t('nouvelleManip.durationPrefix')} {label}
     </span>
   );
 }
 
 function PathogeneSelect({ value, onChange, pathogenes }) {
+  const t = useT();
   return (
     <FormField
-      label="Pathogène ciblé" name="pathogeneCibleId" type="select"
+      label={t('manipDetail.pathogeneCible')} name="pathogeneCibleId" type="select"
       value={value} onChange={onChange}
       options={pathogenes.map((p) => ({ value: p.id, label: `${p.nom}${p.famille ? ` (${p.famille})` : ''}` }))}
-      hint="optionnel — depuis le dictionnaire"
+      hint={t('nouvelleManip.pathogeneHint')}
     />
   );
 }
@@ -180,158 +183,163 @@ function PathogeneSelect({ value, onChange, pathogenes }) {
 // ── Sous-formulaires des modules ──────────────────────────────
 
 function ModuleIdentificationMorpho({ f, h }) {
+  const t = useT();
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Clé dichotomique utilisée" name="cleUtilisee" type="text" value={f.cleUtilisee} onChange={h} placeholder="ex: Gillies & de Meillon 1968, Brunhes et al. 1997…" />
-        <FormField label="Espèce identifiée" name="especeIdentifiee" type="text" value={f.especeIdentifiee} onChange={h} placeholder="ex: Anopheles gambiae s.l." />
+        <FormField label={t('nouvelleManip.cleDichotomiqueUtilisee')} name="cleUtilisee" type="text" value={f.cleUtilisee} onChange={h} placeholder={t('nouvelleManip.cleDichotomiquePlaceholder')} />
+        <FormField label={t('manipDetail.especeIdentifiee')} name="especeIdentifiee" type="text" value={f.especeIdentifiee} onChange={h} placeholder={t('nouvelleManip.especeIdentifieePlaceholder')} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 2xl:grid-cols-4 gap-4">
-        <FormField label="Niveau de confiance" name="niveauConfiance" type="select" value={f.niveauConfiance} onChange={h} options={NIVEAU_CONFIANCE_OPTIONS} />
-        <FormField label="Stade confirmé" name="stadeConfirme" type="text" value={f.stadeConfirme} onChange={h} placeholder="Adulte, Larve L4…" />
-        <FormField label="Gorgement" name="gorgement" type="text" value={f.gorgement} onChange={h} placeholder="À jeun / Gorgée / Semi-gorgée" />
+        <FormField label={t('manipDetail.niveauConfiance')} name="niveauConfiance" type="select" value={f.niveauConfiance} onChange={h} options={getNiveauConfianceOptions(t)} />
+        <FormField label={t('manipDetail.stadeConfirme')} name="stadeConfirme" type="text" value={f.stadeConfirme} onChange={h} placeholder={t('nouvelleManip.stadeConfirmePlaceholder')} />
+        <FormField label={t('manipDetail.gorgement')} name="gorgement" type="text" value={f.gorgement} onChange={h} placeholder={t('nouvelleManip.gorgementPlaceholder')} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Méthode de parité" name="pariteMethode" type="text" value={f.pariteMethode} onChange={h} placeholder="Christopher, Detinova…" />
-        <FormField label="Résultat parité" name="pariteResultat" type="text" value={f.pariteResultat} onChange={h} placeholder="Pare / Nullipare" />
+        <FormField label={t('manipDetail.methodeParite')} name="pariteMethode" type="text" value={f.pariteMethode} onChange={h} placeholder={t('nouvelleManip.methodeParitePlaceholder')} />
+        <FormField label={t('manipDetail.resultatParite')} name="pariteResultat" type="text" value={f.pariteResultat} onChange={h} placeholder={t('nouvelleManip.resultatParitePlaceholder')} />
       </div>
-      <FormField label="Parties prélevées" name="partiesPrelevees" type="text" value={f.partiesPrelevees} onChange={h} placeholder="ex: Tête+thorax séparés, corps entier, glandes salivaires…" hint="pour analyses ultérieures" />
+      <FormField label={t('manipDetail.partiesPrelevees')} name="partiesPrelevees" type="text" value={f.partiesPrelevees} onChange={h} placeholder={t('nouvelleManip.partiesPreleveesPlaceholder')} hint={t('nouvelleManip.partiesPreleveesHint')} />
     </div>
   );
 }
 
 function ModuleBroyagePool({ f, h }) {
+  const t = useT();
   return (
     <div className="space-y-4">
-      <NoteInfo>Le pool est constitué à partir des spécimens liés à cette manipulation. L'ID pool sera généré automatiquement.</NoteInfo>
+      <NoteInfo>{t('nouvelleManip.broyageNote')}</NoteInfo>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Méthode de broyage" name="methodeBroyage" type="select" value={f.methodeBroyage} onChange={h} options={TYPE_BROYAGE_OPTIONS} />
-        <FormField label="Tampon utilisé" name="tamponUtilise" type="text" value={f.tamponUtilise} onChange={h} placeholder="ex: PBS 1×, DMEM, TRIZOL…" />
+        <FormField label={t('manipDetail.methodeBroyage')} name="methodeBroyage" type="select" value={f.methodeBroyage} onChange={h} options={getTypeBroyageOptions(t)} />
+        <FormField label={t('manipDetail.tamponUtilise')} name="tamponUtilise" type="text" value={f.tamponUtilise} onChange={h} placeholder={t('nouvelleManip.tamponUtilisePlaceholder')} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Volume tampon <span className="text-fg-subtle font-normal">(µL)</span></label>
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('nouvelleManip.volumeTamponLabel')} <span className="text-fg-subtle font-normal">(µL)</span></label>
           <input type="number" name="volumeTamponUl" step="0.1" min="0" value={f.volumeTamponUl} onChange={h} placeholder="ex: 500" className="input-base w-full text-sm" />
         </div>
-        <FormField label="Paramètres broyeur" name="parametresBroyeur" type="text" value={f.parametresBroyeur} onChange={h} placeholder="ex: 30 Hz, 2×1 min" />
+        <FormField label={t('manipDetail.parametresBroyeur')} name="parametresBroyeur" type="text" value={f.parametresBroyeur} onChange={h} placeholder={t('nouvelleManip.parametresBroyeurPlaceholder')} />
       </div>
-      <Divider label="Résultat" />
+      <Divider label={t('nouvelleManip.resultatDividerSingle')} />
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Volume récupéré <span className="text-fg-subtle font-normal">(µL)</span></label>
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('nouvelleManip.volumeRecupereLabel')} <span className="text-fg-subtle font-normal">(µL)</span></label>
           <input type="number" name="volumeRecupereUl" step="0.1" min="0" value={f.volumeRecupereUl} onChange={h} placeholder="ex: 450" className="input-base w-full text-sm" />
         </div>
-        <FormField label="Aspect macroscopique" name="aspectMacro" type="text" value={f.aspectMacro} onChange={h} placeholder="Limpide / Trouble / Rosé…" />
+        <FormField label={t('manipDetail.aspectMacroscopique')} name="aspectMacro" type="text" value={f.aspectMacro} onChange={h} placeholder={t('nouvelleManip.aspectMacroPlaceholder')} />
       </div>
     </div>
   );
 }
 
 function ModuleDessication({ f, h }) {
+  const t = useT();
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Méthode" name="methode" type="text" value={f.methode} onChange={h} placeholder="ex: Silica gel, DESS, Lyophilisation…" />
-        <FormField label="Température de stockage" name="temperatureStockage" type="select" value={f.temperatureStockage} onChange={h} options={TEMP_STOCKAGE_OPTIONS} />
+        <FormField label={t('manipDetail.methodeGeneric')} name="methode" type="text" value={f.methode} onChange={h} placeholder={t('nouvelleManip.methodePlaceholder')} />
+        <FormField label={t('nouvelleManip.temperatureStockageLabel')} name="temperatureStockage" type="select" value={f.temperatureStockage} onChange={h} options={getTempStockageOptions(t)} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Durée dessication <span className="text-fg-subtle font-normal">(heures)</span></label>
-          <input type="number" name="dureeDessicationH" step="0.5" min="0" value={f.dureeDessicationH} onChange={h} placeholder="ex: 48" className="input-base w-full text-sm" />
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('nouvelleManip.dureeDessicationLabel')} <span className="text-fg-subtle font-normal">{t('nouvelleManip.dureeDessicationUnit')}</span></label>
+          <input type="number" name="dureeDessicationH" step="0.5" min="0" value={f.dureeDessicationH} onChange={h} placeholder={t('nouvelleManip.dureeDessicationPlaceholder')} className="input-base w-full text-sm" />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Silica gel <span className="text-fg-subtle font-normal">(g)</span></label>
-          <input type="number" name="quantiteSilicaGelG" step="0.1" min="0" value={f.quantiteSilicaGelG} onChange={h} placeholder="ex: 2" className="input-base w-full text-sm" />
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('manipDetail.silicaGel')} <span className="text-fg-subtle font-normal">{t('nouvelleManip.silicaGelUnit')}</span></label>
+          <input type="number" name="quantiteSilicaGelG" step="0.1" min="0" value={f.quantiteSilicaGelG} onChange={h} placeholder={t('nouvelleManip.silicaGelPlaceholder')} className="input-base w-full text-sm" />
         </div>
-        <FormField label="Date de mise en conservation" name="dateMiseConservation" type="date" value={f.dateMiseConservation} onChange={h} />
+        <FormField label={t('nouvelleManip.dateMiseConservationLabel')} name="dateMiseConservation" type="date" value={f.dateMiseConservation} onChange={h} />
       </div>
-      <Divider label="Résultat" />
+      <Divider label={t('nouvelleManip.resultatDividerSingle')} />
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Partie du corps" name="partieCorps" type="text" value={f.partieCorps} onChange={h} placeholder="Corps entier / Tête+thorax / Abdomen…" />
-        <FormField label="Statut du tissu" name="statutTissu" type="text" value={f.statutTissu} onChange={h} placeholder="Intègre / Dégradé / Fragmenté" />
-        <FormField label="Emplacement de stockage" name="emplacementCode" type="text" value={f.emplacementCode} onChange={h} placeholder="ex: CONG-B2 / Tiroir A3 / Boîte 12" />
+        <FormField label={t('manipDetail.partieCorps')} name="partieCorps" type="text" value={f.partieCorps} onChange={h} placeholder={t('nouvelleManip.partieCorpsPlaceholder')} />
+        <FormField label={t('nouvelleManip.statutTissuLabel')} name="statutTissu" type="text" value={f.statutTissu} onChange={h} placeholder={t('nouvelleManip.statutTissuPlaceholder')} />
+        <FormField label={t('nouvelleManip.emplacementLabel')} name="emplacementCode" type="text" value={f.emplacementCode} onChange={h} placeholder={t('nouvelleManip.emplacementPlaceholder')} />
       </div>
     </div>
   );
 }
 
 function ModuleExtraction({ f, h }) {
+  const t = useT();
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Type d'acide nucléique" name="typeAcideNucleique" type="select" value={f.typeAcideNucleique} onChange={h} options={TYPE_AN_OPTIONS} />
-        <FormField label="Kit d'extraction" name="typeKit" type="text" value={f.typeKit} onChange={h} placeholder="ex: DNeasy Blood & Tissue (Qiagen)" />
+        <FormField label={t('nouvelleManip.typeAcideNucleiqueLabel')} name="typeAcideNucleique" type="select" value={f.typeAcideNucleique} onChange={h} options={getTypeAnOptions(t)} />
+        <FormField label={t('nouvelleManip.kitLabel')} name="typeKit" type="text" value={f.typeKit} onChange={h} placeholder={t('nouvelleManip.kitPlaceholder')} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Méthode" name="methodeExtraction" type="select" value={f.methodeExtraction} onChange={h} options={METHODE_EXTRACT_OPTIONS} />
-        <FormField label="Homogénéisation" name="methodeHomogeneisation" type="select" value={f.methodeHomogeneisation} onChange={h} options={TYPE_BROYAGE_OPTIONS} />
+        <FormField label={t('manipDetail.methodeGeneric')} name="methodeExtraction" type="select" value={f.methodeExtraction} onChange={h} options={getMethodeExtractOptions(t)} />
+        <FormField label={t('manipDetail.homogeneisation')} name="methodeHomogeneisation" type="select" value={f.methodeHomogeneisation} onChange={h} options={getTypeBroyageOptions(t)} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 2xl:grid-cols-4 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Quantité tissu <span className="text-fg-subtle font-normal">(mg)</span></label>
-          <input type="number" name="quantiteTissuMg" step="0.01" min="0" value={f.quantiteTissuMg} onChange={h} placeholder="ex: 5" className="input-base w-full text-sm" />
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('nouvelleManip.quantiteTissuLabel')} <span className="text-fg-subtle font-normal">(mg)</span></label>
+          <input type="number" name="quantiteTissuMg" step="0.01" min="0" value={f.quantiteTissuMg} onChange={h} placeholder={t('nouvelleManip.quantiteTissuPlaceholder')} className="input-base w-full text-sm" />
         </div>
-        <FormField label="N° de lot kit" name="numerotLot" type="text" value={f.numerotLot} onChange={h} placeholder="ex: LOT-2026-042" />
+        <FormField label={t('nouvelleManip.numeroLotLabel')} name="numerotLot" type="text" value={f.numerotLot} onChange={h} placeholder={t('nouvelleManip.numeroLotPlaceholder')} />
         <div>
-          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Volume élution <span className="text-fg-subtle font-normal">(µL)</span></label>
-          <input type="number" name="volumeElutionUl" step="1" min="0" value={f.volumeElutionUl} onChange={h} placeholder="ex: 100" className="input-base w-full text-sm" />
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('nouvelleManip.volumeElutionLabel')} <span className="text-fg-subtle font-normal">(µL)</span></label>
+          <input type="number" name="volumeElutionUl" step="1" min="0" value={f.volumeElutionUl} onChange={h} placeholder={t('nouvelleManip.volumeElutionPlaceholder')} className="input-base w-full text-sm" />
         </div>
       </div>
       <label className="flex items-center gap-2 cursor-pointer select-none">
         <input type="checkbox" name="controlExtraction" checked={f.controlExtraction === true || f.controlExtraction === 'true'} onChange={(e) => h({ target: { name: 'controlExtraction', value: e.target.checked } })} className="rounded" />
-        <span className="text-xs text-fg">Témoin négatif d'extraction inclus (eau)</span>
+        <span className="text-xs text-fg">{t('nouvelleManip.temoinNegatifExtractionCheckbox')}</span>
       </label>
-      <Divider label="Résultats contrôle qualité" />
+      <Divider label={t('nouvelleManip.resultatsControleQualite')} />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[['concentrationAdn', 'Conc. ADN', 'ng/µL', 'ex: 12.5'], ['pureteA260A280', 'A260/A280', '', 'ex: 1.82'], ['pureteA260A230', 'A260/A230', '', 'ex: 2.10'], ['volumeFinalUl', 'Volume final', 'µL', 'ex: 50']].map(([name, label, unit, ph]) => (
+        {[['concentrationAdn', t('nouvelleManip.concentrationAdnShort'), 'ng/µL', 'ex: 12.5'], ['pureteA260A280', 'A260/A280', '', 'ex: 1.82'], ['pureteA260A230', 'A260/A230', '', 'ex: 2.10'], ['volumeFinalUl', t('nouvelleManip.volumeFinalShort'), 'µL', 'ex: 50']].map(([name, label, unit, ph]) => (
           <div key={name}>
             <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{label}{unit && <span className="font-normal text-fg-subtle"> ({unit})</span>}</label>
             <input type="number" name={name} step="0.001" min="0" value={f[name]} onChange={h} placeholder={ph} className="input-base w-full text-sm" />
           </div>
         ))}
       </div>
-      <FormField label="ID tube ADN/ARN" name="idTubeAdn" type="text" value={f.idTubeAdn} onChange={h} placeholder="ex: ADN-2026-0104" hint="identifiant unique du tube" />
+      <FormField label={t('manipDetail.idTubeAdn')} name="idTubeAdn" type="text" value={f.idTubeAdn} onChange={h} placeholder={t('nouvelleManip.idTubeAdnPlaceholder')} hint={t('nouvelleManip.idTubeAdnHint')} />
     </div>
   );
 }
 
 function ModulePcr({ f, h, pathogenes }) {
+  const t = useT();
   return (
     <div className="space-y-4">
       <PathogeneSelect value={f.pathogeneCibleId} onChange={h} pathogenes={pathogenes} />
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Gène cible" name="geneCible" type="text" value={f.geneCible} onChange={h} placeholder="ex: COI, ITS2, 18S, CSP…" />
-        <FormField label="ID Plaque PCR" name="idPlaquePcr" type="text" value={f.idPlaquePcr} onChange={h} placeholder="ex: PCR-PL-0023" />
+        <FormField label={t('manipDetail.geneCible')} name="geneCible" type="text" value={f.geneCible} onChange={h} placeholder="ex: COI, ITS2, 18S, CSP…" />
+        <FormField label={t('manipDetail.plaquePcr')} name="idPlaquePcr" type="text" value={f.idPlaquePcr} onChange={h} placeholder={t('nouvelleManip.idPlaquePcrPlaceholder')} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Amorce Forward (5'→3')" name="amorceForward" type="text" value={f.amorceForward} onChange={h} placeholder="Séquence ou code…" />
-        <FormField label="Amorce Reverse (5'→3')" name="amorceReverse" type="text" value={f.amorceReverse} onChange={h} placeholder="Séquence ou code…" />
+        <FormField label={t('nouvelleManip.amorceForwardFullLabel')} name="amorceForward" type="text" value={f.amorceForward} onChange={h} placeholder={t('nouvelleManip.sequenceOuCodePlaceholder')} />
+        <FormField label={t('nouvelleManip.amorceReverseFullLabel')} name="amorceReverse" type="text" value={f.amorceReverse} onChange={h} placeholder={t('nouvelleManip.sequenceOuCodePlaceholder')} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
-        <FormField label="Enzyme / Master Mix" name="enzyme" type="text" value={f.enzyme} onChange={h} placeholder="ex: HotStar Taq, GoTaq Green…" />
-        <FormField label="Programme thermocycleur" name="programmeThermo" type="text" value={f.programmeThermo} onChange={h} placeholder="ex: 95°C/5min – 35×(95/58/72°C) – 72°C/7min" />
+        <FormField label={t('manipDetail.enzymeMasterMix')} name="enzyme" type="text" value={f.enzyme} onChange={h} placeholder={t('nouvelleManip.enzymePlaceholder')} />
+        <FormField label={t('manipDetail.programmeThermocycleur')} name="programmeThermo" type="text" value={f.programmeThermo} onChange={h} placeholder={t('nouvelleManip.programmeThermoPlaceholder')} />
         <div>
-          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Taille attendue <span className="text-fg-subtle font-normal">(pb)</span></label>
-          <input type="number" name="tailleAttenduePb" step="1" min="0" value={f.tailleAttenduePb} onChange={h} placeholder="ex: 658" className="input-base w-full text-sm" />
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('manipDetail.tailleAttendue')} <span className="text-fg-subtle font-normal">{t('nouvelleManip.tailleAttenduePbUnit')}</span></label>
+          <input type="number" name="tailleAttenduePb" step="1" min="0" value={f.tailleAttenduePb} onChange={h} placeholder={t('nouvelleManip.tailleAttenduePlaceholder')} className="input-base w-full text-sm" />
         </div>
-        <FormField label="Puits (A1–H12)" name="puitsPcr" type="select" value={f.puitsPcr} onChange={h} options={WELLS} />
+        <FormField label={t('nouvelleManip.puitsLabel')} name="puitsPcr" type="select" value={f.puitsPcr} onChange={h} options={WELLS} />
       </div>
       <div className="flex gap-6">
         <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-fg">
           <input type="checkbox" name="temoinPositif" checked={f.temoinPositif === true || f.temoinPositif === 'true'} onChange={(e) => h({ target: { name: 'temoinPositif', value: e.target.checked } })} className="rounded" />
-          Témoin positif inclus
+          {t('nouvelleManip.temoinPositifCheckbox')}
         </label>
         <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-fg">
           <input type="checkbox" name="temoinNegatif" checked={f.temoinNegatif === true || f.temoinNegatif === 'true'} onChange={(e) => h({ target: { name: 'temoinNegatif', value: e.target.checked } })} className="rounded" />
-          Témoin négatif inclus
+          {t('nouvelleManip.temoinNegatifCheckbox')}
         </label>
       </div>
-      <Divider label="Résultat gel" />
+      <Divider label={t('manipDetail.sectionResultatGel')} />
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Statut bande gel" name="statutBandeGel" type="select" value={f.statutBandeGel} onChange={h} options={STATUT_BANDE_OPTIONS} />
+        <FormField label={t('nouvelleManip.statutBandeGelLabel')} name="statutBandeGel" type="select" value={f.statutBandeGel} onChange={h} options={getStatutBandeOptions(t)} />
         <div>
-          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Taille bande observée <span className="text-fg-subtle font-normal">(pb)</span></label>
-          <input type="number" name="tailleBandePb" step="1" min="0" value={f.tailleBandePb} onChange={h} placeholder="ex: 650" className="input-base w-full text-sm" />
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('manipDetail.tailleBandeObservee')} <span className="text-fg-subtle font-normal">{t('nouvelleManip.tailleAttenduePbUnit')}</span></label>
+          <input type="number" name="tailleBandePb" step="1" min="0" value={f.tailleBandePb} onChange={h} placeholder={t('nouvelleManip.tailleBandeObserveePlaceholder')} className="input-base w-full text-sm" />
         </div>
       </div>
     </div>
@@ -339,30 +347,31 @@ function ModulePcr({ f, h, pathogenes }) {
 }
 
 function ModuleQpcr({ f, h, pathogenes }) {
+  const t = useT();
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Type de qPCR" name="typePcr" type="select" value={f.typePcr} onChange={h}
-          options={[{ value: 'qPCR', label: 'qPCR (ADN)' }, { value: 'RT-qPCR', label: 'RT-qPCR (ARN)' }]} />
+        <FormField label={t('nouvelleManip.typeDeQpcrLabel')} name="typePcr" type="select" value={f.typePcr} onChange={h}
+          options={[{ value: 'qPCR', label: t('nouvelleManip.qpcrTypeDna') }, { value: 'RT-qPCR', label: t('nouvelleManip.qpcrTypeRna') }]} />
         <PathogeneSelect value={f.pathogeneCibleId} onChange={h} pathogenes={pathogenes} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Gène cible" name="geneCible" type="text" value={f.geneCible} onChange={h} placeholder="ex: NS5, CSP, E1…" />
-        <FormField label="Gène de référence interne" name="geneReference" type="text" value={f.geneReference} onChange={h} placeholder="ex: RPS17, actin, GAPDH" />
+        <FormField label={t('manipDetail.geneCible')} name="geneCible" type="text" value={f.geneCible} onChange={h} placeholder="ex: NS5, CSP, E1…" />
+        <FormField label={t('nouvelleManip.geneReferenceInterneLabel')} name="geneReference" type="text" value={f.geneReference} onChange={h} placeholder={t('nouvelleManip.geneReferenceInternePlaceholder')} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Amorce Forward" name="amorceForward" type="text" value={f.amorceForward} onChange={h} placeholder="Séquence…" />
-        <FormField label="Amorce Reverse" name="amorceReverse" type="text" value={f.amorceReverse} onChange={h} placeholder="Séquence…" />
+        <FormField label={t('manipDetail.amorceForward')} name="amorceForward" type="text" value={f.amorceForward} onChange={h} placeholder={t('nouvelleManip.sequencePlaceholder')} />
+        <FormField label={t('manipDetail.amorceReverse')} name="amorceReverse" type="text" value={f.amorceReverse} onChange={h} placeholder={t('nouvelleManip.sequencePlaceholder')} />
       </div>
-      <FormField label="Sonde TaqMan" name="sondeTaqman" type="text" value={f.sondeTaqman} onChange={h} placeholder="Séquence de la sonde…" hint="optionnel (format SYBR Green si absent)" />
+      <FormField label={t('manipDetail.sondeTaqman')} name="sondeTaqman" type="text" value={f.sondeTaqman} onChange={h} placeholder={t('nouvelleManip.sondeTaqmanPlaceholder')} hint={t('nouvelleManip.sondeTaqmanHint')} />
       <div className="grid grid-cols-1 sm:grid-cols-3 2xl:grid-cols-4 gap-4">
-        <FormField label="Master Mix" name="masterMix" type="text" value={f.masterMix} onChange={h} placeholder="ex: SsoAdvanced, TaqMan Fast" />
-        <FormField label="ID Plaque qPCR" name="idPlaqueQpcr" type="text" value={f.idPlaqueQpcr} onChange={h} placeholder="ex: qPCR-PL-007" />
-        <FormField label="Puits (A1–H12)" name="puitsQpcr" type="select" value={f.puitsQpcr} onChange={h} options={WELLS} />
+        <FormField label={t('manipDetail.masterMix')} name="masterMix" type="text" value={f.masterMix} onChange={h} placeholder={t('nouvelleManip.masterMixPlaceholder')} />
+        <FormField label={t('nouvelleManip.idPlaqueQpcrLabel')} name="idPlaqueQpcr" type="text" value={f.idPlaqueQpcr} onChange={h} placeholder={t('nouvelleManip.idPlaqueQpcrPlaceholder')} />
+        <FormField label={t('nouvelleManip.puitsLabel')} name="puitsQpcr" type="select" value={f.puitsQpcr} onChange={h} options={WELLS} />
       </div>
-      <Divider label="Résultats quantitatifs" />
+      <Divider label={t('nouvelleManip.resultatsQuantitatifs')} />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[['valeurCt', 'Ct spécimen', '', 'ex: 28.4'], ['ctTemoinPositif', 'Ct témoin +', '', 'ex: 22.1'], ['ctTemoinNegatif', 'Ct témoin −', '', 'ex: 0'], ['ctControleInterne', 'Ct contrôle int.', '', 'ex: 20.5']].map(([name, label,, ph]) => (
+        {[['valeurCt', t('nouvelleManip.ctSpecimenShort'), '', 'ex: 28.4'], ['ctTemoinPositif', t('nouvelleManip.ctTemoinPosShort'), '', 'ex: 22.1'], ['ctTemoinNegatif', t('nouvelleManip.ctTemoinNegShort'), '', 'ex: 0'], ['ctControleInterne', t('nouvelleManip.ctControleIntShort'), '', 'ex: 20.5']].map(([name, label,, ph]) => (
           <div key={name}>
             <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{label}</label>
             <input type="number" name={name} step="0.01" min="0" value={f[name]} onChange={h} placeholder={ph} className="input-base w-full text-sm" />
@@ -370,10 +379,10 @@ function ModuleQpcr({ f, h, pathogenes }) {
         ))}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Interprétation" name="interpretation" type="select" value={f.interpretation} onChange={h} options={STATUT_BANDE_OPTIONS} />
+        <FormField label={t('manipDetail.interpretation')} name="interpretation" type="select" value={f.interpretation} onChange={h} options={getStatutBandeOptions(t)} />
         <div>
-          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Efficacité <span className="text-fg-subtle font-normal">(%)</span></label>
-          <input type="number" name="efficacitePct" step="0.1" min="0" max="120" value={f.efficacitePct} onChange={h} placeholder="ex: 95" className="input-base w-full text-sm" />
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('manipDetail.efficacite')} <span className="text-fg-subtle font-normal">{t('nouvelleManip.efficaciteUnit')}</span></label>
+          <input type="number" name="efficacitePct" step="0.1" min="0" max="120" value={f.efficacitePct} onChange={h} placeholder={t('nouvelleManip.efficacitePlaceholder')} className="input-base w-full text-sm" />
         </div>
       </div>
     </div>
@@ -381,83 +390,85 @@ function ModuleQpcr({ f, h, pathogenes }) {
 }
 
 function ModuleNestedPcr({ f, h, pathogenes }) {
+  const t = useT();
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
         <PathogeneSelect value={f.pathogeneCibleId} onChange={h} pathogenes={pathogenes} />
-        <FormField label="Gène cible" name="geneCible" type="text" value={f.geneCible} onChange={h} placeholder="ex: COI, 18S…" />
+        <FormField label={t('manipDetail.geneCible')} name="geneCible" type="text" value={f.geneCible} onChange={h} placeholder="ex: COI, 18S…" />
       </div>
       <div className="flex gap-6 mb-1">
         <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-fg">
           <input type="checkbox" name="temoinPositif" checked={f.temoinPositif === true || f.temoinPositif === 'true'} onChange={(e) => h({ target: { name: 'temoinPositif', value: e.target.checked } })} className="rounded" />
-          Témoin positif inclus
+          {t('nouvelleManip.temoinPositifCheckbox')}
         </label>
         <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-fg">
           <input type="checkbox" name="temoinNegatif" checked={f.temoinNegatif === true || f.temoinNegatif === 'true'} onChange={(e) => h({ target: { name: 'temoinNegatif', value: e.target.checked } })} className="rounded" />
-          Témoin négatif inclus
+          {t('nouvelleManip.temoinNegatifCheckbox')}
         </label>
       </div>
       <div className="rounded-xl border border-info/30 bg-info/5 p-4 space-y-3">
-        <p className="text-xs font-bold text-info">Round 1 (amorces externes)</p>
+        <p className="text-xs font-bold text-info">{t('nouvelleManip.round1Label')}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
-          <FormField label="Amorce F1" name="amorceF1" type="text" value={f.amorceF1} onChange={h} placeholder="ex: LCO1490…" />
-          <FormField label="Amorce R1" name="amorceR1" type="text" value={f.amorceR1} onChange={h} placeholder="ex: HCO2198…" />
+          <FormField label={t('manipDetail.f1Label')} name="amorceF1" type="text" value={f.amorceF1} onChange={h} placeholder={t('nouvelleManip.amorceF1Placeholder')} />
+          <FormField label={t('manipDetail.r1Label')} name="amorceR1" type="text" value={f.amorceR1} onChange={h} placeholder={t('nouvelleManip.amorceR1Placeholder')} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Taille attendue (pb)</label>
+            <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('nouvelleManip.tailleAttenduePbLabel')}</label>
             <input type="number" name="tailleAttendue1" step="1" min="0" value={f.tailleAttendue1} onChange={h} placeholder="ex: 710" className="input-base w-full text-sm" />
           </div>
-          <FormField label="Résultat Round 1" name="statutBande1" type="select" value={f.statutBande1} onChange={h} options={STATUT_BANDE_OPTIONS} />
+          <FormField label={t('manipDetail.resultatRound1')} name="statutBande1" type="select" value={f.statutBande1} onChange={h} options={getStatutBandeOptions(t)} />
         </div>
       </div>
       <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-3">
-        <p className="text-xs font-bold text-warning">Round 2 (amorces internes)</p>
+        <p className="text-xs font-bold text-warning">{t('nouvelleManip.round2Label')}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
-          <FormField label="Amorce F2" name="amorceF2" type="text" value={f.amorceF2} onChange={h} placeholder="Amorce interne F…" />
-          <FormField label="Amorce R2" name="amorceR2" type="text" value={f.amorceR2} onChange={h} placeholder="Amorce interne R…" />
+          <FormField label={t('manipDetail.f2Label')} name="amorceF2" type="text" value={f.amorceF2} onChange={h} placeholder={t('nouvelleManip.amorceInterneFPlaceholder')} />
+          <FormField label={t('manipDetail.r2Label')} name="amorceR2" type="text" value={f.amorceR2} onChange={h} placeholder={t('nouvelleManip.amorceInterneRPlaceholder')} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Taille attendue (pb)</label>
+            <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('nouvelleManip.tailleAttenduePbLabel')}</label>
             <input type="number" name="tailleAttendue2" step="1" min="0" value={f.tailleAttendue2} onChange={h} placeholder="ex: 450" className="input-base w-full text-sm" />
           </div>
-          <FormField label="Résultat Round 2" name="statutBande2" type="select" value={f.statutBande2} onChange={h} options={STATUT_BANDE_OPTIONS} />
+          <FormField label={t('manipDetail.resultatRound2')} name="statutBande2" type="select" value={f.statutBande2} onChange={h} options={getStatutBandeOptions(t)} />
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Résultat final" name="resultatFinal" type="select" value={f.resultatFinal} onChange={h} options={STATUT_BANDE_OPTIONS} />
-        <FormField label="ID Plaque" name="idPlaque" type="text" value={f.idPlaque} onChange={h} placeholder="ex: NEST-PL-002" />
+        <FormField label={t('nouvelleManip.resultatFinalLabel')} name="resultatFinal" type="select" value={f.resultatFinal} onChange={h} options={getStatutBandeOptions(t)} />
+        <FormField label={t('nouvelleManip.idPlaqueLabel')} name="idPlaque" type="text" value={f.idPlaque} onChange={h} placeholder={t('nouvelleManip.idPlaqueNestedPlaceholder')} />
       </div>
     </div>
   );
 }
 
 function ModuleSequencage({ f, h }) {
+  const t = useT();
   return (
     <div className="space-y-4">
-      <NoteInfo>Les fichiers bruts (.ab1, .fastq) et la séquence consensus peuvent être ajoutés depuis la fiche de la manipulation après création.</NoteInfo>
+      <NoteInfo>{t('nouvelleManip.seqNote')}</NoteInfo>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Méthode de séquençage" name="methodeSequencage" type="select" value={f.methodeSequencage} onChange={h} options={METHODE_SEQ_OPTIONS} />
-        <FormField label="Prestataire / Plateforme" name="prestataire" type="text" value={f.prestataire} onChange={h} placeholder="ex: Macrogen, Genewiz, MGH…" />
+        <FormField label={t('nouvelleManip.methodeSeqLabel')} name="methodeSequencage" type="select" value={f.methodeSequencage} onChange={h} options={getMethodeSeqOptions(t)} />
+        <FormField label={t('nouvelleManip.prestatairePlatformeLabel')} name="prestataire" type="text" value={f.prestataire} onChange={h} placeholder={t('nouvelleManip.prestatairePlaceholder')} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="ID Plaque / Tube envoyé" name="idPlaqueTube" type="text" value={f.idPlaqueTube} onChange={h} placeholder="ex: SEQ-PL-0007" />
-        <FormField label="Amorce de séquençage" name="amorceSequencage" type="text" value={f.amorceSequencage} onChange={h} placeholder="ex: M13F, T7, LCO1490…" />
+        <FormField label={t('nouvelleManip.idPlaqueTubeLabel')} name="idPlaqueTube" type="text" value={f.idPlaqueTube} onChange={h} placeholder={t('nouvelleManip.idPlaqueTubePlaceholder')} />
+        <FormField label={t('nouvelleManip.amorceSeqLabel')} name="amorceSequencage" type="text" value={f.amorceSequencage} onChange={h} placeholder={t('nouvelleManip.amorceSeqPlaceholder')} />
       </div>
-      <Divider label="Résultats BLAST" />
+      <Divider label={t('nouvelleManip.resultatsBlast')} />
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Organisme le plus proche" name="organismeBlast" type="text" value={f.organismeBlast} onChange={h} placeholder="ex: Anopheles gambiae s.s." />
-        <FormField label="N° accession GenBank" name="accessionGenbank" type="text" value={f.accessionGenbank} onChange={h} placeholder="ex: MN123456" />
+        <FormField label={t('nouvelleManip.organismePlusProcheLabel')} name="organismeBlast" type="text" value={f.organismeBlast} onChange={h} placeholder={t('nouvelleManip.organismePlaceholder')} />
+        <FormField label={t('nouvelleManip.accessionLabel')} name="accessionGenbank" type="text" value={f.accessionGenbank} onChange={h} placeholder={t('nouvelleManip.accessionPlaceholder')} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Identité BLAST <span className="text-fg-subtle font-normal">(%)</span></label>
-          <input type="number" name="identiteBlastPct" step="0.1" min="0" max="100" value={f.identiteBlastPct} onChange={h} placeholder="ex: 99.8" className="input-base w-full text-sm" />
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('manipDetail.identiteBlast')} <span className="text-fg-subtle font-normal">{t('nouvelleManip.identiteBlastUnit')}</span></label>
+          <input type="number" name="identiteBlastPct" step="0.1" min="0" max="100" value={f.identiteBlastPct} onChange={h} placeholder={t('nouvelleManip.identiteBlastPlaceholder')} className="input-base w-full text-sm" />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Couverture BLAST <span className="text-fg-subtle font-normal">(%)</span></label>
-          <input type="number" name="couvertureBlastPct" step="0.1" min="0" max="100" value={f.couvertureBlastPct} onChange={h} placeholder="ex: 98.5" className="input-base w-full text-sm" />
+          <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('manipDetail.couvertureBlast')} <span className="text-fg-subtle font-normal">{t('nouvelleManip.couvertureBlastUnit')}</span></label>
+          <input type="number" name="couvertureBlastPct" step="0.1" min="0" max="100" value={f.couvertureBlastPct} onChange={h} placeholder={t('nouvelleManip.couvertureBlastPlaceholder')} className="input-base w-full text-sm" />
         </div>
       </div>
     </div>
@@ -465,23 +476,24 @@ function ModuleSequencage({ f, h }) {
 }
 
 function ModuleMicroscopie({ f, h }) {
+  const t = useT();
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 2xl:grid-cols-4 gap-4">
-        <FormField label="Type d'examen" name="typeExamen" type="select" value={f.typeExamen} onChange={h} options={TYPE_EXAMEN_OPTIONS} />
-        <FormField label="Coloration" name="coloration" type="text" value={f.coloration} onChange={h} placeholder="ex: Giemsa, May-Grünwald, non coloré" />
-        <FormField label="Grossissement" name="grossissement" type="select" value={f.grossissement} onChange={h} options={GROSSISSEMENT_OPTIONS} />
+        <FormField label={t('manipDetail.typeExamen')} name="typeExamen" type="select" value={f.typeExamen} onChange={h} options={getTypeExamenOptions(t)} />
+        <FormField label={t('manipDetail.coloration')} name="coloration" type="text" value={f.coloration} onChange={h} placeholder={t('nouvelleManip.colorationPlaceholder')} />
+        <FormField label={t('manipDetail.grossissement')} name="grossissement" type="select" value={f.grossissement} onChange={h} options={getGrossissementOptions(t)} />
       </div>
-      <Divider label="Résultats" />
+      <Divider label={t('nouvelleManip.resultatsDividerPlural')} />
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
-        <FormField label="Résultat" name="resultat" type="select" value={f.resultat} onChange={h}
-          options={[{ value: 'positif', label: 'Positif (parasites observés)' }, { value: 'negatif', label: 'Négatif' }, { value: 'inconclusif', label: 'Inconclusif' }]} />
-        <FormField label="Stade observé" name="stadeObserve" type="text" value={f.stadeObserve} onChange={h} placeholder="ex: Sporozoïtes, Oocystes, Trophozoïtes…" />
+        <FormField label={t('manipDetail.resultatLabel')} name="resultat" type="select" value={f.resultat} onChange={h}
+          options={[{ value: 'positif', label: t('nouvelleManip.microResultatPositif') }, { value: 'negatif', label: t('nouvelleManip.microResultatNegatif') }, { value: 'inconclusif', label: t('nouvelleManip.microResultatInconclusif') }]} />
+        <FormField label={t('manipDetail.stadeObserve')} name="stadeObserve" type="text" value={f.stadeObserve} onChange={h} placeholder={t('nouvelleManip.stadeObservePlaceholder')} />
       </div>
-      <FormField label="Densité parasitaire" name="densiteParasitaire" type="text" value={f.densiteParasitaire} onChange={h} placeholder="ex: 3 sporozoïtes / glande, 500 parasites/µL…" />
+      <FormField label={t('manipDetail.densiteParasitaire')} name="densiteParasitaire" type="text" value={f.densiteParasitaire} onChange={h} placeholder={t('nouvelleManip.densiteParasitairePlaceholder')} />
       <div>
-        <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">Observations <span className="text-fg-subtle font-normal">(optionnel)</span></label>
-        <textarea name="observations" value={f.observations} onChange={h} rows={2} placeholder="Notes libres…" className="input-base w-full text-sm resize-none" />
+        <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">{t('nouvelleManip.observationsOptionalLabel')} <span className="text-fg-subtle font-normal">{t('nouvelleManip.observationsOptionalHint')}</span></label>
+        <textarea name="observations" value={f.observations} onChange={h} rows={2} placeholder={t('nouvelleManip.observationsPlaceholder')} className="input-base w-full text-sm resize-none" />
       </div>
     </div>
   );
@@ -490,6 +502,7 @@ function ModuleMicroscopie({ f, h }) {
 // ── Composant principal ───────────────────────────────────────
 
 export default function NouvelleManipulation() {
+  const t = useT();
   const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -544,7 +557,7 @@ export default function NouvelleManipulation() {
   useEffect(() => {
     if (!specimenType || !specimenSearch.trim()) { setSpecimenOptions([]); return; }
     const endpoint = SPECIMEN_ENDPOINTS[specimenType];
-    const t = setTimeout(async () => {
+    const tid = setTimeout(async () => {
       setSearching(true);
       try {
         const r = await api.get(`/${endpoint}`, { params: { search: specimenSearch, limit: 20 } });
@@ -556,7 +569,7 @@ export default function NouvelleManipulation() {
       } catch { setSpecimenOptions([]); }
       finally { setSearching(false); }
     }, 350);
-    return () => clearTimeout(t);
+    return () => clearTimeout(tid);
   }, [specimenType, specimenSearch]);
 
   const handleModuleChange = (e) => {
@@ -567,9 +580,9 @@ export default function NouvelleManipulation() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = {};
-    if (!specimenType && !specimenId) errs.specimenType = 'Choisissez un type de spécimen';
-    if (!specimenId) errs.specimenId = 'Sélectionnez un spécimen';
-    if (!moduleType) errs.moduleType = 'Choisissez un module';
+    if (!specimenType && !specimenId) errs.specimenType = t('nouvelleManip.errSpecimenType');
+    if (!specimenId) errs.specimenId = t('nouvelleManip.errSpecimenId');
+    if (!moduleType) errs.moduleType = t('nouvelleManip.errModuleType');
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -632,19 +645,20 @@ export default function NouvelleManipulation() {
       const r = await api.post('/labo', payload);
       navigate(`/labo/${r.data.manipulation.id}`);
     } catch (err) {
-      setErrors({ submit: err.response?.data?.error || 'Erreur lors de la création' });
+      setErrors({ submit: err.response?.data?.error || t('nouvelleManip.errCreationGeneric') });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const selectedModule = MODULES.find((m) => m.value === moduleType);
+  const modules = getModules(t);
+  const selectedModule = modules.find((m) => m.value === moduleType);
 
   return (
     <div className="max-w-screen-2xl space-y-4">
       <Link to="/labo" className="inline-flex items-center gap-1.5 text-xs text-fg-subtle hover:text-fg transition-colors group">
         <ChevronLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
-        Laboratoire
+        {t('manipDetail.backToLabo')}
       </Link>
 
       <div className="flex items-center gap-3 pb-1">
@@ -652,14 +666,14 @@ export default function NouvelleManipulation() {
           <FlaskConical size={17} className="text-warning" />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-fg">Nouvelle manipulation</h1>
-          <p className="text-xs text-fg-subtle">9 modules disponibles — Morphologie · Biologie moléculaire · Microscopie</p>
+          <h1 className="text-lg font-bold text-fg">{t('nouvelleManip.pageTitle')}</h1>
+          <p className="text-xs text-fg-subtle">{t('nouvelleManip.pageSubtitle')}</p>
         </div>
       </div>
 
       {errors.submit && (
         <div className="p-3.5 bg-danger/8 border border-danger/25 rounded-xl text-sm text-danger flex items-center gap-2">
-          <span className="font-semibold">Erreur :</span> {errors.submit}
+          <span className="font-semibold">{t('nouvelleManip.errorPrefix')}</span> {errors.submit}
         </div>
       )}
 
@@ -669,31 +683,31 @@ export default function NouvelleManipulation() {
 
             {/* 1. Spécimen */}
             <div className="card p-6">
-              <SectionTitle icon={Bug} iconClass="text-primary" sub="Spécimen individuel à traiter">
-                Spécimen cible
+              <SectionTitle icon={Bug} iconClass="text-primary" sub={t('nouvelleManip.sectionSpecimenSub')}>
+                {t('nouvelleManip.sectionSpecimenTitle')}
               </SectionTitle>
               <div className="space-y-4">
-                <FormField label="Type de spécimen" name="specimenType" type="select"
+                <FormField label={t('nouvelleManip.typeSpecimenLabel')} name="specimenType" type="select"
                   value={specimenType}
                   onChange={(e) => { setSpecimenType(e.target.value); setSpecimenId(''); setSpecimenLabel(''); setSpecimenOptions([]); setErrors((p) => ({ ...p, specimenType: null })); }}
-                  options={SPECIMEN_TYPE_OPTIONS} required error={errors.specimenType} />
+                  options={getSpecimenTypeOptions(t)} required error={errors.specimenType} />
 
                 {specimenType && (
                   <div>
                     <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">
-                      Spécimen <span className="text-danger">*</span>
+                      {t('nouvelleManip.specimenRequiredLabel')} <span className="text-danger">*</span>
                     </label>
                     {specimenId && !specimenSearch ? (
                       <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-success/40 bg-success/5">
                         <span className="text-sm text-fg font-medium truncate">{specimenLabel}</span>
                         <button type="button" onClick={() => { setSpecimenId(''); setSpecimenLabel(''); }}
-                          className="text-xs text-fg-subtle hover:text-danger transition-colors flex-shrink-0">Changer</button>
+                          className="text-xs text-fg-subtle hover:text-danger transition-colors flex-shrink-0">{t('nouvelleManip.changerBtn')}</button>
                       </div>
                     ) : (
                       <>
                         <div className="relative">
                           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-fg-subtle pointer-events-none" />
-                          <input type="text" placeholder="ID terrain, taxonomie…" value={specimenSearch}
+                          <input type="text" placeholder={t('nouvelleManip.specimenSearchPlaceholder')} value={specimenSearch}
                             onChange={(e) => setSpecimenSearch(e.target.value)}
                             className={`input-base pl-9 w-full text-sm ${errors.specimenId ? 'border-danger/50 bg-danger/5' : ''}`}
                             autoFocus={!!specimenType} />
@@ -711,7 +725,7 @@ export default function NouvelleManipulation() {
                           </div>
                         )}
                         {specimenSearch && !searching && specimenOptions.length === 0 && (
-                          <p className="mt-1.5 text-xs text-fg-subtle text-center py-2">Aucun résultat</p>
+                          <p className="mt-1.5 text-xs text-fg-subtle text-center py-2">{t('nouvelleManip.noResultsSearch')}</p>
                         )}
                       </>
                     )}
@@ -723,12 +737,12 @@ export default function NouvelleManipulation() {
 
             {/* 2. Choix du module */}
             <div className="card p-6">
-              <SectionTitle icon={FlaskConical} iconClass="text-warning" sub="Sélectionnez le type de manipulation">
-                Module / Protocole
+              <SectionTitle icon={FlaskConical} iconClass="text-warning" sub={t('nouvelleManip.sectionModuleSub')}>
+                {t('nouvelleManip.sectionModuleTitle')}
               </SectionTitle>
               {errors.moduleType && <p className="text-xs text-danger mb-3">{errors.moduleType}</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 2xl:gap-4">
-                {MODULES.map(({ value, label, Icon, color, bg, desc }) => (
+                {modules.map(({ value, label, Icon, color, bg, desc }) => (
                   <button key={value} type="button"
                     onClick={() => { setModuleType(value); setErrors((p) => ({ ...p, moduleType: null })); }}
                     className={`flex items-start gap-3 p-3.5 rounded-xl border-2 text-left transition-all ${
@@ -750,7 +764,7 @@ export default function NouvelleManipulation() {
             {moduleType && (
               <div className="card p-6">
                 {selectedModule && (
-                  <SectionTitle icon={selectedModule.Icon} iconClass={selectedModule.color} sub="Données du protocole">
+                  <SectionTitle icon={selectedModule.Icon} iconClass={selectedModule.color} sub={t('nouvelleManip.sectionModuleFormSub')}>
                     {selectedModule.label}
                   </SectionTitle>
                 )}
@@ -768,25 +782,25 @@ export default function NouvelleManipulation() {
 
             {/* 4. Informations générales */}
             <div className="card p-6">
-              <SectionTitle icon={Calendar} iconClass="text-fg-muted" sub="Protocole officiel, plage horaire, notes">
-                Informations générales
+              <SectionTitle icon={Calendar} iconClass="text-fg-muted" sub={t('nouvelleManip.sectionInfoGeneralesSub')}>
+                {t('nouvelleManip.sectionInfoGeneralesTitle')}
               </SectionTitle>
               <div className="space-y-5">
 
                 {/* SOP */}
-                <FormField label="Référence protocole SOP" name="protocole" type="text"
+                <FormField label={t('nouvelleManip.protocoleSopRefLabel')} name="protocole" type="text"
                   value={protocole} onChange={(e) => setProtocole(e.target.value)}
-                  placeholder="ex: SOP-LAB-042 v2.1" hint="optionnel" />
+                  placeholder={t('nouvelleManip.protocoleSopPlaceholder')} hint={t('nouvelleManip.optionalHint')} />
 
                 {/* Plage horaire */}
                 <div className="p-4 bg-surface-2 rounded-xl border border-border space-y-3">
                   <div className="flex items-center gap-2">
                     <Timer size={12} className="text-fg-subtle" />
-                    <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-widest">Plage horaire</p>
+                    <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-widest">{t('nouvelleManip.plageHoraireLabel')}</p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-[1fr_28px_1fr] gap-2 items-end">
                     <DateTimeField
-                      label="Début"
+                      label={t('nouvelleManip.debutLabel')}
                       value={dateDebut}
                       onChange={setDateDebut}
                       required
@@ -796,7 +810,7 @@ export default function NouvelleManipulation() {
                       <ArrowRight size={14} className="text-fg-subtle" />
                     </div>
                     <DateTimeField
-                      label="Fin"
+                      label={t('nouvelleManip.finLabel')}
                       value={dateFin}
                       onChange={setDateFin}
                     />
@@ -806,17 +820,17 @@ export default function NouvelleManipulation() {
                     <DurationBadge start={dateDebut} end={dateFin} />
                   )}
                   {!dateFin && (
-                    <p className="text-[11px] text-fg-subtle">Laissez vide si la manipulation est toujours en cours.</p>
+                    <p className="text-[11px] text-fg-subtle">{t('nouvelleManip.plageHoraireHint')}</p>
                   )}
                 </div>
 
                 {/* Notes */}
                 <div>
                   <label className="block text-xs font-semibold text-fg-muted tracking-wide mb-1.5">
-                    Notes <span className="font-normal text-fg-subtle">(optionnel)</span>
+                    {t('nouvelleManip.notesOptionalLabel')} <span className="font-normal text-fg-subtle">{t('nouvelleManip.notesOptionalHint')}</span>
                   </label>
                   <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
-                    placeholder="Conditions expérimentales, observations…"
+                    placeholder={t('nouvelleManip.notesGeneralesPlaceholder')}
                     className="input-base w-full text-sm resize-none" />
                 </div>
               </div>
@@ -828,42 +842,42 @@ export default function NouvelleManipulation() {
             <button type="submit" disabled={isLoading}
               className="btn-primary w-full py-3 text-sm font-semibold flex items-center justify-center gap-2 rounded-xl disabled:opacity-60">
               {isLoading
-                ? <><span className="w-4 h-4 border-2 border-fg-on-primary/30 border-t-fg-on-primary rounded-full animate-spin" /> Enregistrement…</>
-                : <><Plus size={15} /> Créer la manipulation</>}
+                ? <><span className="w-4 h-4 border-2 border-fg-on-primary/30 border-t-fg-on-primary rounded-full animate-spin" /> {t('nouvelleManip.savingLabel')}</>
+                : <><Plus size={15} /> {t('nouvelleManip.createManipBtn')}</>}
             </button>
 
             <div className="card p-5">
-              <h3 className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-4">Récapitulatif</h3>
+              <h3 className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-4">{t('nouvelleManip.recapitulatifTitle')}</h3>
               <div className="space-y-2.5">
-                <SummaryRow label="Spécimen">
+                <SummaryRow label={t('nouvelleManip.summarySpecimen')}>
                   {specimenId ? <span className="text-success font-mono text-[11px]">{specimenLabel || `#${specimenId}`}</span> : null}
                 </SummaryRow>
-                <SummaryRow label="Module">
+                <SummaryRow label={t('nouvelleManip.summaryModule')}>
                   {selectedModule && (
                     <span className={`flex items-center gap-1 ${selectedModule.color}`}>
                       <selectedModule.Icon size={11} />{selectedModule.label}
                     </span>
                   )}
                 </SummaryRow>
-                <SummaryRow label="Protocole">{protocole || null}</SummaryRow>
-                <SummaryRow label="Début">
-                  {dateDebut ? new Date(dateDebut).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : null}
+                <SummaryRow label={t('nouvelleManip.summaryProtocole')}>{protocole || null}</SummaryRow>
+                <SummaryRow label={t('nouvelleManip.summaryDebut')}>
+                  {dateDebut ? new Date(dateDebut).toLocaleString(t('common.locale'), { dateStyle: 'short', timeStyle: 'short' }) : null}
                 </SummaryRow>
                 {dateFin && (
-                  <SummaryRow label="Fin">
-                    {new Date(dateFin).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                  <SummaryRow label={t('nouvelleManip.summaryFin')}>
+                    {new Date(dateFin).toLocaleString(t('common.locale'), { dateStyle: 'short', timeStyle: 'short' })}
                   </SummaryRow>
                 )}
               </div>
             </div>
 
             <div className="card p-4">
-              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-2">Statut initial</p>
+              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-2">{t('nouvelleManip.statutInitialTitle')}</p>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-fg-subtle flex-shrink-0" />
-                <span className="text-xs text-fg"><strong>Brut</strong> — données modifiables</span>
+                <span className="text-xs text-fg"><strong>{t('nouvelleManip.statutInitialBrut')}</strong> {t('nouvelleManip.statutInitialDataEditable')}</span>
               </div>
-              <p className="text-[10px] text-fg-subtle mt-1.5 leading-relaxed">La validation (Chercheur+) verrouille définitivement les résultats.</p>
+              <p className="text-[10px] text-fg-subtle mt-1.5 leading-relaxed">{t('nouvelleManip.statutInitialHint')}</p>
             </div>
           </div>
         </div>

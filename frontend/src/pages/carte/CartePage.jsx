@@ -12,31 +12,32 @@ import useAuthStore from '../../store/authStore';
 import { Spinner } from '../../components/ui';
 import { createBaseLayer } from '../../lib/mapLayers';
 import MapSearchBar from '../../components/MapSearchBar';
+import { useT, interpolate } from '../../lib/i18n';
 
 // ── Couleurs des types ────────────────────────────────────────
-const TYPE_CFG = {
-  moustique: { color: '#1D9E75', label: 'Moustique', icon: '/icons/mosquito.png' },
-  tique:     { color: '#f59e0b', label: 'Tique',     icon: '/icons/tick.png'     },
-  puce:      { color: '#ef4444', label: 'Puce',      icon: '/icons/flea.png'     },
-};
+const getTypeCfg = (t) => ({
+  moustique: { color: '#1D9E75', label: t('specimenTypes.moustique'), icon: '/icons/mosquito.png' },
+  tique:     { color: '#f59e0b', label: t('specimenTypes.tique'),     icon: '/icons/tick.png'     },
+  puce:      { color: '#ef4444', label: t('specimenTypes.puce'),      icon: '/icons/flea.png'     },
+});
 
 // ── Construction HTML du marqueur (pin style, sans PNG) ───────
 // Les PNG Leaflet ignorent width/height HTML → on utilise des pastilles CSS.
-function buildMarkerHtml(point, visibleTypes) {
-  const types = Object.keys(point.specimens).filter(t => visibleTypes.has(t));
+function buildMarkerHtml(point, visibleTypes, typeCfg) {
+  const types = Object.keys(point.specimens).filter(ty => visibleTypes.has(ty));
   if (types.length === 0) return '';
 
-  const total = types.reduce((s, t) => s + (point.specimens[t]?.total || 0), 0);
+  const total = types.reduce((s, ty) => s + (point.specimens[ty]?.total || 0), 0);
 
-  const dominant = types.reduce((best, t) =>
-    (point.specimens[t]?.total || 0) > (point.specimens[best]?.total || 0) ? t : best,
+  const dominant = types.reduce((best, ty) =>
+    (point.specimens[ty]?.total || 0) > (point.specimens[best]?.total || 0) ? ty : best,
     types[0]
   );
-  const color = TYPE_CFG[dominant]?.color || '#6b7280';
+  const color = typeCfg[dominant]?.color || '#6b7280';
 
   // Pastilles colorées — une par type présent (pas d'image PNG dans le marqueur)
-  const dots = types.map(t =>
-    `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${TYPE_CFG[t].color};flex-shrink:0;"></span>`
+  const dots = types.map(ty =>
+    `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${typeCfg[ty].color};flex-shrink:0;"></span>`
   ).join('');
 
   return `
@@ -67,15 +68,15 @@ function buildMarkerHtml(point, visibleTypes) {
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // ── Construction HTML du popup ────────────────────────────────
-function buildPopupHtml(point, visibleTypes) {
+function buildPopupHtml(point, visibleTypes, typeCfg, t) {
   const { localite, typeMethode, dateCollecte, methodeId, specimens } = point;
   const mission = localite?.mission;
 
   const specimenRows = Object.entries(specimens)
-    .filter(([t]) => visibleTypes.has(t))
-    .map(([t, data]) => {
+    .filter(([ty]) => visibleTypes.has(ty))
+    .map(([ty, data]) => {
       if (!data) return '';
-      const cfg = TYPE_CFG[t];
+      const cfg = typeCfg[ty];
       const exemples = data.items.slice(0, 2).map(x =>
         `<span style="display:inline-block;background:#f3f4f6;border-radius:4px;padding:1px 5px;font-size:10px;color:#4b5563;font-style:italic;">${esc(x.taxonomie || x.idTerrain || `#${x.id}`)}</span>`
       ).join(' ');
@@ -91,12 +92,12 @@ function buildPopupHtml(point, visibleTypes) {
     }).join('');
 
   const dateStr = dateCollecte
-    ? new Date(dateCollecte).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' })
+    ? new Date(dateCollecte).toLocaleDateString(t('common.locale'), { day:'numeric', month:'long', year:'numeric' })
     : null;
 
   const region   = [localite?.region, localite?.district].filter(Boolean).map(esc).join(' · ');
   const projetBit = mission?.projet?.code
-    ? `<span style="color:#9ca3af;margin-left:6px;">Projet</span> ${esc(mission.projet.code)}`
+    ? `<span style="color:#9ca3af;margin-left:6px;">${esc(t('cartePage.popupProjet'))}</span> ${esc(mission.projet.code)}`
     : '';
 
   return `
@@ -105,13 +106,13 @@ function buildPopupHtml(point, visibleTypes) {
       <div style="font-size:11px;color:#6b7280;margin-top:1px;">${region}</div>
       <div style="margin:8px 0;border-top:1px solid #e5e7eb;"></div>
       <div style="font-size:11px;color:#374151;margin-bottom:3px;">
-        <span style="color:#9ca3af;">Mission</span> ${esc(mission?.ordreMission) || '—'}
+        <span style="color:#9ca3af;">${esc(t('cartePage.popupMission'))}</span> ${esc(mission?.ordreMission) || '—'}
         ${projetBit}
       </div>
       <div style="font-size:11px;color:#374151;margin-bottom:${dateStr ? '3px' : '8px'};">
-        <span style="color:#9ca3af;">Méthode</span> ${esc(typeMethode?.nom) || '—'}
+        <span style="color:#9ca3af;">${esc(t('cartePage.popupMethode'))}</span> ${esc(typeMethode?.nom) || '—'}
       </div>
-      ${dateStr ? `<div style="font-size:11px;color:#374151;margin-bottom:8px;"><span style="color:#9ca3af;">Date</span> ${esc(dateStr)}</div>` : ''}
+      ${dateStr ? `<div style="font-size:11px;color:#374151;margin-bottom:8px;"><span style="color:#9ca3af;">${esc(t('cartePage.popupDate'))}</span> ${esc(dateStr)}</div>` : ''}
       ${specimenRows}
       <a
         href="/recherche?methodeId=${encodeURIComponent(methodeId)}"
@@ -122,13 +123,15 @@ function buildPopupHtml(point, visibleTypes) {
           border-radius:8px;font-size:11px;font-weight:600;
           text-decoration:none;cursor:pointer;
         "
-      >Voir dans la recherche →</a>
+      >${esc(t('cartePage.popupSeeInSearch'))}</a>
     </div>
   `;
 }
 
 // ── Page ──────────────────────────────────────────────────────
 export default function CartePage() {
+  const t = useT();
+  const typeCfg = getTypeCfg(t);
   const { user } = useAuthStore();
 
   // Types autorisés pour cet utilisateur
@@ -196,7 +199,7 @@ export default function CartePage() {
       bounds.push(latlng);
 
       // Icône HTML
-      const html  = buildMarkerHtml(point, visibleTypes);
+      const html  = buildMarkerHtml(point, visibleTypes, typeCfg);
       const icon  = L.divIcon({
         className: 'specimen-pin',
         html,
@@ -206,14 +209,14 @@ export default function CartePage() {
       });
 
       const marker = L.marker(latlng, { icon })
-        .bindPopup(buildPopupHtml(point, visibleTypes), {
+        .bindPopup(buildPopupHtml(point, visibleTypes, typeCfg, t), {
           maxWidth: 300,
           className: 'specimen-popup',
         });
 
       // Ajouter dans le groupe du type dominant
-      const dominant = typesIci.reduce((best, t) =>
-        (point.specimens[t]?.total || 0) > (point.specimens[best]?.total || 0) ? t : best,
+      const dominant = typesIci.reduce((best, ty) =>
+        (point.specimens[ty]?.total || 0) > (point.specimens[best]?.total || 0) ? ty : best,
         typesIci[0]
       );
       groupsRef.current[dominant]?.addLayer(marker);
@@ -223,7 +226,7 @@ export default function CartePage() {
     if (bounds.length > 0) {
       try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 }); } catch { /* fitBounds can throw on empty/invalid bounds */ }
     }
-  }, [points, visibleTypes, loading]);
+  }, [points, visibleTypes, loading, typeCfg, t]);
 
   const toggleType = (type) => {
     setVisibleTypes(prev => {
@@ -237,9 +240,9 @@ export default function CartePage() {
   const visiblePoints = points.filter(p =>
     Object.keys(p.specimens).some(t => visibleTypes.has(t))
   );
-  const statsParType = autorises.reduce((acc, t) => {
-    if (visibleTypes.has(t)) {
-      acc[t] = points.reduce((s, p) => s + (p.specimens[t]?.total || 0), 0);
+  const statsParType = autorises.reduce((acc, ty) => {
+    if (visibleTypes.has(ty)) {
+      acc[ty] = points.reduce((s, p) => s + (p.specimens[ty]?.total || 0), 0);
     }
     return acc;
   }, {});
@@ -249,20 +252,20 @@ export default function CartePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-fg flex items-center gap-2">
-            <Map size={20} className="text-primary" /> Carte des collectes
+            <Map size={20} className="text-primary" /> {t('cartePage.title')}
           </h1>
           <p className="text-xs text-fg-subtle mt-0.5">
-            {loading ? 'Chargement…' : `${visiblePoints.length} site(s) géolocalisé(s)`}
+            {loading ? t('cartePage.loading') : interpolate(t('cartePage.sitesGeolocated'), { n: visiblePoints.length })}
           </p>
         </div>
 
         {/* Stats rapides */}
         {!loading && (
           <div className="hidden sm:flex items-center gap-3">
-            {autorises.filter(t => visibleTypes.has(t)).map(t => (
-              <div key={t} className="flex items-center gap-1.5 text-xs font-medium" style={{ color: TYPE_CFG[t].color }}>
-                <img src={TYPE_CFG[t].icon} width={14} height={14} alt={t} className="object-contain" />
-                {statsParType[t] ?? 0} {TYPE_CFG[t].label}{statsParType[t] > 1 ? 's' : ''}
+            {autorises.filter(ty => visibleTypes.has(ty)).map(ty => (
+              <div key={ty} className="flex items-center gap-1.5 text-xs font-medium" style={{ color: typeCfg[ty].color }}>
+                <img src={typeCfg[ty].icon} width={14} height={14} alt={ty} className="object-contain" />
+                {statsParType[ty] ?? 0} {typeCfg[ty].label}{statsParType[ty] > 1 ? 's' : ''}
               </div>
             ))}
           </div>
@@ -276,7 +279,7 @@ export default function CartePage() {
         {/* Spinner chargement */}
         {loading && (
           <div className="absolute inset-0 z-[900] flex items-center justify-center bg-surface/80 backdrop-blur-sm">
-            <Spinner.Block label="Chargement des données…" height="h-full" />
+            <Spinner.Block label={t('cartePage.loadingData')} height="h-full" />
           </div>
         )}
 
@@ -284,9 +287,9 @@ export default function CartePage() {
         {!loading && points.length === 0 && (
           <div className="absolute inset-0 z-[900] flex flex-col items-center justify-center bg-surface/80 backdrop-blur-sm gap-3">
             <Info size={32} className="text-fg-subtle" />
-            <p className="text-sm font-medium text-fg">Aucun site géolocalisé</p>
+            <p className="text-sm font-medium text-fg">{t('cartePage.noSiteTitle')}</p>
             <p className="text-xs text-fg-subtle text-center max-w-xs">
-              Les méthodes de collecte doivent avoir des coordonnées GPS pour apparaître sur la carte.
+              {t('cartePage.noSiteHint')}
             </p>
           </div>
         )}
@@ -305,11 +308,11 @@ export default function CartePage() {
             gap: 6,
           }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-              Filtres
+              {t('cartePage.filtersLabel')}
             </p>
             {autorises.map(type => {
               const active = visibleTypes.has(type);
-              const cfg    = TYPE_CFG[type];
+              const cfg    = typeCfg[type];
               const count  = points.reduce((s, p) => s + (p.specimens[type]?.total || 0), 0);
               return (
                 <button
@@ -348,7 +351,7 @@ export default function CartePage() {
         {/* ── Recherche (flottante haut-droite) ── */}
         <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 800, width: 280, maxWidth: 'calc(100% - 24px)' }}>
           <MapSearchBar
-            placeholder="Rechercher un lieu…"
+            placeholder={t('cartePage.searchPlaceholder')}
             onSelect={(lat, lng) => instanceRef.current?.setView([lat, lng], 13, { animate: true })}
           />
         </div>
@@ -370,10 +373,10 @@ export default function CartePage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ display: 'inline-block', width: 22, height: 12, background: 'white', border: '2px solid #1D9E75', borderRadius: 6 }} />
-                Site de collecte
+                {t('cartePage.legendSite')}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Layers size={10} /> Cliquer pour le détail
+                <Layers size={10} /> {t('cartePage.legendClickDetail')}
               </span>
             </div>
           </div>

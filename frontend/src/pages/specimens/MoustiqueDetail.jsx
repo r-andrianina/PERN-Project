@@ -13,10 +13,10 @@ import { dialog } from '../../lib/dialog';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
 import { taxoLabel as _taxoLabel } from '../../utils/taxoLabel';
+import { useT, interpolate } from '../../lib/i18n';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
-const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
-const taxoLabel  = (t) => t ? _taxoLabel(t) : '—';
+const taxoLabel  = (tx) => tx ? _taxoLabel(tx) : '—';
 
 function Field({ label, children }) {
   return (
@@ -63,6 +63,8 @@ function EditSelect({ label, value, onChange, options, disabled }) {
 }
 
 export default function MoustiqueDetail() {
+  const t = useT();
+  const SEXE_LABEL = { M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') };
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -89,9 +91,9 @@ export default function MoustiqueDetail() {
         setSolutions(sRes.data.items || []);
         setTaxonomies(tRes.data.items || []);
       })
-      .catch(() => setLoadError('Impossible de charger ce spécimen.'))
+      .catch(() => setLoadError(t('specimenDetail.loadError')))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, t]);
 
   const startEdit = () => {
     const m = specimen;
@@ -144,9 +146,9 @@ export default function MoustiqueDetail() {
       });
       setSpecimen(r.data.moustique);
       setEditing(false);
-      toast.success('Moustique mis à jour avec succès.');
+      toast.success(t('specimenDetail.moustiqueUpdated'));
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la sauvegarde');
+      toast.error(err.response?.data?.error || t('specimenDetail.saveError'));
     } finally {
       setSaving(false);
     }
@@ -154,27 +156,27 @@ export default function MoustiqueDetail() {
 
   const handleDelete = async () => {
     const ok = await dialog.confirm({
-      title: 'Supprimer ce moustique ?',
-      message: `${specimen.idTerrain ? `« ${specimen.idTerrain} »` : `Le spécimen #${id}`} sera définitivement supprimé. Cette action est irréversible.`,
+      title: t('specimenDetail.deleteMoustiqueTitle'),
+      message: `${specimen.idTerrain ? `« ${specimen.idTerrain} »` : interpolate(t('specimenDetail.specimenN'), { id })} ${t('specimenDetail.deleteConfirmSuffix')}`,
     });
     if (!ok) return;
     setDeleting(true);
     try {
       await api.delete(`/moustiques/${id}`);
-      toast.success('Moustique supprimé.');
+      toast.success(t('specimenDetail.moustiqueDeleted'));
       navigate('/specimens/moustiques');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la suppression');
+      toast.error(err.response?.data?.error || t('specimenDetail.deleteError'));
       setDeleting(false);
     }
   };
 
-  if (loading) return <Spinner.Block label="Chargement…" height="h-40" />;
+  if (loading) return <Spinner.Block label={t('specimenList.loading')} height="h-40" />;
 
   if (loadError || !specimen) return (
     <div className="text-center py-20 space-y-3">
-      <p className="text-fg-muted">{loadError || 'Spécimen introuvable.'}</p>
-      <Link to="/specimens/moustiques" className="text-primary text-sm hover:underline">← Retour aux moustiques</Link>
+      <p className="text-fg-muted">{loadError || t('specimenDetail.notFound')}</p>
+      <Link to="/specimens/moustiques" className="text-primary text-sm hover:underline">{t('specimenDetail.backToMoustiques')}</Link>
     </div>
   );
 
@@ -184,12 +186,18 @@ export default function MoustiqueDetail() {
   const pariteDisabled = stadeImmature || sexeForce !== 'F';
   const repasSangOff   = stadeImmature || sexeForce !== 'F';
 
-  const taxoOptions     = taxonomies.map(t => ({ value: String(t.id), label: t.parent ? `${t.parent.nom} ${t.nom}` : t.nom }));
-  const solutionOptions = [{ value: '', label: '— Aucune —' }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
+  const taxoOptions     = taxonomies.map(tx => ({ value: String(tx.id), label: tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom }));
+  const solutionOptions = [{ value: '', label: t('specimenDetail.none') }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
   const stadeOptions    = [{ value: '', label: '—' }, ...STADE_OPTIONS_MOUSTIQUE];
-  const sexeOptions     = [{ value: 'M', label: 'Mâle' }, { value: 'F', label: 'Femelle' }, { value: 'inconnu', label: 'Inconnu' }];
+  const sexeOptions     = [{ value: 'M', label: t('sexe.M') }, { value: 'F', label: t('sexe.F') }, { value: 'inconnu', label: t('sexe.inconnu') }];
   const pariteOptions   = [{ value: '', label: '—' }, ...['Nulle', 'Paucie', 'Multi'].map(v => ({ value: v, label: v }))];
-  const organeOptions   = [{ value: '', label: '—' }, ...['Tête', 'Thorax', 'Abdomen', 'Entier'].map(v => ({ value: v, label: v }))];
+  const organeOptions   = [
+    { value: '', label: '—' },
+    { value: 'Tête',    label: t('specimenDetail.organeTete') },
+    { value: 'Thorax',  label: t('specimenDetail.organeThorax') },
+    { value: 'Abdomen', label: t('specimenDetail.organeAbdomen') },
+    { value: 'Entier',  label: t('specimenDetail.organeEntier') },
+  ];
 
   // Données de localisation
   const loc      = m.methode?.localite;
@@ -201,7 +209,7 @@ export default function MoustiqueDetail() {
   return (
     <div className="space-y-5">
       <Breadcrumb items={[
-        { label: 'Moustiques', to: '/specimens/moustiques' },
+        { label: t('dashboard.moustiques'), to: '/specimens/moustiques' },
         { label: m.idTerrain ?? `#${m.id}` },
       ]} />
 
@@ -209,7 +217,7 @@ export default function MoustiqueDetail() {
         icon={() => <SpecimenIcon type="moustique" size={18} />}
         iconTone="specimen-moustique"
         title={<span className="italic">{taxoLabel(m.taxonomie)}</span>}
-        subtitle="Moustique"
+        subtitle={t('specimenTypes.moustique')}
         actions={null}
       />
 
@@ -222,36 +230,36 @@ export default function MoustiqueDetail() {
           <Card>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
               <Microscope size={15} className="text-blue-500" />
-              <h2 className="text-sm font-semibold text-fg">Identification</h2>
+              <h2 className="text-sm font-semibold text-fg">{t('specimenDetail.identification')}</h2>
             </div>
 
             {editing ? (
               <div className="space-y-4">
-                <EditSelect label="Genre / Espèce" value={editForm.taxonomieId}
+                <EditSelect label={t('specimenDetail.genreEspece')} value={editForm.taxonomieId}
                   onChange={e => setEditForm(f => ({ ...f, taxonomieId: e.target.value }))}
                   options={taxoOptions} />
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
-                    <label className="text-xs text-fg-subtle font-medium block mb-1">Nombre</label>
+                    <label className="text-xs text-fg-subtle font-medium block mb-1">{t('specimenDetail.nombre')}</label>
                     <input type="number" min="1" value={editForm.nombre}
                       onChange={e => setEditForm(f => ({ ...f, nombre: e.target.value }))}
                       className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg"
                     />
                   </div>
-                  <EditSelect label="Stade" value={editForm.stade}
+                  <EditSelect label={t('specimenDetail.stade')} value={editForm.stade}
                     onChange={e => handleStadeChange(e.target.value)} options={stadeOptions} />
-                  <EditSelect label="Sexe" value={sexeForce}
+                  <EditSelect label={t('specimenDetail.sexe')} value={sexeForce}
                     onChange={e => handleSexeChange(e.target.value)}
                     options={sexeOptions} disabled={stadeImmature} />
-                  <EditSelect label="Parité" value={editForm.parite}
+                  <EditSelect label={t('specimenDetail.parite')} value={editForm.parite}
                     onChange={e => setEditForm(f => ({ ...f, parite: e.target.value }))}
                     options={pariteOptions} disabled={pariteDisabled} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <EditSelect label="Organe prélevé" value={editForm.organePreleve}
+                  <EditSelect label={t('specimenDetail.organePreleve')} value={editForm.organePreleve}
                     onChange={e => setEditForm(f => ({ ...f, organePreleve: e.target.value }))}
                     options={organeOptions} />
-                  <EditSelect label="Statut sanguin" value={editForm.repasSang}
+                  <EditSelect label={t('specimenDetail.statutSanguin')} value={editForm.repasSang}
                     onChange={e => setEditForm(f => ({ ...f, repasSang: e.target.value }))}
                     options={GORGEMENT_OPTIONS} disabled={repasSangOff} />
                 </div>
@@ -259,18 +267,18 @@ export default function MoustiqueDetail() {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="col-span-2 md:col-span-3">
-                  <Field label="Genre / Espèce">
+                  <Field label={t('specimenDetail.genreEspece')}>
                     <span className="italic font-semibold text-specimen-moustique">{taxoLabel(m.taxonomie)}</span>
                   </Field>
                 </div>
-                <Field label="Sexe">
+                <Field label={t('specimenDetail.sexe')}>
                   <Badge tone={SEXE_TONE[m.sexe] ?? 'default'}>{SEXE_LABEL[m.sexe] ?? '—'}</Badge>
                 </Field>
-                <Field label="Nombre">{m.nombre}</Field>
-                {m.stade         && <Field label="Stade">{formatStade(m.stade)}</Field>}
-                {m.parite        && <Field label="Parité">{m.parite}</Field>}
-                {m.organePreleve && <Field label="Organe prélevé">{m.organePreleve}</Field>}
-                <Field label="Statut sanguin">
+                <Field label={t('specimenDetail.nombre')}>{m.nombre}</Field>
+                {m.stade         && <Field label={t('specimenDetail.stade')}>{formatStade(m.stade)}</Field>}
+                {m.parite        && <Field label={t('specimenDetail.parite')}>{m.parite}</Field>}
+                {m.organePreleve && <Field label={t('specimenDetail.organePreleve')}>{m.organePreleve}</Field>}
+                <Field label={t('specimenDetail.statutSanguin')}>
                   <Badge tone={['G', 'Gr'].includes(m.repasSang) ? 'danger' : 'default'}>{formatGorgement(m.repasSang)}</Badge>
                 </Field>
               </div>
@@ -282,14 +290,14 @@ export default function MoustiqueDetail() {
             <Card>
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
                 <FlaskConical size={15} className="text-purple-500" />
-                <h2 className="text-sm font-semibold text-fg">Conservation</h2>
+                <h2 className="text-sm font-semibold text-fg">{t('specimenDetail.conservation')}</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <EditSelect label="Solution de conservation" value={editForm.solutionId}
+                <EditSelect label={t('specimenDetail.solutionConservation')} value={editForm.solutionId}
                   onChange={e => setEditForm(f => ({ ...f, solutionId: e.target.value }))}
                   options={solutionOptions} />
                 <div>
-                  <label className="text-xs text-fg-subtle font-medium block mb-1">Date de collecte</label>
+                  <label className="text-xs text-fg-subtle font-medium block mb-1">{t('specimenDetail.dateCollecte')}</label>
                   <DatePicker value={editForm.dateCollecte}
                     onChange={val => setEditForm(f => ({ ...f, dateCollecte: val }))}
                   />
@@ -303,12 +311,12 @@ export default function MoustiqueDetail() {
             <Card>
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
                 <FileText size={15} className="text-gray-400" />
-                <h2 className="text-sm font-semibold text-fg">Notes et observations</h2>
+                <h2 className="text-sm font-semibold text-fg">{t('specimenDetail.notesObservations')}</h2>
               </div>
               {editing ? (
                 <textarea rows={4} value={editForm.notes}
                   onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="Observations particulières…"
+                  placeholder={t('specimenDetail.notesPlaceholder')}
                   className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg resize-none"
                 />
               ) : (
@@ -324,22 +332,22 @@ export default function MoustiqueDetail() {
 
           {/* Actions */}
           <Card padding="sm">
-            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">Actions</p>
+            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('specimenDetail.actions')}</p>
             <div className="space-y-2">
               {editing ? (
                 <>
                   <Button variant="primary" className="w-full justify-center" icon={Save}
-                    loading={saving} onClick={handleSave}>Enregistrer</Button>
+                    loading={saving} onClick={handleSave}>{t('common.save')}</Button>
                   <Button variant="secondary" className="w-full justify-center" icon={X}
-                    onClick={() => setEditing(false)} disabled={saving}>Annuler</Button>
+                    onClick={() => setEditing(false)} disabled={saving}>{t('common.cancel')}</Button>
                 </>
               ) : (
                 <>
                   <Button variant="outline" className="w-full justify-center" icon={Pencil}
-                    onClick={startEdit}>Modifier</Button>
+                    onClick={startEdit}>{t('common.edit')}</Button>
                   {isAdmin && (
                     <Button variant="danger" className="w-full justify-center" icon={Trash2}
-                      loading={deleting} onClick={handleDelete}>Supprimer</Button>
+                      loading={deleting} onClick={handleDelete}>{t('common.delete')}</Button>
                   )}
                 </>
               )}
@@ -349,14 +357,14 @@ export default function MoustiqueDetail() {
           {/* ID terrain */}
           {m.idTerrain && (
             <Card padding="sm" tone="primary">
-              <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-1">ID terrain</p>
+              <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-1">{t('specimenDetail.idTerrain')}</p>
               <p className="font-mono font-bold text-primary text-sm">{m.idTerrain}</p>
             </Card>
           )}
 
           {/* Localisation */}
           <Card padding="sm">
-            <SidebarSection icon={MapPin} iconClass="text-danger" label="Localisation">
+            <SidebarSection icon={MapPin} iconClass="text-danger" label={t('specimenDetail.localisation')}>
               {/* Fil d'Ariane */}
               <div className="flex flex-wrap items-center gap-1 text-[11px] text-fg-muted mb-2">
                 <span className="font-semibold text-fg">
@@ -376,7 +384,7 @@ export default function MoustiqueDetail() {
             <div className="border-t border-border my-2.5" />
 
             {/* Méthode de collecte */}
-            <SidebarSection icon={Beaker} iconClass="text-info" label="Méthode de collecte">
+            <SidebarSection icon={Beaker} iconClass="text-info" label={t('specimenDetail.methodeCollecte')}>
               {m.methode?.typeMethode ? (
                 <div className="text-[11px] text-fg font-medium">
                   <span>{m.methode.typeMethode.nom}</span>
@@ -395,25 +403,25 @@ export default function MoustiqueDetail() {
 
           {/* Conservation */}
           <Card padding="sm">
-            <SidebarSection icon={FlaskConical} iconClass="text-purple-500" label="Conservation">
-              <SidebarRow label="Solution">
+            <SidebarSection icon={FlaskConical} iconClass="text-purple-500" label={t('specimenDetail.conservation')}>
+              <SidebarRow label={t('specimenDetail.solution')}>
                 {m.solution?.nom || <span className="text-fg-subtle">—</span>}
               </SidebarRow>
-              <SidebarRow label="Container">
+              <SidebarRow label={t('specimenDetail.container')}>
                 {m.container ? (
                   <span>
                     <span className="font-mono">{m.container.code}</span>
                     {m.position && (
                       <>
                         <span className="text-fg-subtle mx-1">|</span>
-                        <span>Position : {m.position}</span>
+                        <span>{t('specimenDetail.position')} {m.position}</span>
                       </>
                     )}
                   </span>
                 ) : <span className="text-fg-subtle">—</span>}
               </SidebarRow>
-              <SidebarRow label="Date">
-                {m.dateCollecte ? new Date(m.dateCollecte).toLocaleDateString('fr-FR') : <span className="text-fg-subtle">—</span>}
+              <SidebarRow label={t('specimenDetail.date')}>
+                {m.dateCollecte ? new Date(m.dateCollecte).toLocaleDateString(t('common.locale')) : <span className="text-fg-subtle">—</span>}
               </SidebarRow>
             </SidebarSection>
           </Card>

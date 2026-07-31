@@ -6,6 +6,7 @@
 //   <Spinner.Block label="Chargement des spécimens..." />  ← bloc centré pleine zone
 
 import { Loader2 } from 'lucide-react';
+import { useT } from '../../lib/i18n';
 
 function Spinner({ size = 16, label, className = '' }) {
   return (
@@ -16,10 +17,11 @@ function Spinner({ size = 16, label, className = '' }) {
   );
 }
 
-Spinner.Block = function SpinnerBlock({ label = 'Chargement…', height = 'h-40' }) {
+Spinner.Block = function SpinnerBlock({ label, height = 'h-40' }) {
+  const t = useT();
   return (
     <div className={`flex items-center justify-center ${height}`}>
-      <Spinner label={label} />
+      <Spinner label={label ?? t('common.loading')} />
     </div>
   );
 };

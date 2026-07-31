@@ -10,8 +10,10 @@ import { Card } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import { STADE_OPTIONS_TIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
+import { useT } from '../../lib/i18n';
 
 export default function NouveauTique() {
+  const t = useT();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -64,11 +66,11 @@ export default function NouveauTique() {
 
   const validate = () => {
     const errs = {};
-    if (!form.methodeId)   errs.methodeId   = 'La méthode de collecte est obligatoire';
-    if (!form.taxonomieId) errs.taxonomieId = 'La taxonomie est obligatoire (référentiel)';
-    if (!form.nombre || parseInt(form.nombre) < 1) errs.nombre = 'Nombre invalide';
+    if (!form.methodeId)   errs.methodeId   = t('nouveauSpecimen.methodeRequired');
+    if (!form.taxonomieId) errs.taxonomieId = t('nouveauSpecimen.taxonomieRequired');
+    if (!form.nombre || parseInt(form.nombre) < 1) errs.nombre = t('nouveauSpecimen.nombreInvalide');
     if (form.containerId && !form.position && form.insertMode !== 'split') {
-      errs.position = 'Sélectionnez une position dans le container';
+      errs.position = t('nouveauSpecimen.positionRequired');
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -93,7 +95,7 @@ export default function NouveauTique() {
       });
       navigate('/specimens/tiques');
     } catch (err) {
-      setErrors({ submit: err.response?.data?.error || 'Erreur lors de la création' });
+      setErrors({ submit: err.response?.data?.error || t('nouveauSpecimen.creationError') });
     } finally {
       setIsLoading(false);
     }
@@ -101,28 +103,28 @@ export default function NouveauTique() {
 
   const hoteOptions = hotes.map(h => ({
     value: h.id,
-    label: `${h.idTerrain || `#${h.id}`} — ${h.taxonomieHote?.nom || 'Hôte'}${h.especeLocale ? ` (${h.especeLocale})` : ''}`,
+    label: `${h.idTerrain || `#${h.id}`} — ${h.taxonomieHote?.nom || t('nouveauTique.hoteFallback')}${h.especeLocale ? ` (${h.especeLocale})` : ''}`,
   }));
-  const taxonomieOptions = taxonomies.map(t => ({
-    value: t.id, label: t.parent ? `${t.parent.nom} ${t.nom}` : t.nom,
+  const taxonomieOptions = taxonomies.map(tx => ({
+    value: tx.id, label: tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom,
   }));
   const solutionOptions  = solutions.map(s => ({ value: s.id, label: `${s.nom}${s.temperature ? ' (' + s.temperature + ')' : ''}` }));
-  const sexeOptions    = [{ value:'M', label:'Mâle' }, { value:'F', label:'Femelle' }, { value:'inconnu', label:'Inconnu' }];
+  const sexeOptions    = [{ value:'M', label: t('sexe.M') }, { value:'F', label: t('sexe.F') }, { value:'inconnu', label: t('sexe.inconnu') }];
   const stadeOptions   = STADE_OPTIONS_TIQUE;
   const partieOptions  = [
-    { value:'Tête', label:'Tête' }, { value:'Cou', label:'Cou' },
-    { value:'Oreille', label:'Oreille' }, { value:'Dos', label:'Dos' },
-    { value:'Ventre', label:'Ventre' }, { value:'Patte', label:'Patte' },
-    { value:'Queue', label:'Queue' }, { value:'Autre', label:'Autre' },
+    { value:'Tête', label: t('nouveauTique.partieTete') }, { value:'Cou', label: t('nouveauTique.partieCou') },
+    { value:'Oreille', label: t('nouveauTique.partieOreille') }, { value:'Dos', label: t('nouveauTique.partieDos') },
+    { value:'Ventre', label: t('nouveauTique.partieVentre') }, { value:'Patte', label: t('nouveauTique.partiePatte') },
+    { value:'Queue', label: t('nouveauTique.partieQueue') }, { value:'Autre', label: t('nouveauTique.partieAutre') },
   ];
 
-  const selectedTaxo = taxonomies.find((t) => t.id === parseInt(form.taxonomieId));
+  const selectedTaxo = taxonomies.find((tx) => tx.id === parseInt(form.taxonomieId));
   const selectedHote = hotes.find((h) => h.id === parseInt(form.hoteId));
 
   return (
     <div className="space-y-5">
       <Link to="/specimens/tiques" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
-        <ChevronLeft size={16} /> Tiques
+        <ChevronLeft size={16} /> {t('dashboard.tiques')}
       </Link>
 
       <form onSubmit={handleSubmit}>
@@ -135,7 +137,7 @@ export default function NouveauTique() {
         <div className="card p-6">
           <h2 className="section-title">
             <SpecimenIcon type="tique" size={18} />
-            Identification du spécimen
+            {t('nouveauSpecimen.identification')}
           </h2>
           <div className="space-y-4">
             <MethodeCascade
@@ -150,7 +152,7 @@ export default function NouveauTique() {
               onChange={(v) => setForm((f) => ({ ...f, idTerrain: v }))}
               error={errors.idTerrain}
             />
-            <FormField label="Genre / Espèce (référentiel)" name="taxonomieId" type="select"
+            <FormField label={t('nouveauSpecimen.genreEspece')} name="taxonomieId" type="select"
               value={form.taxonomieId} onChange={handleChange}
               options={taxonomieOptions} required error={errors.taxonomieId} />
           </div>
@@ -159,15 +161,15 @@ export default function NouveauTique() {
         <div className="card p-6">
           <h2 className="section-title">
             <PawPrint size={17} className="text-amber-500" />
-            Hôte associé
+            {t('nouveauTique.hoteAssocie')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <FormField label="Hôte" name="hoteId" type="select"
+              <FormField label={t('nouveauTique.hote')} name="hoteId" type="select"
                 value={form.hoteId} onChange={handleChange} options={hoteOptions}
-                hint="Animal hôte sur lequel la tique a été prélevée" />
+                hint={t('nouveauTique.hoteHint')} />
             </div>
-            <FormField label="Partie du corps" name="partieCorpsHote" type="select"
+            <FormField label={t('nouveauTique.partieCorps')} name="partieCorpsHote" type="select"
               value={form.partieCorpsHote} onChange={handleChange} options={partieOptions} />
           </div>
         </div>
@@ -176,33 +178,33 @@ export default function NouveauTique() {
         <div className="card p-6">
           <h2 className="section-title">
             <Microscope size={17} className="text-blue-500" />
-            Morphologie
+            {t('nouveauSpecimen.morphologie')}
           </h2>
 
           {stadeImmature && (
             <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-xl flex items-start gap-2 text-xs text-info">
               <Info size={13} className="mt-0.5 flex-shrink-0" />
-              <span>Au stade <strong>{formatStade(form.stade)}</strong>, le sexe ne peut pas être déterminé.</span>
+              <span>{t('nouveauSpecimen.stadePrefix')} <strong>{formatStade(form.stade)}</strong>, {t('nouveauTique.stadeImmatureHint')}</span>
             </div>
           )}
           {!stadeImmature && form.sexe === 'M' && (
             <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-xl flex items-start gap-2 text-xs text-info">
               <Info size={13} className="mt-0.5 flex-shrink-0" />
-              <span>Un mâle adulte ne se gorge pas — l'option « gorgée » est désactivée.</span>
+              <span>{t('nouveauTique.maleAdulteHint')}</span>
             </div>
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <FormField label="Nombre" name="nombre" type="number" value={form.nombre} onChange={handleChange} required error={errors.nombre} />
-            <FormField label="Stade" name="stade" type="select" value={form.stade} onChange={handleChange} options={stadeOptions} />
-            <FormField label="Sexe" name="sexe" type="select"
+            <FormField label={t('nouveauSpecimen.nombre')} name="nombre" type="number" value={form.nombre} onChange={handleChange} required error={errors.nombre} />
+            <FormField label={t('nouveauSpecimen.stade')} name="stade" type="select" value={form.stade} onChange={handleChange} options={stadeOptions} />
+            <FormField label={t('nouveauSpecimen.sexe')} name="sexe" type="select"
               value={sexeForce} onChange={handleChange}
               options={sexeOptions} disabled={sexeDisabled}
-              hint={sexeDisabled ? 'Indéterminable à ce stade' : undefined} />
-            <FormField label="Statut sanguin" name="gorge" type="select"
+              hint={sexeDisabled ? t('nouveauTique.sexeIndeterminable') : undefined} />
+            <FormField label={t('nouveauSpecimen.statutSanguin')} name="gorge" type="select"
               value={form.gorge} onChange={handleChange}
               options={GORGEMENT_OPTIONS} disabled={gorgeDisabled}
-              hint={gorgeDisabled ? 'Un mâle adulte ne se gorge pas' : undefined}
+              hint={gorgeDisabled ? t('nouveauTique.maleAdulteNeSeGorgePas') : undefined}
             />
           </div>
         </div>
@@ -211,11 +213,11 @@ export default function NouveauTique() {
         <div className="card p-6">
           <h2 className="section-title">
             <FlaskConical size={17} className="text-purple-500" />
-            Conservation
+            {t('nouveauSpecimen.conservation')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-            <FormField label="Solution de conservation" name="solutionId" type="select" value={form.solutionId} onChange={handleChange} options={solutionOptions} />
-            <FormField label="Date de collecte" name="dateCollecte" type="date" value={form.dateCollecte} onChange={handleChange} />
+            <FormField label={t('nouveauSpecimen.solutionConservation')} name="solutionId" type="select" value={form.solutionId} onChange={handleChange} options={solutionOptions} />
+            <FormField label={t('nouveauSpecimen.dateCollecte')} name="dateCollecte" type="date" value={form.dateCollecte} onChange={handleChange} />
           </div>
           <ContainerSelector
             missionId={missionId}
@@ -230,16 +232,16 @@ export default function NouveauTique() {
         <div className="card p-6">
           <h2 className="section-title">
             <FileText size={17} className="text-gray-400" />
-            Notes et observations
+            {t('nouveauSpecimen.notesObservations')}
           </h2>
           <FormField name="notes" type="textarea" value={form.notes} onChange={handleChange}
-            placeholder="Conditions de collecte, état du spécimen..." />
+            placeholder={t('nouveauSpecimen.notesPlaceholder')} />
         </div>
 
         <div className="flex items-center justify-end gap-3">
-          <Link to="/specimens/tiques" className="btn-secondary">Annuler</Link>
+          <Link to="/specimens/tiques" className="btn-secondary">{t('common.cancel')}</Link>
           <button type="submit" disabled={isLoading} className="btn-primary">
-            {isLoading ? <><Loader2 size={15} className="animate-spin" /> Enregistrement…</> : <><Check size={15} /> Enregistrer la tique</>}
+            {isLoading ? <><Loader2 size={15} className="animate-spin" /> {t('nouveauSpecimen.saving')}</> : <><Check size={15} /> {t('nouveauTique.saveTique')}</>}
           </button>
         </div>
 
@@ -250,32 +252,32 @@ export default function NouveauTique() {
             <Card padding="sm" tone="primary">
               <div className="flex items-center gap-2 mb-3">
                 <SpecimenIcon type="tique" size={22} />
-                <p className="text-xs font-semibold text-fg uppercase tracking-wider">Aperçu</p>
+                <p className="text-xs font-semibold text-fg uppercase tracking-wider">{t('nouveauSpecimen.preview')}</p>
               </div>
               <div className="space-y-2.5">
                 <div>
-                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Espèce</p>
+                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
                   {selectedTaxo ? (
                     <p className="text-sm font-semibold italic text-specimen-tique">
                       {selectedTaxo.parent?.nom ? `${selectedTaxo.parent.nom} ` : ''}{selectedTaxo.nom}
                     </p>
-                  ) : <p className="text-xs text-fg-subtle italic">— à sélectionner —</p>}
+                  ) : <p className="text-xs text-fg-subtle italic">{t('nouveauSpecimen.toSelect')}</p>}
                 </div>
                 {form.idTerrain && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Tag size={9} /> ID terrain</p>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Tag size={9} /> {t('nouveauSpecimen.idTerrain')}</p>
                     <p className="text-sm font-mono font-bold text-primary">{form.idTerrain}</p>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div><p className="text-fg-subtle mb-0.5">Nombre</p><p className="font-semibold text-fg">{form.nombre || '—'}</p></div>
-                  <div><p className="text-fg-subtle mb-0.5">Sexe</p><p className="font-semibold text-fg capitalize">{sexeForce === 'inconnu' ? '—' : sexeForce === 'M' ? 'Mâle' : 'Femelle'}</p></div>
-                  {form.stade && <div><p className="text-fg-subtle mb-0.5">Stade</p><p className="font-semibold text-fg">{formatStade(form.stade)}</p></div>}
+                  <div><p className="text-fg-subtle mb-0.5">{t('nouveauSpecimen.nombre')}</p><p className="font-semibold text-fg">{form.nombre || '—'}</p></div>
+                  <div><p className="text-fg-subtle mb-0.5">{t('nouveauSpecimen.sexe')}</p><p className="font-semibold text-fg capitalize">{sexeForce === 'inconnu' ? '—' : sexeForce === 'M' ? t('sexe.M') : t('sexe.F')}</p></div>
+                  {form.stade && <div><p className="text-fg-subtle mb-0.5">{t('nouveauSpecimen.stade')}</p><p className="font-semibold text-fg">{formatStade(form.stade)}</p></div>}
                 </div>
-                {form.gorge !== 'N' && <p className="text-xs text-danger font-medium">Statut sanguin : {formatGorgement(form.gorge)}</p>}
+                {form.gorge !== 'N' && <p className="text-xs text-danger font-medium">{t('nouveauSpecimen.statutSanguin')} : {formatGorgement(form.gorge)}</p>}
                 {selectedHote && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Hôte</p>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauTique.hoteLabel')}</p>
                     <p className="text-xs font-medium text-fg italic">{selectedHote.taxonomieHote?.nom}</p>
                     {form.partieCorpsHote && <p className="text-[10px] text-fg-subtle">{form.partieCorpsHote}</p>}
                   </div>
@@ -285,10 +287,10 @@ export default function NouveauTique() {
 
             <Card padding="sm">
               <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
-                <span className="block font-semibold text-fg mb-1">Conseils</span>
-                <span className="block">• La <strong>taxonomie</strong> est obligatoire.</span>
-                <span className="block">• Un <strong>mâle adulte</strong> ne se gorge pas.</span>
-                <span className="block">• Le <strong>partie du corps hôte</strong> précise le site de fixation.</span>
+                <span className="block font-semibold text-fg mb-1">{t('nouveauSpecimen.tips')}</span>
+                <span className="block">• {t('nouveauTique.helpTiqueTaxonomiePrefix')} <strong>{t('nouveauTique.helpTiqueTaxonomieWord')}</strong> {t('nouveauTique.helpTiqueTaxonomieSuffix')}</span>
+                <span className="block">• {t('nouveauTique.helpMaleAdultePrefix')} <strong>{t('nouveauTique.helpMaleAdulteWord')}</strong> {t('nouveauTique.helpMaleAdulteSuffix')}</span>
+                <span className="block">• {t('nouveauTique.helpPartiePrefix')} <strong>{t('nouveauTique.helpPartieWord')}</strong> {t('nouveauTique.helpPartieSuffix')}</span>
               </p>
             </Card>
           </aside>

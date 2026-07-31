@@ -11,15 +11,19 @@ import LocaliteFieldsForm from '../../components/LocaliteFieldsForm';
 import MethodeFieldsForm from '../../components/MethodeFieldsForm';
 import useAuthStore from '../../store/authStore';
 import { useApiQuery } from '../../hooks';
-
-const ROLE_LABEL = { admin: 'Admin', chercheur: 'Chercheur', terrain: 'Terrain', lecteur: 'Lecteur' };
+import { useT, interpolate } from '../../lib/i18n';
+import { roleLabel } from '../../lib/roles';
 
 const TYPE_COLOR = {
   moustique: 'bg-specimen-moustique',
   tique:     'bg-specimen-tique',
   puce:      'bg-specimen-puce',
 };
-const TYPE_LABEL = { moustique: 'Moustiques', tique: 'Tiques', puce: 'Puces' };
+const TYPE_PLURAL = {
+  moustique: 'dashboard.moustiques',
+  tique:     'dashboard.tiques',
+  puce:      'dashboard.puces',
+};
 
 const ROLES = { admin: 5, superviseur: 4, chercheur: 3, technicien: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
@@ -41,6 +45,7 @@ function MiniBar({ value, max, colorClass = 'bg-primary' }) {
 
 // ── Modal création / édition de localité ──────────────────────
 function LocaliteModal({ missionId, localite, onClose, onSaved }) {
+  const t = useT();
   const isEdit = !!localite?.id;
   const [form, setForm] = useState({
     code:      localite?.code      || '',
@@ -67,7 +72,7 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
       else        await api.post('/localites', body);
       onSaved();
     } catch (err) {
-      setError(err.response?.data?.error || 'Erreur');
+      setError(err.response?.data?.error || t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -83,10 +88,10 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
             </div>
             <div>
               <h2 className="text-base font-bold text-white">
-                {isEdit ? 'Modifier la localité' : 'Nouvelle localité'}
+                {isEdit ? t('missionDetail.editLocality') : t('missionDetail.newLocality')}
               </h2>
               <p className="text-xs text-primary-200">
-                {isEdit ? localite.nom : 'Cliquez sur la carte pour pré-remplir région / district / commune / fokontany'}
+                {isEdit ? localite.nom : t('missionDetail.mapPrefillHint')}
               </p>
             </div>
           </div>
@@ -100,11 +105,11 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
 
           <div className="mb-6">
             <FormField
-              label="Code (3 lettres)" name="code"
+              label={t('missionDetail.codeLabel')} name="code"
               value={form.code}
               onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
               placeholder="AKZ" required
-              hint="Préfixe ID terrain"
+              hint={t('missionDetail.codeHint')}
             />
           </div>
 
@@ -115,10 +120,10 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
           />
 
           <div className="flex justify-end gap-2 pt-5 mt-5 border-t border-border">
-            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="button" onClick={onClose} className="btn-secondary">{t('common.cancel')}</button>
             <button type="submit" disabled={loading} className="btn-primary">
               {loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-              {isEdit ? 'Enregistrer' : 'Créer la localité'}
+              {isEdit ? t('common.save') : t('missionDetail.createLocality')}
             </button>
           </div>
         </div>
@@ -129,6 +134,7 @@ function LocaliteModal({ missionId, localite, onClose, onSaved }) {
 
 // ── Modal création / édition de méthode de collecte ────────────
 function MethodeModal({ localite, methode, onClose, onSaved }) {
+  const t = useT();
   const isEdit = !!methode?.id;
   const [form, setForm] = useState({
     typeMethodeId:       methode?.typeMethode?.id       ? String(methode.typeMethode.id)       : '',
@@ -151,7 +157,7 @@ function MethodeModal({ localite, methode, onClose, onSaved }) {
   const { data: typesMethode } = useApiQuery('/dictionnaire/types-methode', {
     params: { actif: 'true' }, select: (r) => r.items ?? [],
   });
-  const selectedType = (typesMethode ?? []).find((t) => t.id === parseInt(form.typeMethodeId));
+  const selectedType = (typesMethode ?? []).find((tm) => tm.id === parseInt(form.typeMethodeId));
   const identifiant  = selectedType ? `${selectedType.code}_${form.numero || 1}` : null;
 
   // Numéro auto-incrémenté : dès qu'un type de méthode est (re)choisi lors
@@ -192,7 +198,7 @@ function MethodeModal({ localite, methode, onClose, onSaved }) {
       else        await api.post('/methodes', { ...body, localiteId: localite.id });
       onSaved();
     } catch (err) {
-      setError(err.response?.data?.error || 'Erreur');
+      setError(err.response?.data?.error || t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -208,7 +214,7 @@ function MethodeModal({ localite, methode, onClose, onSaved }) {
             </div>
             <div>
               <h2 className="text-base font-bold text-white">
-                {isEdit ? 'Modifier la méthode' : 'Nouvelle méthode'}
+                {isEdit ? t('missionDetail.editMethod') : t('missionDetail.newMethod')}
               </h2>
               <p className="text-xs text-white/80">{localite.nom}{identifiant ? ` — ${identifiant}` : ''}</p>
             </div>
@@ -229,10 +235,10 @@ function MethodeModal({ localite, methode, onClose, onSaved }) {
           />
 
           <div className="flex justify-end gap-2 pt-3 border-t border-border">
-            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="button" onClick={onClose} className="btn-secondary">{t('common.cancel')}</button>
             <button type="submit" disabled={loading} className="btn-primary">
               {loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-              {isEdit ? 'Enregistrer' : 'Créer la méthode'}
+              {isEdit ? t('common.save') : t('missionDetail.createMethod')}
             </button>
           </div>
         </div>
@@ -245,6 +251,7 @@ function MethodeModal({ localite, methode, onClose, onSaved }) {
 //    persistées d'un coup (ex: CDC_2, CDC_3, CDC_4), chacune vide à part son
 //    type/numéro — à compléter individuellement via le crayon d'édition.
 function MethodeBulkModal({ localite, onClose, onGenerated }) {
+  const t = useT();
   const [typeMethodeId, setTypeMethodeId] = useState('');
   const [count, setCount] = useState('1');
   const [loading, setLoading] = useState(false);
@@ -253,8 +260,8 @@ function MethodeBulkModal({ localite, onClose, onGenerated }) {
   const { data: typesMethode } = useApiQuery('/dictionnaire/types-methode', {
     params: { actif: 'true' }, select: (r) => r.items ?? [],
   });
-  const selectedType = (typesMethode ?? []).find((t) => t.id === parseInt(typeMethodeId));
-  const typeOptions  = (typesMethode ?? []).map((t) => ({ value: t.id, label: t.nom, keywords: t.code }));
+  const selectedType = (typesMethode ?? []).find((tm) => tm.id === parseInt(typeMethodeId));
+  const typeOptions  = (typesMethode ?? []).map((tm) => ({ value: tm.id, label: tm.nom, keywords: tm.code }));
 
   const nextNumero = selectedType
     ? (() => {
@@ -285,7 +292,7 @@ function MethodeBulkModal({ localite, onClose, onGenerated }) {
       }
       onGenerated();
     } catch (err) {
-      setError(err.response?.data?.error || 'Erreur');
+      setError(err.response?.data?.error || t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -300,7 +307,7 @@ function MethodeBulkModal({ localite, onClose, onGenerated }) {
               <Layers size={16} className="text-white" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">Générer des pièges en série</h2>
+              <h2 className="text-base font-bold text-white">{t('missionDetail.bulkTitle')}</h2>
               <p className="text-xs text-white/80">{localite.nom}</p>
             </div>
           </div>
@@ -312,25 +319,25 @@ function MethodeBulkModal({ localite, onClose, onGenerated }) {
         <div className="p-6 space-y-4">
           {error && <div className="p-3 bg-danger/10 border border-red-200 rounded-xl text-sm text-danger">{error}</div>}
 
-          <FormField label="Type de méthode" name="typeMethodeId" type="select"
+          <FormField label={t('methodeForm.typeMethode')} name="typeMethodeId" type="select"
             value={typeMethodeId} onChange={(e) => setTypeMethodeId(e.target.value)}
             options={typeOptions} required />
-          <FormField label="Nombre de pièges" name="count" type="number"
+          <FormField label={t('missionDetail.trapCount')} name="count" type="number"
             value={count} onChange={(e) => setCount(e.target.value)}
-            hint="Une méthode sera créée par piège, à compléter individuellement (habitat, environnement, position…)." />
+            hint={t('missionDetail.trapCountHint')} />
 
           {preview.length > 0 && (
             <div className="text-xs text-fg-subtle bg-surface-2/60 rounded-lg px-3 py-2">
-              <span className="font-medium text-fg-muted">Génèrera : </span>
+              <span className="font-medium text-fg-muted">{t('missionDetail.willGenerate')} </span>
               <span className="font-mono">{preview.join(', ')}</span>
             </div>
           )}
 
           <div className="flex justify-end gap-2 pt-3 border-t border-border">
-            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="button" onClick={onClose} className="btn-secondary">{t('common.cancel')}</button>
             <button type="submit" disabled={!typeMethodeId || loading} className="btn-primary">
               {loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-              Générer{n > 1 ? ` (${n})` : ''}
+              {t('missionDetail.generate')}{n > 1 ? ` (${n})` : ''}
             </button>
           </div>
         </div>
@@ -341,6 +348,7 @@ function MethodeBulkModal({ localite, onClose, onGenerated }) {
 
 // ── Page principale ───────────────────────────────────────────
 export default function MissionDetail() {
+  const t = useT();
   const { id } = useParams();
   const { user } = useAuthStore();
   const canEdit = isMin(user?.role, 'chercheur');
@@ -391,7 +399,7 @@ export default function MissionDetail() {
     return (
       <div className="flex items-center justify-center h-40">
         <div className="flex items-center gap-2 text-fg-subtle text-sm">
-          <Loader2 size={18} className="animate-spin" /> Chargement...
+          <Loader2 size={18} className="animate-spin" /> {t('missionDetail.loading')}
         </div>
       </div>
     );
@@ -408,9 +416,9 @@ export default function MissionDetail() {
   return (
     <div className="max-w-screen-2xl space-y-5">
       <Breadcrumb items={[
-        { label: 'Projets',              to: '/projets' },
+        { label: t('missionDetail.projects'), to: '/projets' },
         { label: mission.projet?.nom,    to: `/projets/${mission.projet?.id}` },
-        { label: 'Missions',             to: '/missions' },
+        { label: t('missionDetail.missions'), to: '/missions' },
         { label: mission.ordreMission },
       ]} />
 
@@ -442,44 +450,44 @@ export default function MissionDetail() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {(mission.chefMission || mission.chefMissionNom) && (
                 <div className="text-xs">
-                  <p className="text-fg-subtle font-medium mb-0.5">Chef de mission</p>
+                  <p className="text-fg-subtle font-medium mb-0.5">{t('missionDetail.missionLead')}</p>
                   <p className="text-fg">
                     {mission.chefMission
                       ? `${mission.chefMission.prenom} ${mission.chefMission.nom}`
                       : mission.chefMissionNom}
                   </p>
                   {mission.chefMissionNom && !mission.chefMission && (
-                    <p className="text-[10px] text-fg-subtle mt-0.5">Personne externe</p>
+                    <p className="text-[10px] text-fg-subtle mt-0.5">{t('missionDetail.externalPerson')}</p>
                   )}
                 </div>
               )}
               {mission.dateDebut && (
                 <div className="text-xs">
-                  <p className="text-fg-subtle font-medium mb-0.5">Période</p>
+                  <p className="text-fg-subtle font-medium mb-0.5">{t('missionDetail.period')}</p>
                   <p className="text-fg">
-                    {new Date(mission.dateDebut).toLocaleDateString('fr-FR')}
-                    {mission.dateFin && ` → ${new Date(mission.dateFin).toLocaleDateString('fr-FR')}`}
+                    {new Date(mission.dateDebut).toLocaleDateString(t('common.locale'))}
+                    {mission.dateFin && ` → ${new Date(mission.dateFin).toLocaleDateString(t('common.locale'))}`}
                   </p>
                 </div>
               )}
               {mission.agents?.length > 0 && (
                 <div className="text-xs">
-                  <p className="text-fg-subtle font-medium mb-0.5">Agents terrain</p>
-                  <p className="text-fg">{mission.agents.length} agent(s)</p>
+                  <p className="text-fg-subtle font-medium mb-0.5">{t('missionDetail.fieldAgents')}</p>
+                  <p className="text-fg">{mission.agents.length} {t('missionDetail.agentsCount')}</p>
                 </div>
               )}
             </div>
 
             {mission.objet && (
               <div className="mt-4 p-3.5 bg-primary/10 border border-primary/20 rounded-xl">
-                <p className="text-xs font-semibold text-primary mb-1">Objet de la mission</p>
+                <p className="text-xs font-semibold text-primary mb-1">{t('missionDetail.missionObject')}</p>
                 <p className="text-sm text-primary">{mission.objet}</p>
               </div>
             )}
 
             {mission.observations && (
               <div className="mt-4 p-3.5 bg-warning/10 border border-warning/20 rounded-xl">
-                <p className="text-xs font-semibold text-warning mb-1">Observations</p>
+                <p className="text-xs font-semibold text-warning mb-1">{t('missionDetail.observations')}</p>
                 <p className="text-sm text-warning">{mission.observations}</p>
               </div>
             )}
@@ -491,7 +499,7 @@ export default function MissionDetail() {
               <div className="flex items-center gap-2">
                 <Navigation size={16} className="text-primary" />
                 <h2 className="text-sm font-semibold text-fg">
-                  Localités
+                  {t('missionDetail.localities')}
                   <span className="ml-2 text-xs font-normal text-fg-subtle">({mission.localites?.length ?? 0})</span>
                 </h2>
               </div>
@@ -500,7 +508,7 @@ export default function MissionDetail() {
                   onClick={() => setModal({ type: 'create' })}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors"
                 >
-                  <Plus size={13} /> Ajouter
+                  <Plus size={13} /> {t('missionDetail.add')}
                 </button>
               )}
             </div>
@@ -508,10 +516,10 @@ export default function MissionDetail() {
             {mission.localites?.length === 0 ? (
               <div className="py-10 text-center">
                 <Navigation size={28} className="text-fg-subtle mx-auto mb-2" />
-                <p className="text-sm text-fg-subtle">Aucune localité enregistrée</p>
+                <p className="text-sm text-fg-subtle">{t('missionDetail.noLocalityYet')}</p>
                 {canEdit && (
                   <button onClick={() => setModal({ type: 'create' })} className="btn-primary mt-3 mx-auto">
-                    <Plus size={13} /> Créer la première localité
+                    <Plus size={13} /> {t('missionDetail.createFirstLocality')}
                   </button>
                 )}
               </div>
@@ -527,14 +535,14 @@ export default function MissionDetail() {
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-xs font-medium bg-warning/10 text-warning border border-amber-200 px-2 py-1 rounded-lg flex-shrink-0">
-                            Code manquant
+                            {t('missionDetail.missingCode')}
                           </span>
                         )}
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-sm font-semibold text-fg">{l.nom}</p>
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-info/10 text-info border border-info/20 px-1.5 py-0.5 rounded-full flex-shrink-0">
-                              <Beaker size={9} /> {l.methodes?.length ?? 0} méthode{(l.methodes?.length ?? 0) > 1 ? 's' : ''}
+                              <Beaker size={9} /> {l.methodes?.length ?? 0} {t('missionDetail.methodCount')}
                             </span>
                           </div>
                           <p className="text-xs text-fg-subtle mt-0.5">
@@ -564,7 +572,7 @@ export default function MissionDetail() {
                     <div className="mt-3 pl-2.5 pr-2 py-2.5 rounded-xl border border-border bg-surface-2/30">
                       <div className="flex items-center justify-between mb-1.5">
                         <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider flex items-center gap-1">
-                          <Beaker size={10} /> Méthodes ({l.methodes?.length ?? 0})
+                          <Beaker size={10} /> {t('missionDetail.methods')} ({l.methodes?.length ?? 0})
                         </p>
                         {canEdit && (
                           <div className="flex items-center gap-2">
@@ -572,13 +580,13 @@ export default function MissionDetail() {
                               onClick={() => setBulkModal({ localite: l })}
                               className="inline-flex items-center gap-1 text-[11px] font-medium text-fg-subtle hover:text-primary-600 transition-colors"
                             >
-                              <Layers size={11} /> Série
+                              <Layers size={11} /> {t('missionDetail.series')}
                             </button>
                             <button
                               onClick={() => setMethodeModal({ localite: l })}
                               className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary-600 transition-colors"
                             >
-                              <Plus size={11} /> Ajouter
+                              <Plus size={11} /> {t('missionDetail.add')}
                             </button>
                           </div>
                         )}
@@ -601,18 +609,18 @@ export default function MissionDetail() {
                                     {[
                                       m.typeHabitat?.nom,
                                       m.typeEnvironnement?.nom,
-                                      m.interieurExterieur === 'interieur' ? 'Intérieur' : m.interieurExterieur === 'exterieur' ? 'Extérieur' : null,
+                                      m.interieurExterieur === 'interieur' ? t('methodeForm.interieur') : m.interieurExterieur === 'exterieur' ? t('methodeForm.exterieur') : null,
                                     ].filter(Boolean).join(' · ')}
                                   </span>
                                   {m.datePose && (
                                     <span className="text-fg-subtle whitespace-nowrap">
-                                      {new Date(m.datePose).toLocaleDateString('fr-FR')}
+                                      {new Date(m.datePose).toLocaleDateString(t('common.locale'))}
                                     </span>
                                   )}
                                   {lat != null && lng != null && (
                                     <span
                                       className={`inline-flex items-center gap-1 font-mono whitespace-nowrap ${m.latitude != null ? 'text-fg-subtle' : 'text-fg-subtle/60'}`}
-                                      title={m.latitude != null ? 'Position propre au piège' : 'Position héritée de la localité'}
+                                      title={m.latitude != null ? t('missionDetail.ownPosition') : t('missionDetail.inheritedPosition')}
                                     >
                                       <MapPin size={9} />
                                       {lat.toFixed(4)}, {lng.toFixed(4)}
@@ -640,7 +648,7 @@ export default function MissionDetail() {
                           })}
                         </div>
                       ) : (
-                        <p className="text-xs text-fg-subtle italic">Aucune méthode enregistrée.</p>
+                        <p className="text-xs text-fg-subtle italic">{t('missionDetail.noMethodYet')}</p>
                       )}
                     </div>
                   </div>
@@ -658,7 +666,7 @@ export default function MissionDetail() {
             <Card padding="md">
               <div className="flex items-center gap-2 mb-3">
                 <Clock size={14} className="text-fg-subtle" />
-                <span className="text-xs font-semibold text-fg uppercase tracking-wider">Avancement</span>
+                <span className="text-xs font-semibold text-fg uppercase tracking-wider">{t('missionDetail.progress')}</span>
               </div>
               <div className="flex items-end justify-between mb-2">
                 <span className="text-2xl font-bold text-fg">
@@ -672,8 +680,8 @@ export default function MissionDetail() {
                       : 'bg-info/10 text-info'
                 }`}>
                   {progress.daysLeft < 0
-                    ? `Terminée il y a ${Math.abs(progress.daysLeft)}j`
-                    : `${progress.daysLeft} j restants`}
+                    ? interpolate(t('missionDetail.finishedAgo'), { n: Math.abs(progress.daysLeft) })
+                    : interpolate(t('missionDetail.daysLeft'), { n: progress.daysLeft })}
                 </span>
               </div>
               <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
@@ -683,9 +691,9 @@ export default function MissionDetail() {
                 />
               </div>
               <div className="flex justify-between text-[10px] text-fg-subtle mt-1.5">
-                <span>{new Date(mission.dateDebut).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}</span>
+                <span>{new Date(mission.dateDebut).toLocaleDateString(t('common.locale'), { month: 'short', year: 'numeric' })}</span>
                 {mission.dateFin && (
-                  <span>{new Date(mission.dateFin).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}</span>
+                  <span>{new Date(mission.dateFin).toLocaleDateString(t('common.locale'), { month: 'short', year: 'numeric' })}</span>
                 )}
               </div>
             </Card>
@@ -695,16 +703,16 @@ export default function MissionDetail() {
           <Card padding="md">
             <div className="flex items-center gap-2 mb-3">
               <Layers size={14} className="text-fg-subtle" />
-              <span className="text-xs font-semibold text-fg uppercase tracking-wider">Bilan terrain</span>
+              <span className="text-xs font-semibold text-fg uppercase tracking-wider">{t('missionDetail.fieldSummary')}</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-surface-2 rounded-xl p-3 text-center">
                 <p className="text-xl font-bold text-fg">{mission.localites?.length ?? 0}</p>
-                <p className="text-[10px] text-fg-subtle mt-0.5">Localité(s)</p>
+                <p className="text-[10px] text-fg-subtle mt-0.5">{t('missionDetail.localitiesShort')}</p>
               </div>
               <div className="bg-surface-2 rounded-xl p-3 text-center">
                 <p className="text-xl font-bold text-fg">{totalMethodes}</p>
-                <p className="text-[10px] text-fg-subtle mt-0.5">Méthode(s)</p>
+                <p className="text-[10px] text-fg-subtle mt-0.5">{t('missionDetail.methodsShort')}</p>
               </div>
             </div>
           </Card>
@@ -713,7 +721,7 @@ export default function MissionDetail() {
           <Card padding="md">
             <div className="flex items-center gap-2 mb-3">
               <Bug size={14} className="text-fg-subtle" />
-              <span className="text-xs font-semibold text-fg uppercase tracking-wider">Spécimens collectés</span>
+              <span className="text-xs font-semibold text-fg uppercase tracking-wider">{t('missionDetail.collectedSpecimens')}</span>
               {specimenStats.total > 0 && (
                 <span className="ml-auto text-xs font-bold text-primary">{specimenStats.total}</span>
               )}
@@ -721,14 +729,14 @@ export default function MissionDetail() {
 
             {specimenStats.total === 0 ? (
               <p className="text-xs text-fg-subtle text-center py-3">
-                Aucun spécimen collecté pour cette mission.
+                {t('missionDetail.noSpecimenCollected')}
               </p>
             ) : (
               <div className="space-y-2.5">
-                {(['moustique', 'tique', 'puce']).filter(t => specimenStats[t] > 0).map(type => (
+                {(['moustique', 'tique', 'puce']).filter(st => specimenStats[st] > 0).map(type => (
                   <div key={type}>
                     <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-fg-muted">{TYPE_LABEL[type]}</span>
+                      <span className="text-fg-muted">{t(TYPE_PLURAL[type])}</span>
                     </div>
                     <MiniBar value={specimenStats[type]} max={specimenStats.total} colorClass={TYPE_COLOR[type]} />
                   </div>
@@ -742,7 +750,7 @@ export default function MissionDetail() {
             <Card padding="md">
               <div className="flex items-center gap-2 mb-3">
                 <Users size={14} className="text-fg-subtle" />
-                <span className="text-xs font-semibold text-fg uppercase tracking-wider">Équipe</span>
+                <span className="text-xs font-semibold text-fg uppercase tracking-wider">{t('missionDetail.team')}</span>
               </div>
               <div className="space-y-2">
                 {(mission.chefMission || mission.chefMissionNom) && (
@@ -765,7 +773,7 @@ export default function MissionDetail() {
                           : mission.chefMissionNom}
                       </p>
                       <p className="text-[10px] text-primary">
-                        Chef de mission{mission.chefMissionNom && !mission.chefMission ? ' — externe' : ''}
+                        {t('missionDetail.missionLead')}{mission.chefMissionNom && !mission.chefMission ? t('missionDetail.externalSuffix') : ''}
                       </p>
                     </div>
                   </div>
@@ -779,7 +787,7 @@ export default function MissionDetail() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-medium text-fg truncate">{a.prenom} {a.nom}</p>
-                      <p className="text-[10px] text-fg-subtle">{ROLE_LABEL[a.role] ?? a.role}</p>
+                      <p className="text-[10px] text-fg-subtle">{a.role ? roleLabel(a.role) : ''}</p>
                     </div>
                   </div>
                 ))}

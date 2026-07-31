@@ -94,7 +94,7 @@ export default function MainLayout() {
     { path: '/specimens/moustiques', label: t('nav.moustiques'), type: 'moustique' },
     { path: '/specimens/tiques',     label: t('nav.tiques'),     type: 'tique'     },
     { path: '/specimens/puces',      label: t('nav.puces'),      type: 'puce'      },
-    { path: '/specimens/autres',     label: 'Autres spécimens',  type: 'autre'     },
+    { path: '/specimens/autres',     label: t('nav.autres'),     type: 'autre'     },
   ];
 
   return (
@@ -140,8 +140,8 @@ export default function MainLayout() {
             <NavItem key={item.path} to={item.path} label={item.label} icon={item.icon} onClick={closeSidebar} />
           ))}
 
-          <NavSection>Laboratoire</NavSection>
-          <NavItem to="/labo" label="Manipulations labo" icon={Microscope} iconColorIdle="text-warning" onClick={closeSidebar} />
+          <NavSection>{t('nav.laboratoire')}</NavSection>
+          <NavItem to="/labo" label={t('nav.manipulationsLabo')} icon={Microscope} iconColorIdle="text-warning" onClick={closeSidebar} />
 
           <NavSection>{t('nav.specimens')}</NavSection>
           {SPECIMEN_ITEMS.filter(({ type }) =>
@@ -189,7 +189,7 @@ export default function MainLayout() {
               <p className="text-sm font-medium text-fg truncate">{user?.prenom} {user?.nom}</p>
               <Badge tone={ROLE_TONE[user?.role] ?? 'default'} size="xs" className="mt-0.5">{user?.role}</Badge>
             </div>
-            <button onClick={() => setShowPasswordModal(true)} title="Changer mon mot de passe"
+            <button onClick={() => setShowPasswordModal(true)} title={t('nav.changePassword')}
               className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
               <KeyRound size={16} />
             </button>

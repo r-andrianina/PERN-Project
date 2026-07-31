@@ -15,8 +15,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-
-const WEEKDAYS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'];
+import { useT } from '../../lib/i18n';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 const toKey = (y, m, d) => `${y}-${pad2(m + 1)}-${pad2(d)}`;
@@ -29,18 +28,22 @@ function parseDateStr(str) {
   return { y: parseInt(match[1]), m: parseInt(match[2]) - 1, d: parseInt(match[3]) };
 }
 
-const MONTH_LABEL = (y, m) => {
-  const label = new Date(y, m, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+const monthLabel = (y, m, locale) => {
+  const label = new Date(y, m, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 
 const DISPLAY_FORMAT = (parsed) => parsed ? `${pad2(parsed.d)}/${pad2(parsed.m + 1)}/${parsed.y}` : '';
 
 export default function DatePicker({
-  value, onChange, placeholder = 'jj/mm/aaaa',
+  value, onChange, placeholder,
   disabled = false, error = false, name, id,
   className = '', wrapperClassName = 'w-full',
 }) {
+  const t = useT();
+  placeholder ??= t('datepicker.placeholder');
+  const WEEKDAYS = t('datepicker.weekdays');
+  const locale   = t('datepicker.locale');
   const selected = parseDateStr(value);
   const today = new Date();
   const todayKey = toKey(today.getFullYear(), today.getMonth(), today.getDate());
@@ -189,7 +192,7 @@ export default function DatePicker({
               className="p-1.5 rounded-lg text-fg-subtle hover:bg-surface-2 hover:text-fg transition-colors">
               <ChevronLeft size={16} />
             </button>
-            <p className="text-sm font-semibold text-fg">{MONTH_LABEL(view.y, view.m)}</p>
+            <p className="text-sm font-semibold text-fg">{monthLabel(view.y, view.m, locale)}</p>
             <button type="button" onClick={() => changeMonth(1)}
               className="p-1.5 rounded-lg text-fg-subtle hover:bg-surface-2 hover:text-fg transition-colors">
               <ChevronRight size={16} />
@@ -231,7 +234,7 @@ export default function DatePicker({
           <div className="flex justify-end mt-2 pt-2 border-t border-border">
             <button type="button" onClick={goToday}
               className="text-xs font-medium text-primary-600 hover:text-primary-700">
-              Aujourd'hui
+              {t('common.today')}
             </button>
           </div>
         </div>,

@@ -6,18 +6,7 @@ import FormField from '../../components/FormField';
 import MethodeCascade from '../../components/MethodeCascade';
 import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
-
-const SEXE_OPTIONS  = [
-  { value: 'inconnu', label: 'Inconnu' },
-  { value: 'M',       label: 'Mâle'   },
-  { value: 'F',       label: 'Femelle' },
-];
-const STADE_OPTIONS = [
-  { value: 'Ad', label: 'Adulte' },
-  { value: 'L',  label: 'Larve'  },
-  { value: 'N',  label: 'Nymphe' },
-  { value: 'E',  label: 'Œuf'    },
-];
+import { useT } from '../../lib/i18n';
 
 function SectionTitle({ icon: Icon, iconClass = 'text-primary', children, sub }) {
   return (
@@ -38,6 +27,19 @@ function SectionDivider() {
 }
 
 export default function NouvelAutreSpecimen() {
+  const t = useT();
+  const SEXE_OPTIONS  = [
+    { value: 'inconnu', label: t('sexe.inconnu') },
+    { value: 'M',       label: t('sexe.M')   },
+    { value: 'F',       label: t('sexe.F') },
+  ];
+  const STADE_OPTIONS = [
+    { value: 'Ad', label: t('autreSpecimenDetail.stadeAdulte') },
+    { value: 'L',  label: t('autreSpecimenDetail.stadeLarve')  },
+    { value: 'N',  label: t('autreSpecimenDetail.stadeNymphe') },
+    { value: 'E',  label: t('autreSpecimenDetail.stadeOeuf')    },
+  ];
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -87,11 +89,11 @@ export default function NouvelAutreSpecimen() {
 
   const validate = () => {
     const errs = {};
-    if (!form.methodeId)      errs.methodeId      = 'La méthode de collecte est obligatoire';
-    if (!form.typeSpecimenId) errs.typeSpecimenId = 'Le type de spécimen est obligatoire';
-    if (!parseInt(form.nombre) || parseInt(form.nombre) < 1) errs.nombre = 'Nombre invalide';
+    if (!form.methodeId)      errs.methodeId      = t('nouveauSpecimen.methodeRequired');
+    if (!form.typeSpecimenId) errs.typeSpecimenId = t('nouvelAutreSpecimen.typeSpecimenRequired');
+    if (!parseInt(form.nombre) || parseInt(form.nombre) < 1) errs.nombre = t('nouveauSpecimen.nombreInvalide');
     if (form.containerId && !form.position && form.insertMode !== 'split')
-      errs.position = 'Sélectionnez une position dans le container';
+      errs.position = t('nouveauSpecimen.positionRequired');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -122,17 +124,17 @@ export default function NouvelAutreSpecimen() {
       await api.post('/autres-specimens', payload);
       navigate('/specimens/autres');
     } catch (err) {
-      setErrors({ submit: err.response?.data?.error || 'Erreur lors de la création' });
+      setErrors({ submit: err.response?.data?.error || t('nouveauSpecimen.creationError') });
     } finally {
       setIsLoading(false);
     }
   };
 
   // Options sans option vide — FormField l'ajoute automatiquement
-  const typeOptions    = typesSpec.map((t)  => ({ value: t.id, label: `${t.code} — ${t.nom}` }));
-  const taxoOptions    = taxonomies.map((t) => ({
-    value: t.id,
-    label: t.parent ? `${t.parent.nom} ${t.nom}` : t.nom,
+  const typeOptions    = typesSpec.map((tp)  => ({ value: tp.id, label: `${tp.code} — ${tp.nom}` }));
+  const taxoOptions    = taxonomies.map((tx) => ({
+    value: tx.id,
+    label: tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom,
   }));
   const solutionOptions = solutions.map((s) => ({
     value: s.id,
@@ -148,7 +150,7 @@ export default function NouvelAutreSpecimen() {
         className="inline-flex items-center gap-1.5 text-xs text-fg-subtle hover:text-fg transition-colors group"
       >
         <ChevronLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
-        Autres spécimens
+        {t('nouvelAutreSpecimen.backToList')}
       </Link>
 
       {/* ── Titre ── */}
@@ -157,14 +159,14 @@ export default function NouvelAutreSpecimen() {
           <Bug size={17} className="text-primary" />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-fg">Nouveau spécimen</h1>
-          <p className="text-xs text-fg-subtle">Phlébotome, Culicoïde ou autre vecteur</p>
+          <h1 className="text-lg font-bold text-fg">{t('nouvelAutreSpecimen.title')}</h1>
+          <p className="text-xs text-fg-subtle">{t('nouvelAutreSpecimen.subtitle')}</p>
         </div>
       </div>
 
       {errors.submit && (
         <div className="p-3.5 bg-danger/8 border border-danger/25 rounded-xl text-sm text-danger flex items-center gap-2">
-          <span className="font-semibold">Erreur :</span> {errors.submit}
+          <span className="font-semibold">{t('nouvelAutreSpecimen.errorPrefix')}</span> {errors.submit}
         </div>
       )}
 
@@ -178,8 +180,8 @@ export default function NouvelAutreSpecimen() {
 
             {/* ── 1. Rattachement terrain ── */}
             <div className="card p-6">
-              <SectionTitle icon={Bug} iconClass="text-primary" sub="Mission, localité et méthode de collecte associées">
-                Identification
+              <SectionTitle icon={Bug} iconClass="text-primary" sub={t('nouvelAutreSpecimen.identificationSub')}>
+                {t('specimenDetail.identification')}
               </SectionTitle>
 
               <div className="space-y-4">
@@ -207,19 +209,19 @@ export default function NouvelAutreSpecimen() {
                 {/* FormField ajoute déjà "— Sélectionner —", ne pas le dupliquer */}
                 <div className="sm:col-span-2">
                   <FormField
-                    label="Type de spécimen" name="typeSpecimenId" type="select"
+                    label={t('nouvelAutreSpecimen.typeSpecimen')} name="typeSpecimenId" type="select"
                     value={form.typeSpecimenId} onChange={handleChange}
                     options={typeOptions}
                     required error={errors.typeSpecimenId}
-                    hint="Phlébotome, Culicoïde… — depuis le dictionnaire"
+                    hint={t('nouvelAutreSpecimen.typeSpecimenHint')}
                   />
                 </div>
                 <div className="sm:col-span-2">
                   <FormField
-                    label="Taxonomie" name="taxonomieId" type="select"
+                    label={t('nouvelAutreSpecimen.taxonomie')} name="taxonomieId" type="select"
                     value={form.taxonomieId} onChange={handleChange}
                     options={taxoOptions}
-                    hint="Optionnelle — si le genre/espèce est identifié"
+                    hint={t('nouvelAutreSpecimen.taxonomieHint')}
                   />
                 </div>
               </div>
@@ -227,28 +229,28 @@ export default function NouvelAutreSpecimen() {
 
             {/* ── 2. Morphologie ── */}
             <div className="card p-6">
-              <SectionTitle icon={Microscope} iconClass="text-info" sub="Caractéristiques physiques de l'individu">
-                Morphologie
+              <SectionTitle icon={Microscope} iconClass="text-info" sub={t('nouvelAutreSpecimen.morphologieSub')}>
+                {t('nouveauSpecimen.morphologie')}
               </SectionTitle>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <FormField
-                  label="Nombre" name="nombre" type="number"
+                  label={t('nouveauSpecimen.nombre')} name="nombre" type="number"
                   value={form.nombre} onChange={handleChange}
                   required error={errors.nombre}
                 />
                 <FormField
-                  label="Stade" name="stade" type="select"
+                  label={t('nouveauSpecimen.stade')} name="stade" type="select"
                   value={form.stade} onChange={handleChange}
                   options={STADE_OPTIONS}
                 />
                 <FormField
-                  label="Sexe" name="sexe" type="select"
+                  label={t('nouveauSpecimen.sexe')} name="sexe" type="select"
                   value={form.sexe} onChange={handleChange}
                   options={SEXE_OPTIONS}
                 />
                 <FormField
-                  label="Date de collecte" name="dateCollecte" type="date"
+                  label={t('nouveauSpecimen.dateCollecte')} name="dateCollecte" type="date"
                   value={form.dateCollecte} onChange={handleChange}
                 />
               </div>
@@ -256,8 +258,8 @@ export default function NouvelAutreSpecimen() {
 
             {/* ── 3. Attributs spécifiques ── */}
             <div className="card p-6">
-              <SectionTitle icon={Tag} iconClass="text-warning" sub="Champs libres propres à ce type d'insecte">
-                Attributs spécifiques
+              <SectionTitle icon={Tag} iconClass="text-warning" sub={t('nouvelAutreSpecimen.attributsSub')}>
+                {t('nouvelAutreSpecimen.attributsSpecifiques')}
               </SectionTitle>
 
               <div className="space-y-2.5">
@@ -265,14 +267,14 @@ export default function NouvelAutreSpecimen() {
                   <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
                     <input
                       type="text"
-                      placeholder="Clé  (ex: longueur_mm)"
+                      placeholder={t('nouvelAutreSpecimen.keyPlaceholder')}
                       value={attr.cle}
                       onChange={(e) => setAttrField(i, 'cle', e.target.value)}
                       className="input-base text-sm font-mono"
                     />
                     <input
                       type="text"
-                      placeholder="Valeur"
+                      placeholder={t('nouvelAutreSpecimen.valuePlaceholder')}
                       value={attr.valeur}
                       onChange={(e) => setAttrField(i, 'valeur', e.target.value)}
                       className="input-base text-sm"
@@ -292,22 +294,22 @@ export default function NouvelAutreSpecimen() {
                   onClick={() => setAttributs((p) => [...p, { cle: '', valeur: '' }])}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors mt-1"
                 >
-                  <Plus size={13} /> Ajouter un attribut
+                  <Plus size={13} /> {t('nouvelAutreSpecimen.addAttribute')}
                 </button>
               </div>
             </div>
 
             {/* ── 4. Observations ── */}
             <div className="card p-6">
-              <SectionTitle icon={FileText} iconClass="text-fg-subtle" sub="Comportement, état, conditions terrain…">
-                Observations
+              <SectionTitle icon={FileText} iconClass="text-fg-subtle" sub={t('nouvelAutreSpecimen.observationsSub')}>
+                {t('nouvelAutreSpecimen.observations')}
               </SectionTitle>
               <textarea
                 name="notes"
                 value={form.notes}
                 onChange={handleChange}
                 rows={3}
-                placeholder="Notes libres…"
+                placeholder={t('nouvelAutreSpecimen.notesPlaceholder')}
                 className="input-base w-full text-sm resize-none"
               />
             </div>
@@ -322,12 +324,12 @@ export default function NouvelAutreSpecimen() {
             <div className="card p-5">
               <div className="flex items-center gap-2 mb-4">
                 <FlaskConical size={14} className="text-warning" />
-                <h3 className="text-xs font-bold text-fg uppercase tracking-wider">Conservation</h3>
+                <h3 className="text-xs font-bold text-fg uppercase tracking-wider">{t('nouvelAutreSpecimen.conservation')}</h3>
               </div>
 
               <div className="space-y-4">
                 <FormField
-                  label="Solution" name="solutionId" type="select"
+                  label={t('nouvelAutreSpecimen.solution')} name="solutionId" type="select"
                   value={form.solutionId} onChange={handleChange}
                   options={solutionOptions}
                 />
@@ -354,17 +356,17 @@ export default function NouvelAutreSpecimen() {
               {isLoading ? (
                 <>
                   <span className="w-4 h-4 border-2 border-fg-on-primary/30 border-t-fg-on-primary rounded-full animate-spin" />
-                  Enregistrement…
+                  {t('nouvelAutreSpecimen.saving')}
                 </>
               ) : (
                 <>
-                  <Plus size={15} /> Enregistrer le spécimen
+                  <Plus size={15} /> {t('nouvelAutreSpecimen.saveSpecimen')}
                 </>
               )}
             </button>
 
             <p className="text-[11px] text-fg-subtle text-center leading-relaxed">
-              L'ID terrain est généré automatiquement<br />si le champ est laissé vide.
+              {t('nouvelAutreSpecimen.idTerrainAutoHint')}<br />{t('nouvelAutreSpecimen.idTerrainAutoHint2')}
             </p>
           </div>
 
@@ -373,4 +375,3 @@ export default function NouvelAutreSpecimen() {
     </div>
   );
 }
-

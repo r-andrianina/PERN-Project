@@ -15,6 +15,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Check, Search } from 'lucide-react';
+import { useT } from '../../lib/i18n';
 
 const DEFAULT_TRIGGER = 'w-full flex items-center justify-between gap-2 text-left text-sm rounded-xl border px-3.5 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30';
 
@@ -22,7 +23,7 @@ export default function Select({
   value,
   onChange,
   options = [],
-  placeholder = '— Sélectionner —',
+  placeholder,
   disabled = false,
   error = false,
   name,
@@ -34,9 +35,13 @@ export default function Select({
   wrapperClassName = 'w-full',
   align = 'left',
   searchable,
-  searchPlaceholder = 'Rechercher…',
-  emptyLabel = 'Aucun résultat',
+  searchPlaceholder,
+  emptyLabel,
 }) {
+  const t = useT();
+  placeholder        ??= `— ${t('common.select')} —`;
+  searchPlaceholder ??= `${t('common.search')}…`;
+  emptyLabel         ??= t('common.noResults');
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(-1);

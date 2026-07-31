@@ -3,7 +3,7 @@ import { create } from 'zustand';
 const VALID_LANGS = ['fr', 'en'];
 
 const stored = localStorage.getItem('sm_lang');
-const initialLang = VALID_LANGS.includes(stored) ? stored : 'fr';
+const initialLang = VALID_LANGS.includes(stored) ? stored : 'en';
 
 const useLangStore = create((set) => ({
   lang: initialLang,

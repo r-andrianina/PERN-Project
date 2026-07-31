@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { Sun, Moon, Monitor } from 'lucide-react';
+import { useT } from '../lib/i18n';
 
 const STORAGE_KEY = 'sm-theme';
 const THEMES = ['light', 'dark', 'system'];
@@ -35,11 +36,12 @@ export function useTheme() {
   return [theme, setThemeState];
 }
 
-const ICON  = { light: Sun, dark: Moon, system: Monitor };
-const LABEL = { light: 'Clair', dark: 'Sombre', system: 'Système' };
+const ICON = { light: Sun, dark: Moon, system: Monitor };
 
 export default function ThemeToggle({ compact = false }) {
+  const t = useT();
   const [theme, setTheme] = useTheme();
+  const LABEL = { light: t('themeToggle.light'), dark: t('themeToggle.dark'), system: t('themeToggle.system') };
 
   if (compact) {
     // Mode compact : un seul bouton qui cycle light → dark → system
@@ -48,7 +50,7 @@ export default function ThemeToggle({ compact = false }) {
     return (
       <button
         onClick={() => setTheme(next)}
-        title={`Thème : ${LABEL[theme]} — clic pour passer à ${LABEL[next]}`}
+        title={t('themeToggle.title').replace('{current}', LABEL[theme]).replace('{next}', LABEL[next])}
         className="p-2 text-fg-muted hover:text-fg hover:bg-surface-2 rounded-lg transition-colors"
       >
         <Icon size={16} />
@@ -59,14 +61,14 @@ export default function ThemeToggle({ compact = false }) {
   // Mode trio : 3 boutons côte-à-côte (light/dark/system)
   return (
     <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-surface-2 border border-border">
-      {THEMES.map((t) => {
-        const Icon = ICON[t];
-        const active = theme === t;
+      {THEMES.map((th) => {
+        const Icon = ICON[th];
+        const active = theme === th;
         return (
           <button
-            key={t}
-            onClick={() => setTheme(t)}
-            title={LABEL[t]}
+            key={th}
+            onClick={() => setTheme(th)}
+            title={LABEL[th]}
             className={`p-1.5 rounded-md transition-colors ${
               active
                 ? 'bg-surface text-fg shadow-card'

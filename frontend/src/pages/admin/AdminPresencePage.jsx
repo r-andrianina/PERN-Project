@@ -9,6 +9,8 @@ import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
 import { formatNotificationText, formatRelativeDate } from '../../utils/notifications';
+import { useT } from '../../lib/i18n';
+import { roleLabel } from '../../lib/roles';
 
 // ── Tokens visuels ────────────────────────────────────────────
 const ROLE_CFG = {
@@ -18,31 +20,31 @@ const ROLE_CFG = {
   lecteur:    { pill: 'bg-surface-3 text-fg-muted',               ring: 'ring-border'             },
 };
 
-const ACTION_CFG = {
-  CREATE:     { label: 'Créé',      cls: 'bg-success/10 text-success border-success/20',   bar: 'bg-success'  },
-  UPDATE:     { label: 'Modifié',   cls: 'bg-info/10 text-info border-info/20',            bar: 'bg-info'     },
-  DELETE:     { label: 'Supprimé',  cls: 'bg-danger/10 text-danger border-danger/20',      bar: 'bg-danger'   },
-  ACTIVATE:   { label: 'Activé',    cls: 'bg-primary/10 text-primary border-primary/20',   bar: 'bg-primary'  },
-  DEACTIVATE: { label: 'Désactivé', cls: 'bg-surface-3 text-fg-subtle border-border',      bar: 'bg-fg-subtle'},
-  READ:       { label: 'Consulté',  cls: 'bg-surface-3 text-fg-subtle border-border',      bar: 'bg-fg-subtle'},
-};
+const getActionCfg = (t) => ({
+  CREATE:     { label: t('adminPresencePage.actionCreated'),     cls: 'bg-success/10 text-success border-success/20',   bar: 'bg-success'  },
+  UPDATE:     { label: t('adminPresencePage.actionUpdated'),     cls: 'bg-info/10 text-info border-info/20',            bar: 'bg-info'     },
+  DELETE:     { label: t('adminPresencePage.actionDeleted'),     cls: 'bg-danger/10 text-danger border-danger/20',      bar: 'bg-danger'   },
+  ACTIVATE:   { label: t('adminPresencePage.actionActivated'),   cls: 'bg-primary/10 text-primary border-primary/20',   bar: 'bg-primary'  },
+  DEACTIVATE: { label: t('adminPresencePage.actionDeactivated'), cls: 'bg-surface-3 text-fg-subtle border-border',      bar: 'bg-fg-subtle'},
+  READ:       { label: t('adminPresencePage.actionRead'),        cls: 'bg-surface-3 text-fg-subtle border-border',      bar: 'bg-fg-subtle'},
+});
 
-const SPECIMEN_CFG = [
-  { key: 'moustique', label: 'Moustiques', color: 'text-specimen-moustique', bg: 'bg-specimen-moustique/10', border: 'border-specimen-moustique/30' },
-  { key: 'tique',     label: 'Tiques',     color: 'text-specimen-tique',     bg: 'bg-specimen-tique/10',     border: 'border-specimen-tique/30'     },
-  { key: 'puce',      label: 'Puces',      color: 'text-specimen-puce',      bg: 'bg-specimen-puce/10',      border: 'border-specimen-puce/30'      },
+const getSpecimenCfg = (t) => [
+  { key: 'moustique', label: t('adminPresencePage.specimenMoustiques'), color: 'text-specimen-moustique', bg: 'bg-specimen-moustique/10', border: 'border-specimen-moustique/30' },
+  { key: 'tique',     label: t('adminPresencePage.specimenTiques'),     color: 'text-specimen-tique',     bg: 'bg-specimen-tique/10',     border: 'border-specimen-tique/30'     },
+  { key: 'puce',      label: t('adminPresencePage.specimenPuces'),      color: 'text-specimen-puce',      bg: 'bg-specimen-puce/10',      border: 'border-specimen-puce/30'      },
 ];
 
 const initials = (u) => `${u?.prenom?.[0] ?? ''}${u?.nom?.[0] ?? ''}`.toUpperCase();
 
-function inactifDepuis(dateStr) {
+function inactifDepuis(dateStr, t) {
   if (!dateStr) return null;
   const jours = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
   if (jours === 0) return null;
-  if (jours === 1) return 'hier';
-  if (jours < 7)  return `${jours}j`;
-  if (jours < 30) return `${Math.floor(jours / 7)} sem.`;
-  return `${Math.floor(jours / 30)} mois`;
+  if (jours === 1) return t('adminPresencePage.hier');
+  if (jours < 7)  return `${jours}${t('adminPresencePage.joursSuffix')}`;
+  if (jours < 30) return `${Math.floor(jours / 7)} ${t('adminPresencePage.semainesSuffix')}`;
+  return `${Math.floor(jours / 30)} ${t('adminPresencePage.moisSuffix')}`;
 }
 
 // ── Skeleton shimmer ──────────────────────────────────────────
@@ -70,6 +72,7 @@ function MetricCard({ label, value, icon: Icon, iconColor, iconBg, accent = '', 
 
 // ── Carte utilisateur en ligne ────────────────────────────────
 function UserCard({ user, isMe, kicking, onKick }) {
+  const t = useT();
   const role = ROLE_CFG[user.role] ?? ROLE_CFG.lecteur;
   return (
     <div className="card p-4 flex items-center gap-3 group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-md border-l-[3px] border-l-success">
@@ -87,16 +90,16 @@ function UserCard({ user, isMe, kicking, onKick }) {
           <p className="text-sm font-semibold text-fg truncate">{user.prenom} {user.nom}</p>
           {isMe && (
             <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">
-              Vous
+              {t('adminPresencePage.you')}
             </span>
           )}
         </div>
         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${role.pill}`}>
-            {user.role}
+            {roleLabel(user.role)}
           </span>
           {user.tabCount > 1 && (
-            <span className="text-[10px] text-fg-subtle">{user.tabCount} onglets</span>
+            <span className="text-[10px] text-fg-subtle">{user.tabCount} {t('adminPresencePage.tabsSuffix')}</span>
           )}
         </div>
       </div>
@@ -106,7 +109,7 @@ function UserCard({ user, isMe, kicking, onKick }) {
         <button
           onClick={() => onKick(user.id)}
           disabled={kicking}
-          title="Fermer la session SSE"
+          title={t('adminPresencePage.closeSseSession')}
           className="opacity-0 group-hover:opacity-100 p-2 flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-all duration-200 disabled:opacity-40 flex-shrink-0"
         >
           {kicking
@@ -121,7 +124,9 @@ function UserCard({ user, isMe, kicking, onKick }) {
 
 // ── Item du fil d'activité (timeline) ────────────────────────
 function ActivityItem({ log, fresh }) {
-  const cfg = ACTION_CFG[log.action] ?? ACTION_CFG.READ;
+  const t = useT();
+  const actionCfg = getActionCfg(t);
+  const cfg = actionCfg[log.action] ?? actionCfg.READ;
   return (
     <div className={`flex items-start gap-3 px-4 py-3 hover:bg-surface-2/60 transition-colors ${fresh ? 'presence-item-enter' : ''}`}>
       {/* Dot de couleur */}
@@ -152,8 +157,9 @@ function ActivityItem({ log, fresh }) {
 
 // ── Ligne tableau métriques ───────────────────────────────────
 function UserStatRow({ entry, maxSaisies, barsVisible, rank }) {
+  const t = useT();
   const { user, saisies7j, saisies30j, derniereAction } = entry;
-  const inactif = inactifDepuis(derniereAction);
+  const inactif = inactifDepuis(derniereAction, t);
   const pct     = maxSaisies > 0 ? (saisies30j / maxSaisies) * 100 : 0;
   const role    = ROLE_CFG[user.role] ?? ROLE_CFG.lecteur;
 
@@ -171,7 +177,7 @@ function UserStatRow({ entry, maxSaisies, barsVisible, rank }) {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-fg truncate">{user.prenom} {user.nom}</p>
             <span className={`text-[10px] font-medium px-1.5 py-px rounded-full ${role.pill}`}>
-              {user.role}
+              {roleLabel(user.role)}
             </span>
           </div>
         </div>
@@ -202,7 +208,7 @@ function UserStatRow({ entry, maxSaisies, barsVisible, rank }) {
       {/* Dernière action */}
       <td className="px-5 py-3.5 hidden lg:table-cell">
         {!derniereAction ? (
-          <span className="text-xs text-fg-subtle italic">Jamais</span>
+          <span className="text-xs text-fg-subtle italic">{t('adminPresencePage.never')}</span>
         ) : inactif ? (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-warning bg-warning/10 border border-warning/20 px-2.5 py-0.5 rounded-full">
             <AlertTriangle size={10} />
@@ -211,7 +217,7 @@ function UserStatRow({ entry, maxSaisies, barsVisible, rank }) {
         ) : (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-success bg-success/10 border border-success/20 px-2.5 py-0.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-success" />
-            Actif aujourd'hui
+            {t('adminPresencePage.activeToday')}
           </span>
         )}
       </td>
@@ -221,6 +227,8 @@ function UserStatRow({ entry, maxSaisies, barsVisible, rank }) {
 
 // ── Page principale ───────────────────────────────────────────
 export default function AdminPresencePage() {
+  const t = useT();
+  const specimenCfg = getSpecimenCfg(t);
   const { user: me } = useAuthStore();
 
   const [presence,    setPresence]    = useState({ users: [], count: 0 });
@@ -268,12 +276,12 @@ export default function AdminPresencePage() {
     setKickingId(userId);
     try {
       const r = await api.delete(`/auth/users/${userId}/session`);
-      toast.info(r.data.message || 'Session fermée');
+      toast.info(r.data.message || t('adminPresencePage.sessionClosed'));
       await fetchPresence();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la fermeture de session');
+      toast.error(err.response?.data?.error || t('adminPresencePage.errorClosingSession'));
     } finally { setKickingId(null); }
-  }, [fetchPresence]);
+  }, [fetchPresence, t]);
 
   useEffect(() => {
     fetchPresence();
@@ -309,8 +317,8 @@ export default function AdminPresencePage() {
             <Radio size={22} className="text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-fg leading-tight">Surveillance en temps réel</h1>
-            <p className="text-xs text-fg-subtle mt-0.5">Présence SSE · Fil d'activité · Métriques membres</p>
+            <h1 className="text-xl font-bold text-fg leading-tight">{t('adminPresencePage.title')}</h1>
+            <p className="text-xs text-fg-subtle mt-0.5">{t('adminPresencePage.subtitle')}</p>
           </div>
         </div>
 
@@ -320,7 +328,7 @@ export default function AdminPresencePage() {
             : 'bg-surface-2 text-fg-subtle border-border'
         }`}>
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sseOk ? 'bg-success animate-pulse' : 'bg-fg-subtle'}`} />
-          {sseOk ? 'SSE connecté' : 'Connexion…'}
+          {sseOk ? t('adminPresencePage.sseConnected') : t('adminPresencePage.connecting')}
         </div>
       </div>
 
@@ -329,7 +337,7 @@ export default function AdminPresencePage() {
         {/* Rangée 1 — Live */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MetricCard
-            label="En ligne maintenant"
+            label={t('adminPresencePage.onlineNow')}
             value={presence.count}
             icon={Users}
             iconColor="text-success"
@@ -338,7 +346,7 @@ export default function AdminPresencePage() {
             loading={loadingP}
           />
           <MetricCard
-            label="Connexions SSE actives"
+            label={t('adminPresencePage.activeSseConnections')}
             value={totalSSE}
             icon={Zap}
             iconColor="text-warning"
@@ -346,7 +354,7 @@ export default function AdminPresencePage() {
             loading={loadingP}
           />
           <MetricCard
-            label="Saisies aujourd'hui"
+            label={t('adminPresencePage.entriesToday')}
             value={recents.aujourdhui}
             icon={Clock}
             iconColor="text-primary"
@@ -354,7 +362,7 @@ export default function AdminPresencePage() {
             loading={loadingS}
           />
           <MetricCard
-            label="Saisies cette semaine"
+            label={t('adminPresencePage.entriesThisWeek')}
             value={recents.semaine}
             icon={TrendingUp}
             iconColor="text-info"
@@ -365,7 +373,7 @@ export default function AdminPresencePage() {
 
         {/* Rangée 2 — Totaux spécimens */}
         <div className="grid grid-cols-3 gap-3">
-          {SPECIMEN_CFG.map(s => (
+          {specimenCfg.map(s => (
             <div
               key={s.key}
               className={`card p-4 flex items-center gap-3 border ${s.border} ${s.bg} transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-md`}
@@ -374,10 +382,10 @@ export default function AdminPresencePage() {
                 {loadingS
                   ? <Skeleton className="h-8 w-16 mb-1" />
                   : <p className={`text-3xl font-bold tabular-nums ${s.color}`}>
-                      {(totaux[s.key] ?? 0).toLocaleString('fr-FR')}
+                      {(totaux[s.key] ?? 0).toLocaleString(t('common.locale'))}
                     </p>
                 }
-                <p className="text-[11px] text-fg-muted mt-0.5">{s.label} — total</p>
+                <p className="text-[11px] text-fg-muted mt-0.5">{s.label} {t('adminPresencePage.totalSuffix')}</p>
               </div>
               <BarChart2 size={24} className={`${s.color} opacity-40 flex-shrink-0`} />
             </div>
@@ -392,7 +400,7 @@ export default function AdminPresencePage() {
         <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-success animate-pulse" />
-            <h2 className="text-sm font-semibold text-fg">Utilisateurs en ligne</h2>
+            <h2 className="text-sm font-semibold text-fg">{t('adminPresencePage.onlineUsers')}</h2>
             {presence.count > 0 && (
               <span className="text-xs bg-success/10 text-success border border-success/20 px-2 py-0.5 rounded-full font-medium">
                 {presence.count}
@@ -417,8 +425,8 @@ export default function AdminPresencePage() {
               <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center mb-1">
                 <Users size={18} className="text-fg-subtle" />
               </div>
-              <p className="text-sm font-medium text-fg-muted">Aucun utilisateur connecté</p>
-              <p className="text-xs text-fg-subtle">Les membres apparaissent ici dès qu'ils ouvrent l'application</p>
+              <p className="text-sm font-medium text-fg-muted">{t('adminPresencePage.noConnectedUser')}</p>
+              <p className="text-xs text-fg-subtle">{t('adminPresencePage.usersAppearHint')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -435,8 +443,7 @@ export default function AdminPresencePage() {
           )}
 
           <p className="text-[10px] text-fg-subtle px-1 leading-relaxed">
-            Le bouton <WifiOff size={9} className="inline" /> (au survol) ferme la connexion SSE d'un membre.
-            Il se reconnectera automatiquement.
+            {t('adminPresencePage.kickHintPrefix')} <WifiOff size={9} className="inline" /> {t('adminPresencePage.kickHintSuffix')}
           </p>
         </div>
 
@@ -444,12 +451,12 @@ export default function AdminPresencePage() {
         <div className="lg:col-span-3 flex flex-col">
           <div className="flex items-center gap-2 mb-3">
             <Activity size={15} className="text-primary flex-shrink-0" />
-            <h2 className="text-sm font-semibold text-fg">Fil d'activité</h2>
+            <h2 className="text-sm font-semibold text-fg">{t('adminPresencePage.activityFeed')}</h2>
             <div className={`ml-auto flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
               sseOk ? 'text-success border-success/20 bg-success/5' : 'text-fg-subtle border-border'
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${sseOk ? 'bg-success animate-pulse' : 'bg-fg-subtle'}`} />
-              {sseOk ? 'En direct' : 'Hors ligne'}
+              {sseOk ? t('adminPresencePage.live') : t('adminPresencePage.offline')}
             </div>
           </div>
 
@@ -475,7 +482,7 @@ export default function AdminPresencePage() {
             ) : activity.length === 0 ? (
               <div className="p-10 flex flex-col items-center justify-center gap-2 text-center">
                 <Activity size={20} className="text-fg-subtle" />
-                <p className="text-sm text-fg-muted">Aucune activité récente</p>
+                <p className="text-sm text-fg-muted">{t('adminPresencePage.noRecentActivity')}</p>
               </div>
             ) : (
               <div className="overflow-y-auto thin-scroll divide-y divide-border/50">
@@ -496,8 +503,8 @@ export default function AdminPresencePage() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <BarChart2 size={15} className="text-primary flex-shrink-0" />
-          <h2 className="text-sm font-semibold text-fg">Activité par membre</h2>
-          <span className="text-xs text-fg-subtle">— saisies spécimens sur 7 j / 30 j</span>
+          <h2 className="text-sm font-semibold text-fg">{t('adminPresencePage.activityByMember')}</h2>
+          <span className="text-xs text-fg-subtle">{t('adminPresencePage.entriesRangeHint')}</span>
         </div>
 
         <div className="card overflow-hidden">
@@ -515,8 +522,8 @@ export default function AdminPresencePage() {
             </div>
           ) : parUser.length === 0 ? (
             <div className="p-10 text-center">
-              <p className="text-sm text-fg-muted">Aucune donnée d'activité disponible</p>
-              <p className="text-xs text-fg-subtle mt-1">Les métriques apparaissent dès qu'un membre crée des spécimens</p>
+              <p className="text-sm text-fg-muted">{t('adminPresencePage.noActivityData')}</p>
+              <p className="text-xs text-fg-subtle mt-1">{t('adminPresencePage.metricsAppearHint')}</p>
             </div>
           ) : (
             /* Scroll vertical si > 8 membres, horizontal toujours */
@@ -526,16 +533,16 @@ export default function AdminPresencePage() {
                   <thead className="sticky top-0 z-10 bg-surface datatable-thead">
                     <tr>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-fg-subtle uppercase tracking-wide border-b border-border">
-                        Membre
+                        {t('adminPresencePage.colMembre')}
                       </th>
                       <th className="px-5 py-3 text-center text-xs font-semibold text-fg-subtle uppercase tracking-wide border-b border-border w-24">
-                        7 j
+                        {t('adminPresencePage.col7j')}
                       </th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-fg-subtle uppercase tracking-wide border-b border-border w-56">
-                        30 j
+                        {t('adminPresencePage.col30j')}
                       </th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-fg-subtle uppercase tracking-wide border-b border-border hidden lg:table-cell">
-                        Dernière action
+                        {t('adminPresencePage.colDerniereAction')}
                       </th>
                     </tr>
                   </thead>
@@ -557,9 +564,9 @@ export default function AdminPresencePage() {
         </div>
 
         <p className="text-[10px] text-fg-subtle mt-2 px-1">
-          Les saisies correspondent aux créations de spécimens dans l'historique d'audit.{' '}
+          {t('adminPresencePage.entriesFootnotePrefix')}{' '}
           <span className="inline-flex items-center gap-0.5 text-warning align-middle">
-            <AlertTriangle size={9} /> inactif depuis &gt; 1 jour.
+            <AlertTriangle size={9} /> {t('adminPresencePage.inactiveOverOneDay')}
           </span>
         </p>
       </div>

@@ -6,6 +6,7 @@
 
 import { useState, useMemo } from 'react';
 import { X, UserPlus, Search } from 'lucide-react';
+import { useT } from '../lib/i18n';
 
 const ROLE_COLOR = {
   admin:     'bg-purple-100 text-purple-700 border-purple-200',
@@ -14,7 +15,9 @@ const ROLE_COLOR = {
   lecteur:   'bg-surface-3 text-fg-muted border-border-strong',
 };
 
-export default function AgentMultiSelect({ value = [], onChange, users = [], max = 5, label = 'Agents de terrain', hint }) {
+export default function AgentMultiSelect({ value = [], onChange, users = [], max = 5, label, hint }) {
+  const t = useT();
+  label ??= t('agentMultiSelect.defaultLabel');
   const [search, setSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -71,7 +74,7 @@ export default function AgentMultiSelect({ value = [], onChange, users = [], max
             onClick={() => setShowDropdown(!showDropdown)}
             className="inline-flex items-center gap-1.5 text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg"
           >
-            <UserPlus size={12} /> Ajouter un agent
+            <UserPlus size={12} /> {t('agentMultiSelect.addAgent')}
           </button>
         )}
       </div>
@@ -88,13 +91,13 @@ export default function AgentMultiSelect({ value = [], onChange, users = [], max
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un utilisateur…"
+              placeholder={t('agentMultiSelect.searchUser')}
               className="flex-1 text-sm bg-transparent border-none outline-none"
             />
           </div>
           <div className="max-h-64 overflow-y-auto">
             {filtered.length === 0 ? (
-              <p className="px-3 py-4 text-xs text-fg-subtle text-center">Aucun utilisateur disponible</p>
+              <p className="px-3 py-4 text-xs text-fg-subtle text-center">{t('agentMultiSelect.noUserAvailable')}</p>
             ) : (
               filtered.map((u) => (
                 <button

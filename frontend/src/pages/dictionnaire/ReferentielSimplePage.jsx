@@ -7,11 +7,13 @@ import { dialog } from '../../lib/dialog';
 import FormField from '../../components/FormField';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, Button, PageHeader, Spinner, DataTable, Pagination, Select } from '../../components/ui';
+import { useT, interpolate } from '../../lib/i18n';
 
 const ROLES = { admin: 5, superviseur: 4, chercheur: 3, technicien: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
 
 export default function ReferentielSimplePage({ config }) {
+  const t = useT();
   const { endpoint, label, labelPluriel, fields, listColumns } = config;
   const { user } = useAuthStore();
   const canEdit   = isMin(user?.role, 'chercheur');
@@ -58,25 +60,25 @@ export default function ReferentielSimplePage({ config }) {
       if (editing.id) await api.put(`/dictionnaire/${endpoint}/${editing.id}`, editing);
       else            await api.post(`/dictionnaire/${endpoint}`, editing);
       setEditing(null); refresh();
-    } catch (err) { setErr(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { setErr(err.response?.data?.error || t('referentielSimple.errorGeneric')); }
   };
 
   const toggleActif = useCallback(async (item) => {
     try {
       await api.patch(`/dictionnaire/${endpoint}/${item.id}/${item.actif ? 'desactiver' : 'activer'}`);
       refresh();
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
-  }, [endpoint, refresh]);
+    } catch (err) { toast.error(err.response?.data?.error || t('referentielSimple.errorGeneric')); }
+  }, [endpoint, refresh, t]);
 
   const remove = useCallback(async (item) => {
     const ok = await dialog.confirm({
-      title: `Supprimer « ${item.nom} » ?`,
-      message: 'Cette entrée sera définitivement supprimée du référentiel.',
+      title: interpolate(t('referentielSimple.deleteTitle'), { nom: item.nom }),
+      message: t('referentielSimple.deleteMessage'),
     });
     if (!ok) return;
     try { await api.delete(`/dictionnaire/${endpoint}/${item.id}`); refresh(); }
-    catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
-  }, [endpoint, refresh]);
+    catch (err) { toast.error(err.response?.data?.error || t('referentielSimple.errorGeneric')); }
+  }, [endpoint, refresh, t]);
 
   // Pagination côté client sur les items déjà filtrés par l'API
   const pageCount = Math.ceil(items.length / limit) || 1;
@@ -92,12 +94,12 @@ export default function ReferentielSimplePage({ config }) {
     })),
     {
       key:          '_statut',
-      label:        'Statut',
+      label:        t('referentielSimple.colStatut'),
       width:        '90px',
       skeletonWidth: '50%',
       render: (item) => (
         <Badge tone={item.actif ? 'success' : 'default'} dot>
-          {item.actif ? 'Actif' : 'Inactif'}
+          {item.actif ? t('referentielSimple.actif') : t('referentielSimple.inactif')}
         </Badge>
       ),
     },
@@ -113,14 +115,14 @@ export default function ReferentielSimplePage({ config }) {
             <>
               <button
                 onClick={() => toggleActif(item)}
-                title={item.actif ? 'Désactiver' : 'Activer'}
+                title={item.actif ? t('referentielSimple.desactiver') : t('referentielSimple.activer')}
                 className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
               >
                 {item.actif ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
               </button>
               <button
                 onClick={() => openEdit(item)}
-                title="Modifier"
+                title={t('referentielSimple.modifier')}
                 className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
               >
                 <Edit2 size={14} />
@@ -130,7 +132,7 @@ export default function ReferentielSimplePage({ config }) {
           {canDelete && (
             <button
               onClick={() => remove(item)}
-              title="Supprimer"
+              title={t('referentielSimple.supprimer')}
               className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
             >
               <Trash2 size={14} />
@@ -144,13 +146,13 @@ export default function ReferentielSimplePage({ config }) {
   return (
     <div className="max-w-screen-2xl space-y-5">
       <Link to="/dictionnaire" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg">
-        <ChevronLeft size={16} /> Dictionnaire
+        <ChevronLeft size={16} /> {t('referentielSimple.backToDictionnaire')}
       </Link>
 
       <PageHeader
         title={labelPluriel}
-        subtitle={`${items.length} entrée(s)`}
-        actions={canEdit && <Button icon={Plus} onClick={openCreate}>Nouveau</Button>}
+        subtitle={interpolate(t('referentielSimple.entriesCount'), { n: items.length })}
+        actions={canEdit && <Button icon={Plus} onClick={openCreate}>{t('referentielSimple.newBtn')}</Button>}
       />
 
       {/* Filtres */}
@@ -160,7 +162,7 @@ export default function ReferentielSimplePage({ config }) {
           <input
             value={filterSearch}
             onChange={(e) => setFs(e.target.value)}
-            placeholder="Rechercher…"
+            placeholder={t('referentielSimple.searchPlaceholder')}
             className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-border-strong bg-surface text-fg focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           {filterSearch && (
@@ -173,9 +175,9 @@ export default function ReferentielSimplePage({ config }) {
           value={filterActif} onChange={setFa}
           wrapperClassName="w-48 flex-shrink-0"
           options={[
-            { value: 'all',      label: 'Tous' },
-            { value: 'actifs',   label: 'Actifs uniquement' },
-            { value: 'inactifs', label: 'Inactifs uniquement' },
+            { value: 'all',      label: t('referentielSimple.filterAll') },
+            { value: 'actifs',   label: t('referentielSimple.filterActifsOnly') },
+            { value: 'inactifs', label: t('referentielSimple.filterInactifsOnly') },
           ]}
         />
       </Card>
@@ -195,8 +197,8 @@ export default function ReferentielSimplePage({ config }) {
             empty={
               <span className="text-fg-subtle text-sm">
                 {filterSearch || filterActif !== 'all'
-                  ? 'Aucun résultat pour ces filtres'
-                  : 'Aucune entrée dans ce référentiel'}
+                  ? t('referentielSimple.noResultsFilter')
+                  : t('referentielSimple.noEntries')}
               </span>
             }
           />
@@ -216,7 +218,7 @@ export default function ReferentielSimplePage({ config }) {
           <form onSubmit={submit} className="bg-surface rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4 my-4 sm:mt-16">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-fg">
-                {editing.id ? `Modifier ${label}` : `Nouveau ${label}`}
+                {editing.id ? interpolate(t('referentielSimple.modifierLabel'), { label }) : interpolate(t('referentielSimple.nouveauLabel'), { label })}
               </h2>
               <button type="button" onClick={() => setEditing(null)} className="p-1 text-fg-subtle hover:text-fg">
                 <X size={18} />
@@ -234,8 +236,8 @@ export default function ReferentielSimplePage({ config }) {
               />
             ))}
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setEditing(null)} className="btn-secondary">Annuler</button>
-              <button type="submit" className="btn-primary">{editing.id ? 'Enregistrer' : 'Créer'}</button>
+              <button type="button" onClick={() => setEditing(null)} className="btn-secondary">{t('referentielSimple.cancel')}</button>
+              <button type="submit" className="btn-primary">{editing.id ? t('referentielSimple.save') : t('referentielSimple.create')}</button>
             </div>
           </form>
         </div>

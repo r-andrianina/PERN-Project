@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
+import { useT } from '../../lib/i18n';
 
 /**
  * Fil d'Ariane générique.
@@ -9,8 +10,9 @@ import { ChevronRight } from 'lucide-react';
  *   - Le dernier élément représente la page courante
  */
 export default function Breadcrumb({ items = [] }) {
+  const t = useT();
   return (
-    <nav aria-label="Fil d'Ariane" className="flex items-center gap-1 flex-wrap">
+    <nav aria-label={t('breadcrumb.label')} className="flex items-center gap-1 flex-wrap">
       {items.map((item, idx) => {
         const isLast = idx === items.length - 1;
         return (

@@ -5,17 +5,12 @@
 //   <SpecimenIcon type="moustique" size={24} />
 //   <SpecimenIcon type="tique"     size={20} className="opacity-90" />
 
+import { useT } from '../lib/i18n';
+
 const ICONS = {
   moustique: '/icons/mosquito.png',
   tique:     '/icons/tick.png',
   puce:      '/icons/flea.png',
-};
-
-const LABELS = {
-  moustique: 'Moustique',
-  tique:     'Tique',
-  puce:      'Puce',
-  autre:     'Autre spécimen',
 };
 
 // Icône SVG générique pour les types sans image PNG
@@ -32,12 +27,13 @@ function BugIcon({ size, className }) {
 }
 
 export default function SpecimenIcon({ type, size = 20, className = '' }) {
+  const t = useT();
   const src = ICONS[type];
   if (src) {
     return (
       <img
         src={src}
-        alt={LABELS[type] ?? type}
+        alt={t(`specimenTypes.${type}`)}
         width={size}
         height={size}
         className={`object-contain flex-shrink-0 ${className}`}

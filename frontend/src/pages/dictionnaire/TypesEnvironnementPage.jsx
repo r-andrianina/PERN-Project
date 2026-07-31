@@ -1,22 +1,24 @@
 import ReferentielSimplePage from './ReferentielSimplePage';
+import { useT } from '../../lib/i18n';
 
-const config = {
+const getConfig = (t) => ({
   endpoint:     'types-environnement',
-  label:        'type d\'environnement',
-  labelPluriel: 'Types d\'environnement',
+  label:        t('referentielConfig.typeEnvironnementLabel'),
+  labelPluriel: t('referentielConfig.typeEnvironnementLabelPluriel'),
   fields: [
-    { name: 'nom',         label: 'Nom',         required: true },
-    { name: 'description', label: 'Description', type: 'textarea' },
+    { name: 'nom',         label: t('common.name'), required: true },
+    { name: 'description', label: t('common.description'), type: 'textarea' },
   ],
   listColumns: [
-    { key: 'nom',         header: 'Nom' },
-    { key: 'description', header: 'Description',
+    { key: 'nom',         header: t('common.name') },
+    { key: 'description', header: t('common.description'),
       render: (i) => <span className="text-gray-500 text-xs">{i.description || '—'}</span> },
-    { key: 'usage', header: 'Utilisations',
+    { key: 'usage', header: t('referentielConfig.utilisations'),
       render: (i) => i._count?.methodes ?? 0 },
   ],
-};
+});
 
 export default function TypesEnvironnementPage() {
-  return <ReferentielSimplePage config={config} />;
+  const t = useT();
+  return <ReferentielSimplePage config={getConfig(t)} />;
 }

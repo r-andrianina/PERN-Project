@@ -4,10 +4,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
+import { useT } from '../lib/i18n';
 
 export default function AutocompleteUser({
   value, onChange, users = [], label, placeholder, hint, required, error,
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState(0);
   const ref = useRef(null);
@@ -72,7 +74,7 @@ export default function AutocompleteUser({
         <div className="absolute z-30 w-full mt-1 bg-surface rounded-xl shadow-xl border border-border-strong overflow-hidden">
           <div className="px-3 py-1.5 bg-surface-2 border-b border-border">
             <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wider">
-              Suggestions ({filtered.length} utilisateur{filtered.length > 1 ? 's' : ''})
+              {t('autocompleteUser.suggestions')} ({filtered.length} {filtered.length > 1 ? t('autocompleteUser.users') : t('autocompleteUser.user')})
             </p>
           </div>
           <div className="max-h-64 overflow-y-auto">
@@ -100,7 +102,7 @@ export default function AutocompleteUser({
           </div>
           <div className="px-3 py-1.5 bg-surface-2 border-t border-border">
             <p className="text-[10px] text-fg-subtle italic">
-              Ou continuez à taper pour saisir un porteur externe (non utilisateur)
+              {t('autocompleteUser.externalHint')}
             </p>
           </div>
         </div>

@@ -7,13 +7,16 @@
 import { useEffect, useState } from 'react';
 import { Tag, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import api from '../api/axios';
+import { useT } from '../lib/i18n';
 
 export default function IdTerrainField({
   methodeId, value, onChange, error,
   buildPreviewUrl = (id) => `/methodes/${id}/preview-id-terrain`,
-  label = 'ID terrain',
+  label,
   formatHint = <>{'<CODE>'}_{'<n>'}</>,
 }) {
+  const t = useT();
+  label ??= t('idTerrainField.label');
   const [loading, setLoading] = useState(false);
   const [warning, setWarning] = useState(null);
   const [auto, setAuto] = useState(true); // l'utilisateur n'a pas encore édité
@@ -27,7 +30,7 @@ export default function IdTerrainField({
       setWarning(r.data.warning || null);
       if (auto) onChange(r.data.idTerrain || '');
     } catch {
-      setWarning('Impossible de générer l\'ID');
+      setWarning(t('idTerrainField.genError'));
     } finally { setLoading(false); }
   };
 
@@ -60,7 +63,7 @@ export default function IdTerrainField({
         <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
           <Tag size={12} className="text-primary" />
           {label}
-          {auto && <span className="text-[10px] text-primary normal-case font-normal">(auto)</span>}
+          {auto && <span className="text-[10px] text-primary normal-case font-normal">({t('idTerrainField.auto')})</span>}
         </label>
         {!auto && (
           <button
@@ -68,7 +71,7 @@ export default function IdTerrainField({
             onClick={resetToAuto}
             className="text-[10px] text-fg-subtle hover:text-primary inline-flex items-center gap-1"
           >
-            <RefreshCw size={10} /> Régénérer
+            <RefreshCw size={10} /> {t('idTerrainField.regenerate')}
           </button>
         )}
       </div>
@@ -78,7 +81,7 @@ export default function IdTerrainField({
           type="text"
           value={value || ''}
           onChange={handleManualChange}
-          placeholder={methodeId ? '...' : 'Sélectionnez d\'abord une méthode'}
+          placeholder={methodeId ? '...' : t('idTerrainField.selectMethodFirst')}
           disabled={!methodeId}
           className={inputCls}
         />
@@ -98,7 +101,7 @@ export default function IdTerrainField({
       )}
       {!error && !warning && methodeId && (
         <p className="text-xs text-fg-subtle">
-          Format : <span className="font-mono">{formatHint}</span> — modifiable si besoin
+          {t('idTerrainField.formatPrefix')} <span className="font-mono">{formatHint}</span> {t('idTerrainField.formatSuffix')}
         </p>
       )}
     </div>

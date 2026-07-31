@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { toastEmitter } from '../../lib/toast';
+import { useT } from '../../lib/i18n';
 
 // ── Config par type ───────────────────────────────────────────
 const TYPE_CFG = {
@@ -135,6 +136,7 @@ function ToastItem({ id, type, message, title, duration, onRemove }) {
 
 // ── Provider — à placer une seule fois autour de l'app ────────
 export function ToastProvider({ children }) {
+  const t = useT();
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((payload) => {
@@ -161,7 +163,7 @@ export function ToastProvider({ children }) {
         <div
           className="fixed top-4 right-4 z-[9999] flex flex-col gap-2.5 pointer-events-none"
           aria-live="polite"
-          aria-label="Notifications"
+          aria-label={t('notificationBell.title')}
         >
           {toasts.map(t => (
             <div key={t.id} className="pointer-events-auto">

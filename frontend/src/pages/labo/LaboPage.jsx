@@ -7,34 +7,28 @@ import {
 } from 'lucide-react';
 import { Card, Button, Badge, EmptyState, PageHeader, Spinner, Pagination, DataTable } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
+import { useT } from '../../lib/i18n';
 
 // ── Config ────────────────────────────────────────────────────
 
-const TYPE_CONFIG = {
-  identification_morpho: { label: 'Morphologie',          Icon: Eye,          color: 'text-fg-muted'  },
-  broyage_pool:          { label: 'Broyage / Pool',       Icon: Layers,       color: 'text-info'      },
-  dessication:           { label: 'Dessication',           Icon: TestTube,     color: 'text-info'      },
-  extraction:            { label: 'Extraction ADN/ARN',    Icon: Dna,          color: 'text-success'   },
-  amplification_pcr:     { label: 'PCR Standard',          Icon: Zap,          color: 'text-warning'   },
-  qpcr:                  { label: 'qPCR / RT-qPCR',        Icon: Activity,     color: 'text-primary'   },
-  nested_pcr:            { label: 'Nested PCR',             Icon: GitBranch,    color: 'text-warning'   },
-  sequencage:            { label: 'Séquençage',             Icon: Waves,        color: 'text-primary'   },
-  microscopie:           { label: 'Microscopie',            Icon: Microscope,   color: 'text-danger'    },
-  autre:                 { label: 'Autre',                  Icon: FlaskConical, color: 'text-fg-muted'  },
-};
+const getTypeConfig = (t) => ({
+  identification_morpho: { label: t('laboPage.typeMorpho'),      Icon: Eye,          color: 'text-fg-muted'  },
+  broyage_pool:          { label: t('laboPage.typeBroyage'),     Icon: Layers,       color: 'text-info'      },
+  dessication:           { label: t('laboPage.typeDessication'), Icon: TestTube,     color: 'text-info'      },
+  extraction:            { label: t('laboPage.typeExtraction'),  Icon: Dna,          color: 'text-success'   },
+  amplification_pcr:     { label: t('laboPage.typePcr'),         Icon: Zap,          color: 'text-warning'   },
+  qpcr:                  { label: t('laboPage.typeQpcr'),        Icon: Activity,     color: 'text-primary'   },
+  nested_pcr:            { label: t('laboPage.typeNestedPcr'),   Icon: GitBranch,    color: 'text-warning'   },
+  sequencage:            { label: t('laboPage.typeSequencage'),  Icon: Waves,        color: 'text-primary'   },
+  microscopie:           { label: t('laboPage.typeMicroscopie'), Icon: Microscope,   color: 'text-danger'    },
+  autre:                 { label: t('laboPage.typeAutre'),       Icon: FlaskConical, color: 'text-fg-muted'  },
+});
 
-const STATUT_CONFIG = {
-  brut:     { label: 'Brut',     tone: 'default', Icon: FileEdit    },
-  valide:   { label: 'Validé',   tone: 'success', Icon: ShieldCheck },
-  invalide: { label: 'Invalide', tone: 'danger',  Icon: ShieldAlert },
-};
-
-const SPECIMEN_LABELS = {
-  moustique: 'Moustique',
-  tique:     'Tique',
-  puce:      'Puce',
-  autre:     'Autre spécimen',
-};
+const getStatutConfig = (t) => ({
+  brut:     { label: t('laboPage.statutBrut'),     tone: 'default', Icon: FileEdit    },
+  valide:   { label: t('laboPage.statutValide'),   tone: 'success', Icon: ShieldCheck },
+  invalide: { label: t('laboPage.statutInvalide'), tone: 'danger',  Icon: ShieldAlert },
+});
 
 // ── FilterSelect — dropdown custom ───────────────────────────
 
@@ -123,13 +117,6 @@ function FilterSelect({ label, value, onChange, options }) {
 
 // ── StatutPills ───────────────────────────────────────────────
 
-const STATUT_PILLS = [
-  { value: '',         label: 'Tous',     cls: '' },
-  { value: 'brut',     label: 'Brut',     cls: 'valide-brut' },
-  { value: 'valide',   label: 'Validé',   cls: 'valide-ok' },
-  { value: 'invalide', label: 'Invalide', cls: 'valide-ko' },
-];
-
 const PILL_ACTIVE = {
   '':         'bg-surface shadow-card text-fg',
   'brut':     'bg-fg/8 shadow-card text-fg',
@@ -138,6 +125,13 @@ const PILL_ACTIVE = {
 };
 
 function StatutPills({ value, onChange }) {
+  const t = useT();
+  const STATUT_PILLS = [
+    { value: '',         label: t('laboPage.filterStatutAll') },
+    { value: 'brut',     label: t('laboPage.statutBrut') },
+    { value: 'valide',   label: t('laboPage.statutValide') },
+    { value: 'invalide', label: t('laboPage.statutInvalide') },
+  ];
   return (
     <div className="flex items-center gap-0.5 p-1 bg-surface-2 rounded-xl border border-border">
       {STATUT_PILLS.map((s) => (
@@ -163,7 +157,8 @@ function StatutPills({ value, onChange }) {
 // ── Badges tableau ────────────────────────────────────────────
 
 function TypeBadge({ type }) {
-  const cfg = TYPE_CONFIG[type] ?? { label: type, Icon: FlaskConical, color: 'text-fg-muted' };
+  const t = useT();
+  const cfg = getTypeConfig(t)[type] ?? { label: type, Icon: FlaskConical, color: 'text-fg-muted' };
   return (
     <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${cfg.color}`}>
       <cfg.Icon size={13} />
@@ -173,7 +168,8 @@ function TypeBadge({ type }) {
 }
 
 function StatutBadge({ statut }) {
-  const cfg = STATUT_CONFIG[statut] ?? { label: statut, tone: 'default' };
+  const t = useT();
+  const cfg = getStatutConfig(t)[statut] ?? { label: statut, tone: 'default' };
   return <Badge tone={cfg.tone} size="sm">{cfg.label}</Badge>;
 }
 
@@ -186,13 +182,14 @@ function BandeBadge({ statut }) {
 // ── ModuleResume ──────────────────────────────────────────────
 
 function ModuleResume({ m }) {
+  const t = useT();
   if (m.identificationMorpho) {
     const n = m.identificationMorpho;
     return <span className="text-xs text-fg-subtle">{n.especeIdentifiee || n.cleUtilisee || '—'}</span>;
   }
   if (m.broyagePool) {
     const n = m.broyagePool;
-    return <span className="text-xs text-fg-subtle">{n.aspectMacro ? `Aspect : ${n.aspectMacro}` : n.methodeBroyage || '—'}</span>;
+    return <span className="text-xs text-fg-subtle">{n.aspectMacro ? `${t('laboPage.aspectPrefix')} ${n.aspectMacro}` : n.methodeBroyage || '—'}</span>;
   }
   if (m.dessication) {
     const n = m.dessication;
@@ -207,7 +204,7 @@ function ModuleResume({ m }) {
   if (m.qpcr) {
     const n = m.qpcr;
     return n.valeurCt != null
-      ? <span className="text-xs text-fg-subtle">Ct = {n.valeurCt}</span>
+      ? <span className="text-xs text-fg-subtle">{t('laboPage.ctPrefix')} {n.valeurCt}</span>
       : <BandeBadge statut={n.interpretation} />;
   }
   if (m.nestedPcr) return <BandeBadge statut={m.nestedPcr.resultatFinal} />;
@@ -223,19 +220,26 @@ function ModuleResume({ m }) {
 
 // ── Colonnes tableau ──────────────────────────────────────────
 
-const COLUMNS = [
+const getColumns = (t) => {
+  const specimenLabels = {
+    moustique: t('specimenTypes.moustique'),
+    tique:     t('specimenTypes.tique'),
+    puce:      t('specimenTypes.puce'),
+    autre:     t('specimenTypes.autre'),
+  };
+  return [
   {
     key: 'type',
-    label: 'Protocole',
+    label: t('laboPage.colProtocole'),
     render: (m) => <TypeBadge type={m.typeManipulation} />,
   },
   {
     key: 'specimen',
-    label: 'Spécimen',
+    label: t('laboPage.colSpecimen'),
     render: (m) => (
       <div className="text-xs">
         <p className="font-medium text-fg">
-          {SPECIMEN_LABELS[m.specimenType] ?? m.specimenType}
+          {specimenLabels[m.specimenType] ?? m.specimenType}
           {' '}<span className="text-fg-subtle">#{m.specimenId}</span>
         </p>
       </div>
@@ -243,25 +247,25 @@ const COLUMNS = [
   },
   {
     key: 'resume',
-    label: 'Résultat principal',
+    label: t('laboPage.colResume'),
     render: (m) => <ModuleResume m={m} />,
   },
   {
     key: 'statut',
-    label: 'Statut',
+    label: t('laboPage.colStatut'),
     width: '100px',
     render: (m) => <StatutBadge statut={m.statut} />,
   },
   {
     key: 'operateur',
-    label: 'Opérateur',
+    label: t('laboPage.colOperateur'),
     render: (m) => m.operateur
       ? <span className="text-sm text-fg">{m.operateur.prenom} {m.operateur.nom}</span>
       : <span className="text-fg-subtle">—</span>,
   },
   {
     key: 'pathogene',
-    label: 'Pathogène ciblé',
+    label: t('laboPage.colPathogene'),
     className: 'hidden 2xl:table-cell',
     render: (m) => {
       const p = m.pcr?.pathogeneCible ?? m.qpcr?.pathogeneCible ?? m.nestedPcr?.pathogeneCible;
@@ -272,15 +276,17 @@ const COLUMNS = [
   },
   {
     key: 'dateDebut',
-    label: 'Date',
+    label: t('laboPage.colDate'),
     width: '100px',
-    render: (m) => <span className="text-xs text-fg-muted">{new Date(m.dateDebut).toLocaleDateString('fr-FR')}</span>,
+    render: (m) => <span className="text-xs text-fg-muted">{new Date(m.dateDebut).toLocaleDateString(t('common.locale'))}</span>,
   },
-];
+  ];
+};
 
 // ── Page ──────────────────────────────────────────────────────
 
 export default function LaboPage() {
+  const t = useT();
   const navigate = useNavigate();
 
   const [page,         setPage]         = useState(1);
@@ -302,16 +308,17 @@ export default function LaboPage() {
 
   const hasFilter = statut || specimenType || typeManip;
   const activeCount = [statut, specimenType, typeManip].filter(Boolean).length;
+  const typeConfig = getTypeConfig(t);
 
   return (
     <div className="max-w-screen-2xl space-y-5">
       <PageHeader
         icon={FlaskConical} iconTone="warning"
-        title="Laboratoire"
-        subtitle="9 protocoles — Morphologie · Extraction · PCR · qPCR · Nested · Séquençage · Microscopie"
+        title={t('laboPage.title')}
+        subtitle={t('laboPage.subtitle')}
         actions={
           <Button icon={Plus} onClick={() => navigate('/labo/nouvelle')}>
-            Nouvelle manipulation
+            {t('laboPage.newManip')}
           </Button>
         }
       />
@@ -341,26 +348,26 @@ export default function LaboPage() {
 
         {/* Protocole — custom dropdown */}
         <FilterSelect
-          label="Protocole"
+          label={t('laboPage.filterProtocole')}
           value={typeManip}
           onChange={(v) => { setTypeManip(v); setPage(1); }}
           options={[
-            { value: '', label: 'Tous les protocoles', Icon: FlaskConical, color: 'text-fg-subtle' },
-            ...Object.entries(TYPE_CONFIG).map(([v, c]) => ({ value: v, label: c.label, Icon: c.Icon, color: c.color })),
+            { value: '', label: t('laboPage.filterAllProtocoles'), Icon: FlaskConical, color: 'text-fg-subtle' },
+            ...Object.entries(typeConfig).map(([v, c]) => ({ value: v, label: c.label, Icon: c.Icon, color: c.color })),
           ]}
         />
 
         {/* Spécimen — custom dropdown */}
         <FilterSelect
-          label="Spécimen"
+          label={t('laboPage.filterSpecimen')}
           value={specimenType}
           onChange={(v) => { setSpecimenType(v); setPage(1); }}
           options={[
-            { value: '',          label: 'Tous les types' },
-            { value: 'moustique', label: 'Moustique' },
-            { value: 'tique',     label: 'Tique' },
-            { value: 'puce',      label: 'Puce' },
-            { value: 'autre',     label: 'Autre spécimen' },
+            { value: '',          label: t('laboPage.filterAllTypes') },
+            { value: 'moustique', label: t('specimenTypes.moustique') },
+            { value: 'tique',     label: t('specimenTypes.tique') },
+            { value: 'puce',      label: t('specimenTypes.puce') },
+            { value: 'autre',     label: t('specimenTypes.autre') },
           ]}
         />
 
@@ -386,14 +393,14 @@ export default function LaboPage() {
             "
           >
             <X size={13} />
-            Effacer
+            {t('laboPage.clear')}
           </button>
         )}
 
         {/* Compteur à droite */}
         {!loading && (
           <span className="ml-auto text-xs text-fg-subtle hidden sm:block">
-            {total} manipulation{total > 1 ? 's' : ''}
+            {total} {t('laboPage.manipulationWord')}{total > 1 ? 's' : ''}
           </span>
         )}
       </div>
@@ -405,22 +412,22 @@ export default function LaboPage() {
         ) : manipulations.length === 0 ? (
           <EmptyState
             icon={FlaskConical}
-            title="Aucune manipulation"
-            description={hasFilter ? 'Aucun résultat pour ces filtres.' : 'Enregistrez la première manipulation laboratoire.'}
+            title={t('laboPage.noManip')}
+            description={hasFilter ? t('laboPage.noResultsFilter') : t('laboPage.registerFirst')}
             action={!hasFilter
-              ? { label: 'Nouvelle manipulation', icon: Plus, onClick: () => navigate('/labo/nouvelle') }
+              ? { label: t('laboPage.newManip'), icon: Plus, onClick: () => navigate('/labo/nouvelle') }
               : undefined
             }
           />
         ) : (
           <>
             <DataTable
-              columns={COLUMNS}
+              columns={getColumns(t)}
               rows={manipulations}
               onRowClick={(m) => navigate(`/labo/${m.id}`)}
             />
             <div className="px-4 py-3 border-t border-border flex items-center justify-between">
-              <p className="text-xs text-fg-subtle">{total} manipulation{total > 1 ? 's' : ''}</p>
+              <p className="text-xs text-fg-subtle">{total} {t('laboPage.manipulationWord')}{total > 1 ? 's' : ''}</p>
               <Pagination page={page} pages={pages} onChange={setPage} />
             </div>
           </>

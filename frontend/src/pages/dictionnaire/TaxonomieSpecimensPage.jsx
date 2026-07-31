@@ -12,30 +12,30 @@ import FormField from '../../components/FormField';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
+import { useT, interpolate } from '../../lib/i18n';
 
 const ROLES = { admin: 5, superviseur: 4, chercheur: 3, technicien: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
 
-const NIVEAUX = [
-  { value: 'ordre',        label: 'Ordre' },
-  { value: 'famille',      label: 'Famille' },
-  { value: 'sous_famille', label: 'Sous-famille' },
-  { value: 'genre',        label: 'Genre' },
-  { value: 'sous_genre',   label: 'Sous-genre' },
-  { value: 'espece',       label: 'Espèce' },
-  { value: 'sous_espece',  label: 'Sous-espèce' },
+const getNiveaux = (t) => [
+  { value: 'ordre',        label: t('taxonomieHotesPage.niveauOrdre') },
+  { value: 'famille',      label: t('taxonomieHotesPage.niveauFamille') },
+  { value: 'sous_famille', label: t('taxonomieHotesPage.niveauSousFamille') },
+  { value: 'genre',        label: t('taxonomieHotesPage.niveauGenre') },
+  { value: 'sous_genre',   label: t('taxonomieHotesPage.niveauSousGenre') },
+  { value: 'espece',       label: t('taxonomieHotesPage.niveauEspece') },
+  { value: 'sous_espece',  label: t('taxonomieHotesPage.niveauSousEspece') },
 ];
-const NIVEAU_LABEL = Object.fromEntries(NIVEAUX.map((n) => [n.value, n.label]));
 
-const NIVEAU_DESC = {
-  ordre:        "Le grand groupe biologique — ex: Diptera regroupe tous les insectes à 2 ailes, dont les moustiques.",
-  famille:      "Regroupe les genres proches — ex: Culicidae, la famille des moustiques.",
-  sous_famille: "Subdivision optionnelle de la famille — ex: Anophelinae et Culicinae chez les moustiques.",
-  genre:        "Le groupe d'espèces partageant des caractéristiques communes — ex: Anopheles, Aedes.",
-  sous_genre:   "Subdivision optionnelle du genre, utilisée quand il est très diversifié — ex: Anopheles (Cellia).",
-  espece:       "L'unité de base — combinée au genre, elle forme le nom binomial (ex: Anopheles gambiae).",
-  sous_espece:  "Subdivision optionnelle de l'espèce, pour des populations ou variétés distinctes.",
-};
+const getNiveauDesc = (t) => ({
+  ordre:        t('taxonomieSpecimensPage.niveauDescOrdre'),
+  famille:      t('taxonomieSpecimensPage.niveauDescFamille'),
+  sous_famille: t('taxonomieSpecimensPage.niveauDescSousFamille'),
+  genre:        t('taxonomieSpecimensPage.niveauDescGenre'),
+  sous_genre:   t('taxonomieSpecimensPage.niveauDescSousGenre'),
+  espece:       t('taxonomieSpecimensPage.niveauDescEspece'),
+  sous_espece:  t('taxonomieSpecimensPage.niveauDescSousEspece'),
+});
 
 const NIVEAU_ENFANT = {
   ordre:        ['famille'],
@@ -47,10 +47,10 @@ const NIVEAU_ENFANT = {
   sous_espece:  [],
 };
 
-const TYPES = [
-  { value: 'moustique', label: 'Moustique' },
-  { value: 'tique',     label: 'Tique' },
-  { value: 'puce',      label: 'Puce' },
+const getTypes = (t) => [
+  { value: 'moustique', label: t('specimenTypes.moustique') },
+  { value: 'tique',     label: t('specimenTypes.tique') },
+  { value: 'puce',      label: t('specimenTypes.puce') },
 ];
 
 const TYPE_COLOR = {
@@ -63,6 +63,9 @@ const TYPE_COLOR = {
 const INFO_STORAGE_KEY = 'taxonomieSpecimens.infoOpen';
 
 function HierarchyInfoPanel() {
+  const t = useT();
+  const niveaux = getNiveaux(t);
+  const niveauDesc = getNiveauDesc(t);
   const [open, setOpen] = useState(() => localStorage.getItem(INFO_STORAGE_KEY) === 'true');
 
   const toggle = () => {
@@ -80,7 +83,7 @@ function HierarchyInfoPanel() {
         className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-surface-2 transition-colors"
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-fg">
-          <Info size={15} className="text-primary" /> Comprendre la hiérarchie
+          <Info size={15} className="text-primary" /> {t('taxonomieSpecimensPage.comprendreHierarchie')}
         </span>
         {open ? <ChevronUp size={15} className="text-fg-subtle" /> : <ChevronDown size={15} className="text-fg-subtle" />}
       </button>
@@ -88,26 +91,22 @@ function HierarchyInfoPanel() {
       {open && (
         <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
-            {NIVEAUX.map((n) => (
+            {niveaux.map((n) => (
               <div key={n.value} className="flex items-start gap-2.5">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle w-24 flex-shrink-0 pt-0.5">
                   {n.label}
                 </span>
-                <span className="text-xs text-fg-muted leading-relaxed">{NIVEAU_DESC[n.value]}</span>
+                <span className="text-xs text-fg-muted leading-relaxed">{niveauDesc[n.value]}</span>
               </div>
             ))}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
             <div className="px-3 py-2.5 bg-surface-2 rounded-xl text-xs text-fg-muted leading-relaxed">
-              <span className="font-mono font-semibold text-fg">« sp. »</span> au niveau espèce signifie
-              « espèce non déterminée » — le genre (ou sous-genre) est connu, mais l'espèce précise
-              n'a pas encore été identifiée sur le terrain (ex: <span className="italic">Anopheles sp.</span>).
+              <span className="font-mono font-semibold text-fg">{t('taxonomieSpecimensPage.note1Tag')}</span> {t('taxonomieSpecimensPage.note1TextPrefix')} <span className="italic">Anopheles sp.</span>{t('taxonomieSpecimensPage.note1TextSuffix')}
             </div>
             <div className="px-3 py-2.5 bg-surface-2 rounded-xl text-xs text-fg-muted leading-relaxed">
-              Un sous-genre ou une sous-espèce peut porter le <strong>même nom</strong> que son genre/espèce
-              parent (ex: sous-genre <span className="italic">Aedes</span> sous le genre <span className="italic">Aedes</span>) —
-              c'est la convention du sous-genre/sous-espèce <strong>nominotypique</strong>, pas une erreur ni un doublon.
+              {t('taxonomieSpecimensPage.note2Prefix')} <strong>{t('taxonomieSpecimensPage.note2Strong1')}</strong> {t('taxonomieSpecimensPage.note2Mid1')} <span className="italic">Aedes</span> {t('taxonomieSpecimensPage.note2Mid2')} <span className="italic">Aedes</span>{t('taxonomieSpecimensPage.note2Mid3')} <strong>{t('taxonomieSpecimensPage.note2Strong2')}</strong>{t('taxonomieSpecimensPage.note2Suffix')}
             </div>
           </div>
         </div>
@@ -117,7 +116,8 @@ function HierarchyInfoPanel() {
 }
 
 // ----- noeud d'arbre récursif
-function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, canEdit, canDelete, expandedIds, setExpandedIds }) {
+function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, canEdit, canDelete, expandedIds, setExpandedIds, niveauLabel }) {
+  const t = useT();
   const hasChildren = node.enfants?.length > 0;
   const expanded    = expandedIds.has(node.id);
   const enfantsAutorises = NIVEAU_ENFANT[node.niveau] || [];
@@ -139,7 +139,7 @@ function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, can
         </button>
 
         <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle w-20 flex-shrink-0">
-          {NIVEAU_LABEL[node.niveau]}
+          {niveauLabel[node.niveau]}
         </span>
 
         <span className={`text-sm text-fg font-medium ${node.niveau === 'genre' || node.niveau === 'espece' ? 'italic' : ''}`}>
@@ -157,30 +157,30 @@ function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, can
         )}
 
         {!node.actif && (
-          <span className="badge bg-surface-3 text-fg-muted border border-border-strong">Inactif</span>
+          <span className="badge bg-surface-3 text-fg-muted border border-border-strong">{t('taxonomieHotesPage.inactif')}</span>
         )}
 
         <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
           {canEdit && enfantsAutorises.length > 0 && (
-            <button onClick={() => onAddChild(node)} title="Ajouter un enfant"
+            <button onClick={() => onAddChild(node)} title={t('taxonomieHotesPage.addChild')}
               className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
               <Plus size={13} />
             </button>
           )}
           {canEdit && (
             <>
-              <button onClick={() => onToggle(node)} title={node.actif ? 'Désactiver' : 'Activer'}
+              <button onClick={() => onToggle(node)} title={node.actif ? t('taxonomieHotesPage.desactiver') : t('taxonomieHotesPage.activer')}
                 className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
                 {node.actif ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
               </button>
-              <button onClick={() => onEdit(node)} title="Modifier"
+              <button onClick={() => onEdit(node)} title={t('taxonomieHotesPage.modifier')}
                 className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
                 <Edit2 size={12} />
               </button>
             </>
           )}
           {canDelete && (
-            <button onClick={() => onDelete(node)} title="Supprimer"
+            <button onClick={() => onDelete(node)} title={t('taxonomieHotesPage.supprimer')}
               className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg">
               <Trash2 size={12} />
             </button>
@@ -195,7 +195,7 @@ function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, can
               key={c.id} node={c} depth={depth + 1}
               onAddChild={onAddChild} onEdit={onEdit} onToggle={onToggle} onDelete={onDelete}
               canEdit={canEdit} canDelete={canDelete}
-              expandedIds={expandedIds} setExpandedIds={setExpandedIds}
+              expandedIds={expandedIds} setExpandedIds={setExpandedIds} niveauLabel={niveauLabel}
             />
           ))}
         </div>
@@ -205,6 +205,10 @@ function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, can
 }
 
 export default function TaxonomieSpecimensPage() {
+  const t = useT();
+  const niveaux = getNiveaux(t);
+  const niveauLabel = Object.fromEntries(niveaux.map((n) => [n.value, n.label]));
+  const types = getTypes(t);
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const canEdit   = isMin(user?.role, 'chercheur');
@@ -246,7 +250,7 @@ export default function TaxonomieSpecimensPage() {
     const niveauEnfant = NIVEAU_ENFANT[parent.niveau][0];
     setEditing({
       niveau: niveauEnfant, nom: '', auteur: '', annee: '', nomCommun: '', description: '',
-      parentId: parent.id, parentLabel: `${NIVEAU_LABEL[parent.niveau]} ${parent.nom}`, type: parent.type,
+      parentId: parent.id, parentLabel: `${niveauLabel[parent.niveau]} ${parent.nom}`, type: parent.type,
     });
     setErr(null);
   };
@@ -275,7 +279,7 @@ export default function TaxonomieSpecimensPage() {
       setEditing(null);
       refresh();
     } catch (err) {
-      setErr(err.response?.data?.error || 'Erreur');
+      setErr(err.response?.data?.error || t('taxonomieHotesPage.errorGeneric'));
     }
   };
 
@@ -284,60 +288,60 @@ export default function TaxonomieSpecimensPage() {
     try {
       await api.patch(`/dictionnaire/taxonomie-specimens/${node.id}/${action}`);
       refresh();
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { toast.error(err.response?.data?.error || t('taxonomieHotesPage.errorGeneric')); }
   };
   const remove = async (node) => {
     const ok = await dialog.confirm({
-      title: `Supprimer « ${node.nom} » ?`,
-      message: 'Cette entrée et ses sous-niveaux seront définitivement supprimés.',
+      title: interpolate(t('taxonomieHotesPage.deleteTitle'), { nom: node.nom }),
+      message: t('taxonomieHotesPage.deleteMessage'),
     });
     if (!ok) return;
     try {
       await api.delete(`/dictionnaire/taxonomie-specimens/${node.id}`);
       refresh();
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { toast.error(err.response?.data?.error || t('taxonomieHotesPage.errorGeneric')); }
   };
 
   const niveauxAutorises = useMemo(() => {
-    if (!editing) return NIVEAUX;
-    if (editing.id) return NIVEAUX; // niveau non modifiable côté UI
-    if (!editing.parentId) return [{ value: 'ordre', label: 'Ordre' }];
-    return [...NIVEAUX]; // backend valide
-  }, [editing]);
+    if (!editing) return niveaux;
+    if (editing.id) return niveaux; // niveau non modifiable côté UI
+    if (!editing.parentId) return [niveaux[0]];
+    return [...niveaux]; // backend valide
+  }, [editing, niveaux]);
 
   return (
     <div className="max-w-screen-2xl space-y-5">
       <button onClick={() => navigate('/dictionnaire')} className="inline-flex items-center gap-1.5 text-sm text-fg-subtle hover:text-fg">
-        <ChevronLeft size={16} /> Dictionnaire
+        <ChevronLeft size={16} /> {t('taxonomieHotesPage.backToDictionnaire')}
       </button>
 
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-fg flex items-center gap-2">
-            <Bug size={20} className="text-specimen-moustique" /> Taxonomie spécimens
+            <Bug size={20} className="text-specimen-moustique" /> {t('taxonomieSpecimensPage.title')}
           </h1>
-          <p className="text-xs text-fg-subtle mt-0.5">Hiérarchie scientifique — ordre → … → sous-espèce</p>
+          <p className="text-xs text-fg-subtle mt-0.5">{t('taxonomieSpecimensPage.subtitle')}</p>
         </div>
         {canEdit && (
           <button onClick={openCreateRoot} className="btn-primary">
-            <Plus size={16} /> Nouvel ordre
+            <Plus size={16} /> {t('taxonomieHotesPage.newOrdre')}
           </button>
         )}
       </div>
 
       <div className="card p-3 flex items-center gap-2">
-        <span className="text-xs text-fg-muted">Filtrer par type :</span>
-        {[{ value: '', label: 'Tous' }, ...TYPES].map((t) => (
+        <span className="text-xs text-fg-muted">{t('taxonomieSpecimensPage.filterByType')}</span>
+        {[{ value: '', label: t('common.all') }, ...types].map((tp) => (
           <button
-            key={t.value}
-            onClick={() => setFilter(t.value)}
+            key={tp.value}
+            onClick={() => setFilter(tp.value)}
             className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-              filterType === t.value
+              filterType === tp.value
                 ? 'bg-primary text-white border-primary-600'
                 : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'
             }`}
           >
-            {t.label}
+            {tp.label}
           </button>
         ))}
       </div>
@@ -346,10 +350,10 @@ export default function TaxonomieSpecimensPage() {
 
       {loading ? (
         <div className="flex items-center justify-center h-32 text-fg-subtle text-sm">
-          <Loader2 size={18} className="animate-spin mr-2" /> Chargement…
+          <Loader2 size={18} className="animate-spin mr-2" /> {t('taxonomieHotesPage.loading')}
         </div>
       ) : tree.length === 0 ? (
-        <div className="card p-12 text-center text-fg-subtle text-sm">Aucune taxonomie</div>
+        <div className="card p-12 text-center text-fg-subtle text-sm">{t('taxonomieHotesPage.noTaxonomy')}</div>
       ) : (
         <div className="card overflow-hidden">
           <div
@@ -362,7 +366,7 @@ export default function TaxonomieSpecimensPage() {
                 onAddChild={openCreateChild} onEdit={openEdit}
                 onToggle={toggleActif} onDelete={remove}
                 canEdit={canEdit} canDelete={canDelete}
-                expandedIds={expandedIds} setExpandedIds={setExpandedIds}
+                expandedIds={expandedIds} setExpandedIds={setExpandedIds} niveauLabel={niveauLabel}
               />
             ))}
           </div>
@@ -381,11 +385,11 @@ export default function TaxonomieSpecimensPage() {
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-fg">
-                    {editing.id ? 'Modifier la taxonomie' : 'Nouvelle entrée taxonomique'}
+                    {editing.id ? t('taxonomieHotesPage.modifierTaxonomie') : t('taxonomieSpecimensPage.nouvelleEntreeTaxonomique')}
                   </h2>
                   {editing.parentLabel && (
                     <p className="text-[10px] text-fg-subtle mt-0.5">
-                      Enfant de <span className="font-semibold text-fg">{editing.parentLabel}</span>
+                      {t('taxonomieSpecimensPage.childOfPrefix')} <span className="font-semibold text-fg">{editing.parentLabel}</span>
                     </p>
                   )}
                 </div>
@@ -403,19 +407,19 @@ export default function TaxonomieSpecimensPage() {
 
               {/* Section Classification */}
               <div className="space-y-3">
-                <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-widest">Classification</p>
+                <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-widest">{t('taxonomieSpecimensPage.classification')}</p>
                 <div className="grid grid-cols-2 gap-3">
                   <FormField
-                    label="Niveau" name="niveau" type="select"
+                    label={t('taxonomieHotesPage.niveauLabel')} name="niveau" type="select"
                     value={editing.niveau}
                     onChange={(e) => setEditing({ ...editing, niveau: e.target.value })}
                     options={niveauxAutorises} required disabled={!!editing.id}
                   />
                   <FormField
-                    label="Type spécimen" name="type" type="select"
+                    label={t('taxonomieSpecimensPage.typeSpecimenLabel')} name="type" type="select"
                     value={editing.type || ''}
                     onChange={(e) => setEditing({ ...editing, type: e.target.value })}
-                    options={[{ value: '', label: '— Sélectionner —' }, ...TYPES]}
+                    options={[{ value: '', label: t('common.select') }, ...types]}
                     required={editing.niveau === 'ordre'}
                     disabled={!!editing.id && editing.niveau !== 'ordre'}
                   />
@@ -424,19 +428,19 @@ export default function TaxonomieSpecimensPage() {
 
               {/* Section Nom scientifique */}
               <div className="space-y-3">
-                <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-widest">Nomenclature</p>
+                <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-widest">{t('taxonomieSpecimensPage.nomenclature')}</p>
                 <FormField
-                  label="Nom scientifique" name="nom" required
+                  label={t('taxonomieSpecimensPage.nomScientifiqueLabel')} name="nom" required
                   value={editing.nom}
                   onChange={(e) => setEditing({ ...editing, nom: e.target.value })}
-                  placeholder={editing.niveau === 'genre' ? 'ex: Anopheles' : editing.niveau === 'espece' ? 'ex: gambiae' : 'ex: Culicidae'}
-                  hint={['genre', 'sous_genre', 'espece', 'sous_espece'].includes(editing.niveau) ? 'Affiché en italique dans les listes' : undefined}
+                  placeholder={editing.niveau === 'genre' ? t('taxonomieSpecimensPage.exGenre') : editing.niveau === 'espece' ? t('taxonomieSpecimensPage.exEspece') : t('taxonomieSpecimensPage.exDefault')}
+                  hint={['genre', 'sous_genre', 'espece', 'sous_espece'].includes(editing.niveau) ? t('taxonomieSpecimensPage.hintItalicDisplay') : undefined}
                 />
 
                 {/* Preview */}
                 {editing.nom && (
                   <div className="px-3 py-2 bg-surface-2 border border-border rounded-xl text-xs text-fg-muted">
-                    <span className="text-[10px] uppercase tracking-wide text-fg-subtle mr-2">{NIVEAU_LABEL[editing.niveau]}</span>
+                    <span className="text-[10px] uppercase tracking-wide text-fg-subtle mr-2">{niveauLabel[editing.niveau]}</span>
                     <span className={['genre', 'sous_genre', 'espece', 'sous_espece'].includes(editing.niveau) ? 'italic font-semibold text-fg' : 'font-semibold text-fg'}>
                       {editing.nom}
                     </span>
@@ -446,40 +450,40 @@ export default function TaxonomieSpecimensPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <FormField
-                    label="Auteur" name="auteur"
+                    label={t('taxonomieSpecimensPage.auteurLabel')} name="auteur"
                     value={editing.auteur}
                     onChange={(e) => setEditing({ ...editing, auteur: e.target.value })}
-                    placeholder="ex: Giles"
+                    placeholder={t('taxonomieSpecimensPage.auteurPlaceholder')}
                   />
                   <FormField
-                    label="Année" name="annee" type="number"
+                    label={t('taxonomieSpecimensPage.anneeLabel')} name="annee" type="number"
                     value={editing.annee}
                     onChange={(e) => setEditing({ ...editing, annee: e.target.value })}
-                    placeholder="ex: 1902"
+                    placeholder={t('taxonomieSpecimensPage.anneePlaceholder')}
                   />
                 </div>
                 <FormField
-                  label="Nom commun" name="nomCommun"
+                  label={t('taxonomieHotesPage.nomCommunLabel')} name="nomCommun"
                   value={editing.nomCommun}
                   onChange={(e) => setEditing({ ...editing, nomCommun: e.target.value })}
-                  placeholder="ex: Moustique tigre"
+                  placeholder={t('taxonomieSpecimensPage.nomCommunPlaceholder')}
                 />
               </div>
 
               {/* Description optionnelle */}
               <FormField
-                label="Description (optionnel)" name="description" type="textarea"
+                label={t('taxonomieSpecimensPage.descriptionOptional')} name="description" type="textarea"
                 value={editing.description}
                 onChange={(e) => setEditing({ ...editing, description: e.target.value })}
-                placeholder="Notes, caractéristiques, répartition géographique…"
+                placeholder={t('taxonomieSpecimensPage.descPlaceholder')}
               />
             </div>
 
             {/* Footer */}
             <div className="flex justify-end gap-2 px-6 py-4 border-t border-border bg-surface-2">
-              <button type="button" onClick={() => setEditing(null)} className="btn-secondary">Annuler</button>
+              <button type="button" onClick={() => setEditing(null)} className="btn-secondary">{t('taxonomieHotesPage.cancel')}</button>
               <button type="submit" className="btn-primary">
-                {editing.id ? 'Enregistrer les modifications' : 'Créer la taxonomie'}
+                {editing.id ? t('taxonomieSpecimensPage.saveModifications') : t('taxonomieSpecimensPage.createTaxonomy')}
               </button>
             </div>
           </form>

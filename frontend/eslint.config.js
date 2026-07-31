@@ -11,6 +11,11 @@ export default defineConfig([
     files: ['tailwind.config.js', 'postcss.config.js'],
     languageOptions: { globals: { ...globals.node } },
   },
+  // CLI scripts (ESM, run via `node scripts/*.js`) need node globals too
+  {
+    files: ['scripts/**/*.js'],
+    languageOptions: { globals: { ...globals.node } },
+  },
   {
     files: ['**/*.{js,jsx}'],
     extends: [

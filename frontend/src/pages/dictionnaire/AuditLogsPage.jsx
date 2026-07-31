@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { History, ChevronLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import api from '../../api/axios';
 import { Card, Badge, PageHeader, Spinner, Select, Pagination, DataTable } from '../../components/ui';
+import { useT, interpolate } from '../../lib/i18n';
 
 const ACTION_TONE = {
   CREATE:     'success',
@@ -20,6 +21,7 @@ const ENTITIES = [
 ];
 
 export default function AuditLogsPage() {
+  const t = useT();
   const [items,       setItems]   = useState([]);
   const [total,       setTotal]   = useState(0);
   const [loading,     setLoading] = useState(true);
@@ -64,14 +66,14 @@ export default function AuditLogsPage() {
     },
     {
       key: 'createdAt',
-      label: 'Date',
+      label: t('auditLogsPage.colDate'),
       skeletonWidth: '80%',
       className: 'font-mono text-xs text-fg-muted whitespace-nowrap',
-      render: (it) => new Date(it.createdAt).toLocaleString('fr-FR'),
+      render: (it) => new Date(it.createdAt).toLocaleString(t('common.locale')),
     },
     {
       key: 'action',
-      label: 'Action',
+      label: t('auditLogsPage.colAction'),
       skeletonWidth: '55%',
       render: (it) => (
         <Badge tone={ACTION_TONE[it.action] ?? 'default'}>{it.action}</Badge>
@@ -79,13 +81,13 @@ export default function AuditLogsPage() {
     },
     {
       key: 'entity',
-      label: 'Entité',
+      label: t('auditLogsPage.colEntite'),
       skeletonWidth: '65%',
       render: (it) => <span className="text-fg font-medium">{it.entity}</span>,
     },
     {
       key: 'entityId',
-      label: 'ID',
+      label: t('auditLogsPage.colId'),
       skeletonWidth: '35%',
       width: '64px',
       className: 'font-mono text-xs text-fg-subtle',
@@ -93,7 +95,7 @@ export default function AuditLogsPage() {
     },
     {
       key: 'user',
-      label: 'Utilisateur',
+      label: t('auditLogsPage.colUtilisateur'),
       skeletonWidth: '70%',
       hidden: 'hidden sm:table-cell',
       render: (it) => (
@@ -102,7 +104,7 @@ export default function AuditLogsPage() {
         </span>
       ),
     },
-  ], [expandedId]);
+  ], [expandedId, t]);
 
   const toggleExpand = (it) =>
     setExpId((prev) => (prev === it.id ? null : it.id));
@@ -112,13 +114,13 @@ export default function AuditLogsPage() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
         <div>
-          <p className="font-semibold text-fg-muted mb-1.5">Avant</p>
+          <p className="font-semibold text-fg-muted mb-1.5">{t('auditLogsPage.before')}</p>
           <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-[11px] text-fg-muted max-h-48">
             {it.oldValues ? JSON.stringify(it.oldValues, null, 2) : '—'}
           </pre>
         </div>
         <div>
-          <p className="font-semibold text-fg-muted mb-1.5">Après</p>
+          <p className="font-semibold text-fg-muted mb-1.5">{t('auditLogsPage.after')}</p>
           <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-[11px] text-fg-muted max-h-48">
             {it.newValues ? JSON.stringify(it.newValues, null, 2) : '—'}
           </pre>
@@ -130,13 +132,13 @@ export default function AuditLogsPage() {
   return (
     <div className="max-w-screen-2xl space-y-5">
       <Link to="/dictionnaire" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg">
-        <ChevronLeft size={16} /> Dictionnaire
+        <ChevronLeft size={16} /> {t('auditLogsPage.backToDictionnaire')}
       </Link>
 
       <PageHeader
         icon={History} iconTone="default"
-        title="Journal d'audit"
-        subtitle={`${total} entrée(s) — référentiels et spécimens`}
+        title={t('auditLogsPage.title')}
+        subtitle={interpolate(t('auditLogsPage.subtitle'), { n: total })}
       />
 
       {/* Filtres */}
@@ -144,20 +146,20 @@ export default function AuditLogsPage() {
         <Select
           value={filterEntity} onChange={setFE}
           wrapperClassName="w-56 flex-shrink-0"
-          options={ENTITIES.map((e) => ({ value: e, label: e || 'Toutes les entités' }))}
+          options={ENTITIES.map((e) => ({ value: e, label: e || t('auditLogsPage.allEntities') }))}
         />
         <Select
           value={filterAction} onChange={setFA}
           wrapperClassName="w-48 flex-shrink-0"
           options={[
-            { value: '', label: 'Toutes les actions' },
+            { value: '', label: t('auditLogsPage.allActions') },
             ...Object.keys(ACTION_TONE).map((a) => ({ value: a, label: a })),
           ]}
         />
       </Card>
 
       {loading ? <Spinner.Block /> : items.length === 0 ? (
-        <Card padding="lg" className="text-center text-fg-subtle text-sm">Aucune entrée</Card>
+        <Card padding="lg" className="text-center text-fg-subtle text-sm">{t('auditLogsPage.noEntry')}</Card>
       ) : (
         <Card padding="none" className="overflow-hidden">
           <DataTable
@@ -170,7 +172,7 @@ export default function AuditLogsPage() {
             renderExpanded={renderExpanded}
             minWidth="560px"
             maxHeight="calc(100vh - 290px)"
-            empty={<span className="text-fg-subtle text-sm">Aucune entrée</span>}
+            empty={<span className="text-fg-subtle text-sm">{t('auditLogsPage.noEntry')}</span>}
           />
 
           <Pagination

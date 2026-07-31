@@ -10,11 +10,11 @@ import { dialog } from '../../lib/dialog';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import { formatGorgement } from '../../utils/gorgement';
 import { taxoLabel } from '../../utils/taxoLabel';
+import { useT, interpolate } from '../../lib/i18n';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
-const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
 
-function sortRows(rows, sort) {
+function sortRows(rows, sort, locale) {
   if (!sort) return rows;
   return [...rows].sort((a, b) => {
     let av, bv;
@@ -31,141 +31,143 @@ function sortRows(rows, sort) {
     if (av == null && bv == null) return 0;
     if (av == null) return 1;
     if (bv == null) return -1;
-    const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv), 'fr');
+    const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv), locale);
     return sort.dir === 'asc' ? cmp : -cmp;
   });
 }
 
-const BASE_COLUMNS = [
-  {
-    key: 'idTerrain',
-    label: 'ID terrain',
-    sortable: true,
-    skeletonWidth: '55%',
-    width: '110px',
-    render: (m) => m.idTerrain
-      ? <Badge tone="primary" size="sm" className="font-mono font-bold">{m.idTerrain}</Badge>
-      : null,
-  },
-  {
-    key: 'espece',
-    label: 'Genre / Espèce',
-    skeletonWidth: '80%',
-    render: (m) => (
-      <span className="font-semibold text-fg italic">
-        {taxoLabel(m.taxonomie) || null}
-      </span>
-    ),
-  },
-  {
-    key: 'nombre',
-    label: 'Nb',
-    sortable: true,
-    skeletonWidth: '30%',
-    width: '52px',
-    headerClassName: 'text-right',
-    className: 'text-right',
-    render: (m) => <span className="text-fg-muted font-medium tabular-nums">{m.nombre}</span>,
-  },
-  {
-    key: 'sexe',
-    label: 'Sexe',
-    sortable: true,
-    skeletonWidth: '55%',
-    render: (m) => (
-      <Badge tone={SEXE_TONE[m.sexe] ?? 'default'}>
-        {SEXE_LABEL[m.sexe] ?? 'Inconnu'}
-      </Badge>
-    ),
-  },
-  {
-    key: 'stade',
-    label: 'Stade',
-    skeletonWidth: '60%',
-    hidden: 'hidden md:table-cell',
-    render: (m) => <span className="text-fg-muted text-xs">{m.stade || null}</span>,
-  },
-  {
-    key: 'parite',
-    label: 'Parité',
-    skeletonWidth: '50%',
-    hidden: 'hidden lg:table-cell',
-    render: (m) => <span className="text-fg-muted text-xs">{m.parite || null}</span>,
-  },
-  {
-    key: 'repasSang',
-    label: 'Repas sang',
-    skeletonWidth: '65%',
-    hidden: 'hidden sm:table-cell',
-    render: (m) => (
-      <Badge tone={['G', 'Gr'].includes(m.repasSang) ? 'danger' : 'default'}>
-        {formatGorgement(m.repasSang)}
-      </Badge>
-    ),
-  },
-  {
-    key: 'container',
-    label: 'Échantillon',
-    skeletonWidth: '55%',
-    hidden: 'hidden lg:table-cell',
-    className: 'font-mono text-xs text-fg-muted',
-    render: (m) => {
-      const label = m.container
-        ? `${m.container.code}${m.position ? ` · ${m.position}` : ''}`
-        : null;
-      return label ? <span>{label}</span> : null;
-    },
-  },
-  {
-    key: 'solution',
-    label: 'Solution',
-    skeletonWidth: '70%',
-    hidden: 'hidden xl:table-cell',
-    render: (m) => (
-      <span className="text-xs text-fg-muted max-w-[7rem] truncate block" title={m.solution?.nom}>
-        {m.solution?.nom || null}
-      </span>
-    ),
-  },
-  {
-    key: 'methode',
-    label: 'Méthode',
-    skeletonWidth: '75%',
-    hidden: 'hidden xl:table-cell',
-    render: (m) => (
-      <span className="text-xs text-fg-muted max-w-[8rem] truncate block" title={m.methode?.typeMethode?.nom}>
-        {m.methode?.typeMethode?.nom || null}
-      </span>
-    ),
-  },
-  {
-    key: 'localite',
-    label: 'Localité',
-    skeletonWidth: '80%',
-    hidden: 'hidden md:table-cell',
-    render: (m) => {
-      const loc = m.methode?.localite;
-      const label = [loc?.region, loc?.district, loc?.commune].filter(Boolean).join(' · ') || loc?.nom || null;
-      return label
-        ? <span className="text-fg-muted text-xs max-w-[9rem] truncate block" title={label}>{label}</span>
-        : null;
-    },
-  },
-  {
-    key: 'dateCollecte',
-    label: 'Date',
-    sortable: true,
-    skeletonWidth: '60%',
-    className: 'whitespace-nowrap',
-    render: (m) => (
-      <span className="text-fg-subtle text-xs">
-        {m.dateCollecte ? new Date(m.dateCollecte).toLocaleDateString('fr-FR') : null}
-      </span>
-    ),
-  },
-];
-
 export default function MoustiquesPage() {
+  const t = useT();
+  const SEXE_LABEL = { M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') };
+  const BASE_COLUMNS = [
+    {
+      key: 'idTerrain',
+      label: t('specimenList.colIdTerrain'),
+      sortable: true,
+      skeletonWidth: '55%',
+      width: '110px',
+      render: (m) => m.idTerrain
+        ? <Badge tone="primary" size="sm" className="font-mono font-bold">{m.idTerrain}</Badge>
+        : null,
+    },
+    {
+      key: 'espece',
+      label: t('specimenList.colGenreEspece'),
+      skeletonWidth: '80%',
+      render: (m) => (
+        <span className="font-semibold text-fg italic">
+          {taxoLabel(m.taxonomie) || null}
+        </span>
+      ),
+    },
+    {
+      key: 'nombre',
+      label: t('specimenList.colNb'),
+      sortable: true,
+      skeletonWidth: '30%',
+      width: '52px',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (m) => <span className="text-fg-muted font-medium tabular-nums">{m.nombre}</span>,
+    },
+    {
+      key: 'sexe',
+      label: t('specimenList.colSexe'),
+      sortable: true,
+      skeletonWidth: '55%',
+      render: (m) => (
+        <Badge tone={SEXE_TONE[m.sexe] ?? 'default'}>
+          {SEXE_LABEL[m.sexe] ?? t('sexe.inconnu')}
+        </Badge>
+      ),
+    },
+    {
+      key: 'stade',
+      label: t('specimenList.colStade'),
+      skeletonWidth: '60%',
+      hidden: 'hidden md:table-cell',
+      render: (m) => <span className="text-fg-muted text-xs">{m.stade || null}</span>,
+    },
+    {
+      key: 'parite',
+      label: t('specimenList.colParite'),
+      skeletonWidth: '50%',
+      hidden: 'hidden lg:table-cell',
+      render: (m) => <span className="text-fg-muted text-xs">{m.parite || null}</span>,
+    },
+    {
+      key: 'repasSang',
+      label: t('specimenList.colRepasSang'),
+      skeletonWidth: '65%',
+      hidden: 'hidden sm:table-cell',
+      render: (m) => (
+        <Badge tone={['G', 'Gr'].includes(m.repasSang) ? 'danger' : 'default'}>
+          {formatGorgement(m.repasSang)}
+        </Badge>
+      ),
+    },
+    {
+      key: 'container',
+      label: t('specimenList.colEchantillon'),
+      skeletonWidth: '55%',
+      hidden: 'hidden lg:table-cell',
+      className: 'font-mono text-xs text-fg-muted',
+      render: (m) => {
+        const label = m.container
+          ? `${m.container.code}${m.position ? ` · ${m.position}` : ''}`
+          : null;
+        return label ? <span>{label}</span> : null;
+      },
+    },
+    {
+      key: 'solution',
+      label: t('specimenList.colSolution'),
+      skeletonWidth: '70%',
+      hidden: 'hidden xl:table-cell',
+      render: (m) => (
+        <span className="text-xs text-fg-muted max-w-[7rem] truncate block" title={m.solution?.nom}>
+          {m.solution?.nom || null}
+        </span>
+      ),
+    },
+    {
+      key: 'methode',
+      label: t('specimenList.colMethode'),
+      skeletonWidth: '75%',
+      hidden: 'hidden xl:table-cell',
+      render: (m) => (
+        <span className="text-xs text-fg-muted max-w-[8rem] truncate block" title={m.methode?.typeMethode?.nom}>
+          {m.methode?.typeMethode?.nom || null}
+        </span>
+      ),
+    },
+    {
+      key: 'localite',
+      label: t('specimenList.colLocalite'),
+      skeletonWidth: '80%',
+      hidden: 'hidden md:table-cell',
+      render: (m) => {
+        const loc = m.methode?.localite;
+        const label = [loc?.region, loc?.district, loc?.commune].filter(Boolean).join(' · ') || loc?.nom || null;
+        return label
+          ? <span className="text-fg-muted text-xs max-w-[9rem] truncate block" title={label}>{label}</span>
+          : null;
+      },
+    },
+    {
+      key: 'dateCollecte',
+      label: t('specimenList.colDate'),
+      sortable: true,
+      skeletonWidth: '60%',
+      className: 'whitespace-nowrap',
+      render: (m) => (
+        <span className="text-fg-subtle text-xs">
+          {m.dateCollecte ? new Date(m.dateCollecte).toLocaleDateString(t('common.locale')) : null}
+        </span>
+      ),
+    },
+  ];
+
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
@@ -183,8 +185,8 @@ export default function MoustiquesPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => { setDebounced(search); setPage(1); }, 300);
-    return () => clearTimeout(t);
+    const tid = setTimeout(() => { setDebounced(search); setPage(1); }, 300);
+    return () => clearTimeout(tid);
   }, [search]);
 
   // Vider la sélection quand le filtre change
@@ -197,7 +199,7 @@ export default function MoustiquesPage() {
 
   const total = data?.total ?? 0;
   const pages = data?.pages ?? 1;
-  const rows  = useMemo(() => sortRows(data?.moustiques ?? [], sort), [data, sort]);
+  const rows  = useMemo(() => sortRows(data?.moustiques ?? [], sort, t('common.locale')), [data, sort, t]);
 
   const toggleId = (id) =>
     setSelectedIds((prev) => {
@@ -226,10 +228,10 @@ export default function MoustiquesPage() {
       console.info(`[BulkDelete] ${deleted} moustique(s) supprimé(s) — ${label}`);
     } catch (err) {
       await dialog.confirm({
-        title: 'Erreur de suppression',
-        message: err.response?.data?.error ?? 'Une erreur est survenue.',
+        title: t('specimenList.deleteErrorTitle'),
+        message: err.response?.data?.error ?? t('specimenList.genericError'),
         variant: 'warning',
-        confirmLabel: 'OK',
+        confirmLabel: t('specimenList.ok'),
         cancelLabel: null,
       });
     } finally {
@@ -240,10 +242,10 @@ export default function MoustiquesPage() {
   const handleDeleteSelection = async () => {
     const count = selectedIds.size;
     const ok = await dialog.confirm({
-      title: `Supprimer ${count} moustique(s) ?`,
-      message: `Vous allez supprimer définitivement ${count} spécimen(s) sélectionné(s). Cette action est irréversible.`,
+      title: interpolate(t('specimenList.confirmDeleteN'), { n: count }),
+      message: interpolate(t('specimenList.confirmDeleteNMsg'), { n: count }),
       variant: 'danger',
-      confirmLabel: `Supprimer ${count} spécimen(s)`,
+      confirmLabel: interpolate(t('specimenList.deleteNSpecimens'), { n: count }),
     });
     if (!ok) return;
     await executeBulkDelete({ ids: [...selectedIds] }, 'sélection manuelle');
@@ -251,10 +253,10 @@ export default function MoustiquesPage() {
 
   const handleDeleteFiltered = async () => {
     const ok = await dialog.confirm({
-      title: `Supprimer les ${total} résultats filtrés ?`,
-      message: `Vous allez supprimer tous les moustiques correspondant à « ${debounced} » (${total} enregistrement(s)). Cette action est irréversible.`,
+      title: interpolate(t('specimenList.confirmDeleteFiltered'), { n: total }),
+      message: interpolate(t('specimenList.confirmDeleteFilteredMsg'), { query: debounced, n: total }),
       variant: 'danger',
-      confirmLabel: `Supprimer ${total} spécimen(s)`,
+      confirmLabel: interpolate(t('specimenList.deleteNSpecimens'), { n: total }),
     });
     if (!ok) return;
     await executeBulkDelete({ filters: { search: debounced } }, `filtre "${debounced}"`);
@@ -291,7 +293,7 @@ export default function MoustiquesPage() {
       },
       ...BASE_COLUMNS,
     ];
-  }, [selectedIds, isAdmin]);
+  }, [selectedIds, isAdmin, BASE_COLUMNS]);
 
   const hasSelection = selectedIds.size > 0;
   const hasFilter    = debounced.length > 0;
@@ -301,30 +303,30 @@ export default function MoustiquesPage() {
       <PageHeader
         icon={() => <SpecimenIcon type="moustique" size={18} />}
         iconTone="specimen-moustique"
-        title="Moustiques"
-        subtitle={`${total} spécimen(s) au total`}
+        title={t('dashboard.moustiques')}
+        subtitle={interpolate(t('specimenList.total'), { n: total })}
         actions={
           <>
             <Button variant="secondary" icon={Download}
               onClick={handleExport} disabled={exporting}>
-              {exporting ? 'Export…' : 'Export Excel'}
+              {exporting ? t('specimenList.exporting') : t('specimenList.exportExcel')}
             </Button>
             <Button icon={Plus} onClick={() => navigate('/specimens/moustiques/nouveau')}>
-              Ajouter
+              {t('specimenList.add')}
             </Button>
           </>
         }
       />
 
       {loading && !data ? (
-        <Spinner.Block label="Chargement…" />
+        <Spinner.Block label={t('specimenList.loading')} />
       ) : total === 0 && !debounced ? (
         <EmptyState
           icon={() => <SpecimenIcon type="moustique" size={40} />}
-          title="Aucun moustique enregistré"
-          description="Commencez par enregistrer un premier spécimen."
+          title={t('moustiquesPage.noneYet')}
+          description={t('moustiquesPage.startHint')}
           action={{
-            label: 'Ajouter le premier spécimen',
+            label: t('specimenList.addFirst'),
             icon: Plus,
             onClick: () => navigate('/specimens/moustiques/nouveau'),
           }}
@@ -341,7 +343,7 @@ export default function MoustiquesPage() {
                 <Search size={14} className="text-fg-subtle flex-shrink-0" />
                 <input
                   type="text"
-                  placeholder="Rechercher par espèce, ID terrain ou notes…"
+                  placeholder={t('specimenList.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="flex-1 text-sm bg-transparent border-none outline-none text-fg placeholder-fg-subtle"
@@ -353,7 +355,7 @@ export default function MoustiquesPage() {
                 )}
               </div>
               <span className="text-xs text-fg-subtle whitespace-nowrap font-medium">
-                {total} résultat(s)
+                {interpolate(t('specimenList.resultsCount'), { n: total })}
               </span>
             </div>
 
@@ -372,8 +374,8 @@ export default function MoustiquesPage() {
                       : <Square size={13} />
                     }
                     {allOnPageSelected
-                      ? 'Désélectionner la page'
-                      : `Sélectionner les ${rows.length} de cette page`
+                      ? t('specimenList.deselectPage')
+                      : interpolate(t('specimenList.selectPageN'), { n: rows.length })
                     }
                   </button>
                 )}
@@ -381,7 +383,7 @@ export default function MoustiquesPage() {
                 {/* Compteur de sélection */}
                 {hasSelection && (
                   <span className="text-xs font-medium text-fg-muted bg-surface-2 border border-border rounded-lg px-2.5 py-1.5">
-                    {selectedIds.size} sélectionné(s)
+                    {interpolate(t('specimenList.selectedCount'), { n: selectedIds.size })}
                   </span>
                 )}
 
@@ -394,7 +396,7 @@ export default function MoustiquesPage() {
                     disabled={bulkDeleting}
                     onClick={handleDeleteSelection}
                   >
-                    {bulkDeleting ? 'Suppression…' : `Supprimer la sélection (${selectedIds.size})`}
+                    {bulkDeleting ? t('specimenList.deleting') : interpolate(t('specimenList.deleteSelection'), { n: selectedIds.size })}
                   </Button>
                 )}
 
@@ -413,7 +415,7 @@ export default function MoustiquesPage() {
                     onClick={handleDeleteFiltered}
                     className="text-danger hover:bg-danger/10 hover:text-danger"
                   >
-                    Supprimer les {total} résultats filtrés
+                    {interpolate(t('specimenList.deleteFilteredResults'), { n: total })}
                   </Button>
                 )}
               </div>
@@ -427,7 +429,7 @@ export default function MoustiquesPage() {
                   className="flex items-center gap-1.5 text-xs text-fg-subtle hover:text-fg-muted transition-colors"
                 >
                   <Square size={12} />
-                  Sélectionner les {rows.length} lignes de cette page
+                  {interpolate(t('specimenList.selectRowsHint'), { n: rows.length })}
                 </button>
               </div>
             )}
@@ -444,7 +446,7 @@ export default function MoustiquesPage() {
             minWidth="960px"
             empty={
               <span className="text-fg-subtle text-sm">
-                Aucun résultat pour «&nbsp;{debounced}&nbsp;»
+                {interpolate(t('specimenList.noResultsFor'), { query: debounced })}
               </span>
             }
           />
