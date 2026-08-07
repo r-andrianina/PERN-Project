@@ -23,11 +23,11 @@ async function loadUserStatus(userId) {
 
   const user = await prisma.user.findUnique({
     where:  { id: userId },
-    select: { actif: true, role: true },
+    select: { actif: true, role: true, passwordChangedAt: true, specimensAutorises: true },
   });
   const status = user
-    ? { actif: user.actif, role: user.role, expiresAt: now + USER_STATUS_TTL_MS }
-    : { actif: false, role: null, expiresAt: now + USER_STATUS_TTL_MS };
+    ? { actif: user.actif, role: user.role, passwordChangedAt: user.passwordChangedAt, specimensAutorises: user.specimensAutorises, expiresAt: now + USER_STATUS_TTL_MS }
+    : { actif: false, role: null, passwordChangedAt: null, specimensAutorises: [], expiresAt: now + USER_STATUS_TTL_MS };
   _userStatusCache.set(userId, status);
   return status;
 }
@@ -45,7 +45,20 @@ async function enforceAccountActive(req, res) {
       res.status(401).json({ error: 'Compte désactivé ou introuvable — veuillez vous reconnecter.' });
       return false;
     }
+    // Révocation sur changement de mot de passe : un token émis AVANT le dernier
+    // changement (reset admin ou self-service) est refusé. iat est en secondes ;
+    // on tronque passwordChangedAt à la seconde pour ne pas révoquer par erreur
+    // un token fraîchement ré-émis dans la même seconde que le changement.
+    if (status.passwordChangedAt && req.user.iat &&
+        Math.floor(status.passwordChangedAt.getTime() / 1000) > req.user.iat) {
+      res.status(401).json({ error: 'Mot de passe modifié — veuillez vous reconnecter.' });
+      return false;
+    }
     if (status.role) req.user.role = status.role; // rôle rafraîchi (≤ 30 s)
+    // specimensAutorises rafraîchi (≤ 30 s) : carte/dashboard/recherche lisent
+    // req.user.specimensAutorises pour filtrer — sans ce refresh, un changement
+    // d'accès par l'admin ne s'y reflèterait qu'à la reconnexion (le JWT est figé).
+    if (status.specimensAutorises) req.user.specimensAutorises = status.specimensAutorises;
     return true;
   } catch (err) {
     console.error('[auth] statut compte indisponible, repli sur le JWT :', err.message);

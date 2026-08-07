@@ -6,9 +6,11 @@ import { createPortal } from 'react-dom';
 import { KeyRound, X, Eye, EyeOff, Check, Loader2 } from 'lucide-react';
 import api from '../api/axios';
 import { useT } from '../lib/i18n';
+import useAuthStore from '../store/authStore';
 
 export default function ChangePasswordModal({ onClose }) {
   const t = useT();
+  const setToken = useAuthStore((s) => s.setToken);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword,     setNewPassword]     = useState('');
   const [showCurrent,     setShowCurrent]     = useState(false);
@@ -20,7 +22,10 @@ export default function ChangePasswordModal({ onClose }) {
   const submit = async (e) => {
     e.preventDefault(); setError(null); setLoading(true);
     try {
-      await api.patch('/auth/me/password', { currentPassword, newPassword });
+      const res = await api.patch('/auth/me/password', { currentPassword, newPassword });
+      // Le backend révoque les anciens JWT (dont celui-ci) et en ré-émet un
+      // frais : on le stocke pour rester connecté au lieu d'être déconnecté.
+      if (res.data?.token) setToken(res.data.token);
       setDone(true);
     } catch (err) {
       setError(err.response?.data?.error || t('common.error'));

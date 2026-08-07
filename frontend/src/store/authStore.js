@@ -64,6 +64,16 @@ const useAuthStore = create((set) => ({
     }),
 
   // =============================================================
+  //  SET TOKEN
+  //  Remplace le JWT courant (ex: token ré-émis après changement de
+  //  mot de passe) sans forcer une reconnexion.
+  // =============================================================
+  setToken: (token) => {
+    localStorage.setItem('token', token);
+    set({ token });
+  },
+
+  // =============================================================
   //  CLEAR ERROR
   // =============================================================
   clearError: () => set({ error: null, isNetworkError: false }),

@@ -144,6 +144,10 @@ model User {
   prenom       String    @db.VarChar(100)
   email        String    @unique @db.VarChar(150)
   passwordHash String    @map("password_hash")
+  // Horodatage du dernier changement de mot de passe. Sert à révoquer les JWT
+  // émis avant ce moment (un token dont l'iat est antérieur est refusé) —
+  // reset admin ou changement self-service coupent ainsi les sessions actives.
+  passwordChangedAt  DateTime?          @map("password_changed_at")
   role               Role               @default(lecteur)
   specimensAutorises TypeSpecimenTaxon[] @default(dbgenerated("ARRAY['moustique','tique','puce']::\"TypeSpecimenTaxon\"[]")) @map("specimens_autorises")
   actif              Boolean            @default(false)
