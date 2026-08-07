@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SpécimenManager — Livre de Conception</title>
 <script src="mermaid.min.js"></script>
 <style>
@@ -68,6 +69,7 @@
 
   /* ---- toc ---- */
   .toc{ font-size:11pt; }
+  .toc.plain{ list-style:none; padding:0; }
   .toc li{ margin:.35em 0; }
   .toc .num{ color:var(--green); font-weight:700; display:inline-block; width:2.4em; }
   .toc .l2{ margin-left:2.6em; font-size:10pt; color:var(--muted); }
@@ -79,6 +81,11 @@
 
   .chip{display:inline-block;background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:2px 10px;font-size:8.8pt;margin:2px 3px}
   .foot{font-size:8pt;color:var(--muted);text-align:center;border-top:1px solid var(--line);padding-top:6px;margin-top:12px}
+
+  /* ---- ajouts mise à jour 05/08/2026 ---- */
+  .update-tag{ color:#bbf7d0; }
+  .resolved{ text-decoration:line-through; color:var(--muted); }
+  .note.spaced{ margin-top:2em; }
 </style>
 </head>
 <body>
@@ -94,7 +101,7 @@
     <div class="meta">
       Unité d'Entomologie Médicale<br>
       Application de gestion des spécimens entomologiques de terrain<br>
-      <strong>Version 1.0</strong> &nbsp;•&nbsp; 29 juillet 2026<br>
+      <strong>Version 1.0</strong> &nbsp;•&nbsp; 29 juillet 2026 &nbsp;<small class="update-tag">(mise à jour 05 août 2026)</small><br>
       Document technique — Architecture, modélisation UML &amp; audit qualité
     </div>
   </div>
@@ -103,7 +110,7 @@
 <!-- ================= SOMMAIRE ================= -->
 <section class="page">
   <h2>Sommaire</h2>
-  <ol class="toc" style="list-style:none;padding:0">
+  <ol class="toc plain">
     <li><span class="num">1.</span> Présentation générale</li>
     <li class="l2">1.1 Contexte &amp; objectifs — 1.2 Périmètre fonctionnel — 1.3 Glossaire métier</li>
     <li><span class="num">2.</span> Architecture technique</li>
@@ -119,11 +126,11 @@
 
   <h3>Synthèse en un coup d'œil</h3>
   <div class="kpi">
-    <div class="card"><div class="n">35</div><div class="t">Entités de données</div></div>
-    <div class="card"><div class="n">24</div><div class="t">Contrôleurs API</div></div>
+    <div class="card"><div class="n">38</div><div class="t">Entités de données</div></div>
+    <div class="card"><div class="n">25</div><div class="t">Contrôleurs API</div></div>
     <div class="card"><div class="n">44</div><div class="t">Pages React</div></div>
     <div class="card"><div class="n">5</div><div class="t">Rôles utilisateurs</div></div>
-    <div class="card"><div class="n">17</div><div class="t">Migrations DB</div></div>
+    <div class="card"><div class="n">19</div><div class="t">Migrations DB</div></div>
   </div>
   <div class="note"><strong>Objet du document.</strong> Ce livre décrit la conception de SpécimenManager (modélisation UML complète) et présente un audit technique identifiant les anomalies probables et les améliorations recommandées avant la mise en production finale.</div>
 </section>
@@ -148,7 +155,7 @@
     <tr><td>Spécimens</td><td>Moustiques, tiques, puces, autres — saisie unitaire, import Excel, positionnement en plaque</td></tr>
     <tr><td>Laboratoire</td><td>9 modules de manipulation, pools d'analyse, pathogènes cibles, upload de gels/fichiers de séquençage</td></tr>
     <tr><td>Dictionnaires</td><td>Taxonomies hiérarchiques, référentiels simples, activation/désactivation, historique d'audit</td></tr>
-    <tr><td>Transverse</td><td>Cartographie Leaflet, tableau de bord, recherche globale, notifications temps réel (SSE), gestion des utilisateurs</td></tr>
+    <tr><td>Transverse</td><td>Cartographie Leaflet, tableau de bord, recherche globale, notifications temps réel (SSE), gestion des utilisateurs, changement de mot de passe self-service, détection de panne réseau/backend (bandeau + écran dédié), configuration RBAC centralisée hydratée au démarrage</td></tr>
   </table>
 
   <h3>1.3 Glossaire métier</h3>
@@ -437,7 +444,7 @@ classDiagram
   <p>Les dictionnaires garantissent la normalisation des données. Tous partagent le motif <code>actif / createdBy / updatedBy</code> pour l'activation et l'audit.</p>
   <table class="small">
     <tr><th>Référentiel</th><th>Rôle</th><th>Utilisé par</th></tr>
-    <tr><td>TaxonomieSpecimen</td><td>Arbre taxonomique (ordre → espèce)</td><td>tous les spécimens</td></tr>
+    <tr><td>TaxonomieSpecimen</td><td>Hiérarchie taxonomique (ordre → sous-espèce) — vue tableau (recherche/tri/pagination) ou arbre au choix ; synonymes de recherche et localité type (<code>pays_type</code>) importés depuis Dico_Taxo.xlsx</td><td>tous les spécimens</td></tr>
     <tr><td>TaxonomieHote</td><td>Arbre taxonomique des hôtes</td><td>Hôte</td></tr>
     <tr><td>TypeMethodeCollecte</td><td>Types de piège (CDC-LT, BG…)</td><td>MéthodeCollecte</td></tr>
     <tr><td>SolutionConservation</td><td>Éthanol 70 %, RNAlater…</td><td>tous les spécimens</td></tr>
@@ -643,10 +650,10 @@ stateDiagram-v2
   </div>
 
   <div class="nobreak">
-  <h4>B5 <span class="sev moy">Moyen</span> — « Autres spécimens » inaccessibles aux rôles non privilégiés</h4>
+  <h4>B5 <span class="sev ok">Corrigé</span> — « Autres spécimens » inaccessibles aux rôles non privilégiés</h4>
   <p><small><code>auth.controller.js › SPECIMENS_VALIDES</code></small></p>
-  <p><code>SPECIMENS_VALIDES = ['moustique','tique','puce']</code> et <code>updateSpecimenAccess</code> rejette la valeur <code>'autre'</code>. Or <code>checkSpecimenAccess('autre')</code> exige que <code>'autre'</code> figure dans <code>specimensAutorises</code>. Un chercheur/technicien/lecteur reçoit donc toujours 403 sur les autres spécimens, et l'entrée n'apparaît jamais dans sa barre latérale. Incohérence introduite lors de l'ajout tardif du type <code>autre</code>.</p>
-  <p><strong>Correctif :</strong> ajouter <code>'autre'</code> à <code>SPECIMENS_VALIDES</code> (et, si souhaité, au défaut de <code>specimensAutorises</code>).</p>
+  <p><code>SPECIMENS_VALIDES = ['moustique','tique','puce']</code> et <code>updateSpecimenAccess</code> rejetait la valeur <code>'autre'</code>. Or <code>checkSpecimenAccess('autre')</code> exige que <code>'autre'</code> figure dans <code>specimensAutorises</code>. Un chercheur/technicien/lecteur recevait donc toujours 403 sur les autres spécimens, et l'entrée n'apparaissait jamais dans sa barre latérale. Incohérence introduite lors de l'ajout tardif du type <code>autre</code>.</p>
+  <p><strong>Statut :</strong> résolu — <code>SPECIMENS_VALIDES</code> a été remplacé par <code>SPECIMEN_TYPES</code> dans la source unique <code>backend/src/config/rbac.js</code>, qui inclut désormais <code>'autre'</code>.</p>
   </div>
 
   <div class="nobreak">
@@ -674,16 +681,16 @@ stateDiagram-v2
   </div>
 
   <div class="nobreak">
-  <h4>F2 <span class="sev min">Mineur</span> — Duplication de la logique de rôles back/front</h4>
-  <p>La hiérarchie des rôles et la liste des types de spécimens sont dupliquées entre le backend et <code>frontend/src/lib/roles.js</code>. Cette dérive a déjà causé un bug (blocage du <em>superviseur</em>, corrigé récemment).</p>
-  <p><strong>Correctif :</strong> exposer la configuration RBAC via un endpoint unique, ou centraliser dans un module partagé.</p>
+  <h4>F2 <span class="sev ok">Corrigé</span> — Duplication de la logique de rôles back/front</h4>
+  <p>La hiérarchie des rôles et la liste des types de spécimens étaient dupliquées entre le backend et <code>frontend/src/lib/roles.js</code>. Cette dérive avait déjà causé un bug (blocage du <em>superviseur</em>, corrigé récemment).</p>
+  <p><strong>Statut :</strong> résolu — <code>backend/src/config/rbac.js</code> est la source unique (rôles, niveaux, bypass, types de spécimens), exposée via <code>GET /api/v1/rbac/config</code> et hydratée côté frontend au démarrage (<code>hydrateRbac()</code>, avec repli statique + détection de dérive en dev).</p>
   </div>
 
   <div class="nobreak">
-  <h4>F3 <span class="sev min">Mineur</span> — Redirection 401 non protégée contre les rafales</h4>
+  <h4>F3 <span class="sev ok">Corrigé</span> — Redirection 401 non protégée contre les rafales</h4>
   <p><small><code>api/axios.js</code></small></p>
-  <p>Sur 401, l'intercepteur planifie <code>window.location.href = '/login'</code> après 1200 ms. Plusieurs requêtes échouant simultanément peuvent empiler redirections et toasts.</p>
-  <p><strong>Correctif :</strong> ajouter un garde (drapeau <code>isRedirecting</code>) pour ne déclencher la redirection qu'une seule fois.</p>
+  <p>Sur 401, l'intercepteur planifiait <code>window.location.href = '/login'</code> après 1200 ms. Plusieurs requêtes échouant simultanément pouvaient empiler redirections et toasts.</p>
+  <p><strong>Statut :</strong> résolu — garde <code>isRedirecting401</code> en place. Complété depuis : un 401 ne déclenche plus ce comportement que si la requête portait un jeton (une tentative de connexion échouée n'affiche donc plus à tort « session expirée »).</p>
   </div>
 
   <h3>5.4 Améliorations transverses</h3>
@@ -696,7 +703,7 @@ stateDiagram-v2
     <tr><td>Observabilité</td><td>Remplacer <code>console.log</code> par un logger structuré (pino/winston) avec niveaux et rotation.</td><td><span class="sev min">Basse</span></td></tr>
     <tr><td>Données</td><td>Valider le champ libre <code>AutreSpecimen.attributs</code> (JSON) via un schéma Zod par type.</td><td><span class="sev min">Basse</span></td></tr>
     <tr><td>Dépôt</td><td>Sortir les binaires <code>presentation/*.pptx|docx</code> (~8–10 Mo) du dépôt Git (LFS ou stockage externe).</td><td><span class="sev min">Basse</span></td></tr>
-    <tr><td>i18n</td><td>Compléter la traduction (<code>useT</code> partiellement déployé).</td><td><span class="sev min">Basse</span></td></tr>
+    <tr><td>i18n</td><td>Traduction FR/EN complétée et auditée (<code>scripts/audit-i18n.js</code>) — 1744 clés, 0 manquante dans un sens ou l'autre, 0 mismatch de placeholder.</td><td><span class="sev ok">Fait</span></td></tr>
   </table>
 </section>
 
@@ -709,7 +716,7 @@ stateDiagram-v2
   <ol>
     <li><strong>B1</strong> — corriger le chemin de suppression des fichiers labo.</li>
     <li><strong>B2</strong> — enforcer la révocation de session (vérification <code>actif</code>/rôle).</li>
-    <li><strong>B5</strong> — rendre les « autres spécimens » attribuables aux rôles standards.</li>
+    <li class="resolved">✅ <strong>B5</strong> — rendre les « autres spécimens » attribuables aux rôles standards. <em>(corrigé)</em></li>
     <li>Changer le mot de passe admin par défaut.</li>
   </ol>
 
@@ -718,23 +725,23 @@ stateDiagram-v2
     <li><strong>B3</strong> — notifications « lu » par utilisateur.</li>
     <li><strong>B4</strong> — mises à jour partielles non destructrices en labo.</li>
     <li><strong>F1</strong> — synchronisation du rôle en temps réel.</li>
-    <li><strong>F3</strong> — garde de redirection 401.</li>
+    <li class="resolved">✅ <strong>F3</strong> — garde de redirection 401. <em>(corrigé)</em></li>
   </ol>
 
   <h3>Sprint 3 — Fiabilisation &amp; industrialisation</h3>
   <ol>
     <li>Mise en place des tests (API + UI) et de la CI GitHub Actions.</li>
-    <li>Nettoyage du code mort (<strong>B7</strong>) et centralisation RBAC (<strong>F2</strong>).</li>
-    <li>Logger structuré, nettoyage du dépôt, complétion i18n.</li>
+    <li>Nettoyage du code mort (<strong>B7</strong>) — <span class="resolved">centralisation RBAC (<strong>F2</strong>)</span> ✅ <em>(corrigé)</em>.</li>
+    <li>Logger structuré, nettoyage du dépôt — <span class="resolved">complétion i18n</span> ✅ <em>(fait)</em>.</li>
     <li><strong>B6</strong> — intégrité des relations polymorphes.</li>
   </ol>
 
-  <div class="note" style="margin-top:2em">
+  <div class="note spaced">
     <strong>Conclusion.</strong> SpécimenManager présente une architecture saine et cohérente : modèle de données rigoureux, sécurité multi-niveaux (JWT, RBAC hiérarchique, cloisonnement par projet), et un module laboratoire abouti. Les anomalies identifiées sont ciblées et corrigeables rapidement ; aucune ne remet en cause la conception d'ensemble. Le principal chantier de maturité reste l'<strong>automatisation des tests et de l'intégration continue</strong>, indispensable pour sécuriser les évolutions futures.
   </div>
 
   <div class="foot">
-    SpécimenManager — Livre de Conception v1.0 — Unité d'Entomologie Médicale, Institut Pasteur de Madagascar — 29 juillet 2026
+    SpécimenManager — Livre de Conception v1.0 — Unité d'Entomologie Médicale, Institut Pasteur de Madagascar — 29 juillet 2026 (mise à jour 05 août 2026)
   </div>
 </section>
 
