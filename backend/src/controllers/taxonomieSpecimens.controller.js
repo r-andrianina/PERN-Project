@@ -93,9 +93,12 @@ const tree = async (req, res) => {
   const where = {};
   if (type) where.type = type;
 
-  // Un seul aller-retour BD — plus de N+1 récursif qui épuise le pool
+  // Un seul aller-retour BD — plus de N+1 récursif qui épuise le pool.
+  // synonymes : alias de recherche (Dico_Taxo.xlsx, statut SYN) — inclus ici
+  // pour que la recherche côté frontend matche aussi les anciens noms.
   const all = await prisma.taxonomieSpecimen.findMany({
     where,
+    include: { synonymes: { select: { id: true, nom: true, auteur: true, annee: true } } },
     orderBy: [{ niveau: 'asc' }, { nom: 'asc' }],
   });
 
@@ -116,9 +119,10 @@ const getOne = async (req, res) => {
   const item = await prisma.taxonomieSpecimen.findUnique({
     where: { id },
     include: {
-      parent:  { select: { id: true, niveau: true, nom: true, parent: { select: { id: true, niveau: true, nom: true } } } },
-      enfants: { orderBy: [{ niveau: 'asc' }, { nom: 'asc' }] },
-      _count:  { select: { moustiques: true, tiques: true, puces: true } },
+      parent:    { select: { id: true, niveau: true, nom: true, parent: { select: { id: true, niveau: true, nom: true } } } },
+      enfants:   { orderBy: [{ niveau: 'asc' }, { nom: 'asc' }] },
+      synonymes: { select: { id: true, nom: true, auteur: true, annee: true } },
+      _count:    { select: { moustiques: true, tiques: true, puces: true } },
     },
   });
   if (!item) return res.status(404).json({ error: 'Taxonomie introuvable' });
@@ -127,7 +131,7 @@ const getOne = async (req, res) => {
 
 // POST /api/v1/dictionnaire/taxonomie-specimens
 const create = async (req, res) => {
-  const { niveau, nom, parentId, type, auteur, annee, nomCommun, description } = req.body;
+  const { niveau, nom, parentId, type, auteur, annee, paysType, nomCommun, description } = req.body;
 
   if (!niveau || !nom) return res.status(400).json({ error: 'niveau et nom obligatoires' });
   if (!NIVEAUX.includes(niveau)) return res.status(400).json({ error: `niveau invalide (${NIVEAUX.join(', ')})` });
@@ -157,6 +161,7 @@ const create = async (req, res) => {
       type:        typeFinal,
       auteur:      auteur || null,
       annee:       annee ? parseInt(annee) : null,
+      paysType:    paysType || null,
       nomCommun:   nomCommun || null,
       description: description || null,
       createdById: req.user?.id ?? null,
@@ -172,7 +177,7 @@ const create = async (req, res) => {
 // PUT /api/v1/dictionnaire/taxonomie-specimens/:id
 const update = async (req, res) => {
   const id = parseInt(req.params.id);
-  const { nom, parentId, type, auteur, annee, nomCommun, description } = req.body;
+  const { nom, parentId, type, auteur, annee, paysType, nomCommun, description } = req.body;
 
   const before = await prisma.taxonomieSpecimen.findUnique({ where: { id } });
   if (!before) return res.status(404).json({ error: 'Taxonomie introuvable' });
@@ -181,6 +186,7 @@ const update = async (req, res) => {
   if (nom !== undefined)         data.nom         = nom.trim();
   if (auteur !== undefined)      data.auteur      = auteur || null;
   if (annee !== undefined)       data.annee       = annee ? parseInt(annee) : null;
+  if (paysType !== undefined)    data.paysType    = paysType || null;
   if (nomCommun !== undefined)   data.nomCommun   = nomCommun || null;
   if (description !== undefined) data.description = description || null;
   if (type !== undefined && before.niveau === 'ordre') data.type = type || null;
