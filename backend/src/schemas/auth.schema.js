@@ -12,15 +12,17 @@ const login = z.object({
 });
 
 const register = z.object({
-  nom:      z.string().min(1, 'Nom requis').max(100).trim(),
-  prenom:   z.string().min(1, 'Prenom requis').max(100).trim(),
+  // .trim() AVANT .min() : sinon un nom fait uniquement d'espaces passerait
+  // min(1) (longueur brute > 0) puis serait tronqué à '' — nom vide en base.
+  nom:      z.string().trim().min(1, 'Nom requis').max(100),
+  prenom:   z.string().trim().min(1, 'Prenom requis').max(100),
   email:    emailStr,
   password: passwordStr,
 });
 
 const createUser = z.object({
-  nom:               z.string().min(1).max(100).trim(),
-  prenom:            z.string().min(1).max(100).trim(),
+  nom:               z.string().trim().min(1).max(100),
+  prenom:            z.string().trim().min(1).max(100),
   email:             emailStr,
   password:          passwordStr,
   role:              roleEnum.default('lecteur'),
@@ -29,8 +31,8 @@ const createUser = z.object({
 });
 
 const updateUser = z.object({
-  nom:    z.string().min(1).max(100).trim().optional(),
-  prenom: z.string().min(1).max(100).trim().optional(),
+  nom:    z.string().trim().min(1).max(100).optional(),
+  prenom: z.string().trim().min(1).max(100).optional(),
   email:  emailStr.optional(),
   role:   roleEnum.optional(),
 }).refine((d) => Object.values(d).some((v) => v !== undefined), {

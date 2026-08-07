@@ -4,7 +4,9 @@ const CODE_REGEX = /^[A-Za-z0-9\-_]+$/;
 const dateField  = z.string().max(50).optional().nullable();
 
 const createProjet = z.object({
-  nom:             z.string().min(1, 'Nom requis').max(200).trim(),
+  // .trim() AVANT .min() : un nom fait uniquement d'espaces doit être rejeté,
+  // pas tronqué à '' après avoir passé min(1).
+  nom:             z.string().trim().min(1, 'Nom requis').max(200),
   description:     z.string().max(5000).optional().nullable(),
   porteur:         z.string().max(200).trim().optional().nullable(),
   posteAnalytique: z.string().max(150).trim().optional().nullable(),
@@ -15,7 +17,7 @@ const createProjet = z.object({
 });
 
 const updateProjet = z.object({
-  nom:             z.string().min(1).max(200).trim().optional(),
+  nom:             z.string().trim().min(1).max(200).optional(),
   description:     z.string().max(5000).optional().nullable(),
   porteur:         z.string().max(200).trim().optional().nullable(),
   posteAnalytique: z.string().max(150).trim().optional().nullable(),
