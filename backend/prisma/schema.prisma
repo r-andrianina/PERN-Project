@@ -333,6 +333,14 @@ model MethodeCollecte {
 // =============================================================
 
 // --- Taxonomie spécimens (hiérarchique : ordre→famille→sous_famille→genre→sous_genre→espece→sous_espece)
+// NB : deux index d'unicité PARTIELS + FONCTIONNELS (lower(nom)) protègent contre
+// les doublons — voir migration `..._taxonomie_specimens_unique_indexes`. Prisma
+// ne sait pas les exprimer ici et les ignore (aucun faux drift), NE PAS tenter de
+// les modéliser en @@unique (les règles diffèrent par niveau) :
+//   - taxonomie_specimens_global_unique_idx : (niveau, lower(nom), type) pour
+//     ordre/famille/sous_famille/genre/sous_genre — nom unique sur tout l'arbre.
+//   - taxonomie_specimens_leaf_unique_idx   : (niveau, lower(nom), parent_id) pour
+//     espece/sous_espece — unicité par parent (épithète répétable entre genres).
 model TaxonomieSpecimen {
   id          Int                @id @default(autoincrement())
   niveau      NiveauTaxonomique
