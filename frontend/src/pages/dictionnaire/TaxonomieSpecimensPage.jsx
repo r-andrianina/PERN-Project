@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Loader2, ChevronLeft,
-  ChevronRight, ChevronDown, ChevronUp, X, Bug, Info,
+  ChevronRight, ChevronDown, ChevronUp, X, Bug, Info, Search, Table2, ListTree,
 } from 'lucide-react';
 import api from '../../api/axios';
 import FormField from '../../components/FormField';
@@ -13,6 +13,7 @@ import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 import { useT, interpolate } from '../../lib/i18n';
+import { Badge, Select, DataTable, Pagination } from '../../components/ui';
 
 const ROLES = { admin: 5, superviseur: 4, chercheur: 3, technicien: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
@@ -58,6 +59,25 @@ const TYPE_COLOR = {
   tique:     'bg-specimen-tique/10 text-specimen-tique border-rose-100',
   puce:      'bg-specimen-puce/10 text-specimen-puce border-amber-100',
 };
+
+const ITALIC_LEVELS = ['genre', 'sous_genre', 'espece', 'sous_espece'];
+const VIEW_STORAGE_KEY = 'taxonomieSpecimens.view';
+
+// Aplatit l'arbre en lignes pour la vue tableau — chaque ligne garde sa
+// lignée (noms des ancêtres) pour ne pas perdre le contexte hiérarchique.
+function flattenTree(nodes, ancestors = []) {
+  const rows = [];
+  nodes.forEach((n) => {
+    const { enfants, ...rest } = n;
+    rows.push({
+      ...rest,
+      lignee: ancestors.map((a) => a.nom).join(' › '),
+      synonymesNoms: (rest.synonymes || []).map((s) => s.nom.toLowerCase()).join(' '),
+    });
+    if (enfants?.length) rows.push(...flattenTree(enfants, [...ancestors, n]));
+  });
+  return rows;
+}
 
 // ----- panneau d'explication de la hiérarchie, repliable (état mémorisé par utilisateur)
 const INFO_STORAGE_KEY = 'taxonomieSpecimens.infoOpen';
@@ -152,7 +172,7 @@ function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, can
 
         {node.type && depth === 0 && (
           <span className={`badge text-[10px] border ${TYPE_COLOR[node.type] || 'bg-surface-2 text-fg-muted border-border-strong'}`}>
-            {node.type}
+            {t(`specimenTypes.${node.type}`)}
           </span>
         )}
 
@@ -221,6 +241,15 @@ export default function TaxonomieSpecimensPage() {
   const [submitErr, setErr]     = useState(null);
   const [expandedIds, setExpandedIds] = useState(new Set());
 
+  const [view, setView] = useState(() => (localStorage.getItem(VIEW_STORAGE_KEY) === 'arbre' ? 'arbre' : 'tableau'));
+  const changeView = (v) => { setView(v); localStorage.setItem(VIEW_STORAGE_KEY, v); };
+  const [search, setSearch]           = useState('');
+  const [filterNiveau, setFilterNiveau] = useState('');
+  const [filterActif, setFilterActif]   = useState('all');
+  const [sort, setSort]   = useState({ key: 'nom', dir: 'asc' });
+  const [page, setPage]   = useState(1);
+  const [limit, setLimit] = useState(25);
+
   const refresh = async () => {
     setLoading(true);
     try {
@@ -242,14 +271,48 @@ export default function TaxonomieSpecimensPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { refresh(); }, [filterType]);
 
+  const NIVEAU_RANK = useMemo(() => Object.fromEntries(niveaux.map((n, i) => [n.value, i])), [niveaux]);
+  const flatRows = useMemo(() => flattenTree(tree), [tree]);
+
+  const filteredRows = useMemo(() => {
+    let rows = flatRows;
+    if (filterNiveau)              rows = rows.filter((r) => r.niveau === filterNiveau);
+    if (filterActif === 'actifs')  rows = rows.filter((r) => r.actif);
+    if (filterActif === 'inactifs') rows = rows.filter((r) => !r.actif);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      rows = rows.filter((r) =>
+        r.nom.toLowerCase().includes(q) ||
+        r.nomCommun?.toLowerCase().includes(q) ||
+        r.lignee.toLowerCase().includes(q) ||
+        r.auteur?.toLowerCase().includes(q) ||
+        r.synonymesNoms.includes(q)
+      );
+    }
+    return [...rows].sort((a, b) => {
+      let av, bv;
+      if (sort.key === 'niveau')      { av = NIVEAU_RANK[a.niveau]; bv = NIVEAU_RANK[b.niveau]; }
+      else if (sort.key === 'actif')  { av = a.actif ? 1 : 0; bv = b.actif ? 1 : 0; }
+      else                            { av = (a[sort.key] || '').toString().toLowerCase(); bv = (b[sort.key] || '').toString().toLowerCase(); }
+      if (av < bv) return sort.dir === 'asc' ? -1 : 1;
+      if (av > bv) return sort.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [flatRows, filterNiveau, filterActif, search, sort, NIVEAU_RANK]);
+
+  useEffect(() => { setPage(1); }, [search, filterNiveau, filterActif, filterType]);
+
+  const pageCount  = Math.ceil(filteredRows.length / limit) || 1;
+  const pagedRows  = filteredRows.slice((page - 1) * limit, page * limit);
+
   const openCreateRoot = () => {
-    setEditing({ niveau: 'ordre', nom: '', type: filterType || 'moustique', auteur: '', annee: '', nomCommun: '', description: '', parentId: null });
+    setEditing({ niveau: 'ordre', nom: '', type: filterType || 'moustique', auteur: '', annee: '', paysType: '', nomCommun: '', description: '', parentId: null });
     setErr(null);
   };
   const openCreateChild = (parent) => {
     const niveauEnfant = NIVEAU_ENFANT[parent.niveau][0];
     setEditing({
-      niveau: niveauEnfant, nom: '', auteur: '', annee: '', nomCommun: '', description: '',
+      niveau: niveauEnfant, nom: '', auteur: '', annee: '', paysType: '', nomCommun: '', description: '',
       parentId: parent.id, parentLabel: `${niveauLabel[parent.niveau]} ${parent.nom}`, type: parent.type,
     });
     setErr(null);
@@ -257,9 +320,9 @@ export default function TaxonomieSpecimensPage() {
   const openEdit = (node) => {
     setEditing({
       id: node.id, niveau: node.niveau, nom: node.nom,
-      auteur: node.auteur || '', annee: node.annee || '',
+      auteur: node.auteur || '', annee: node.annee || '', paysType: node.paysType || '',
       nomCommun: node.nomCommun || '', description: node.description || '',
-      parentId: node.parentId, type: node.type,
+      parentId: node.parentId, type: node.type, synonymes: node.synonymes || [],
     });
     setErr(null);
   };
@@ -271,7 +334,7 @@ export default function TaxonomieSpecimensPage() {
       const body = {
         niveau: editing.niveau, nom: editing.nom,
         parentId: editing.parentId, type: editing.type,
-        auteur: editing.auteur, annee: editing.annee,
+        auteur: editing.auteur, annee: editing.annee, paysType: editing.paysType,
         nomCommun: editing.nomCommun, description: editing.description,
       };
       if (editing.id) await api.put(`/dictionnaire/taxonomie-specimens/${editing.id}`, body);
@@ -309,6 +372,79 @@ export default function TaxonomieSpecimensPage() {
     return [...niveaux]; // backend valide
   }, [editing, niveaux]);
 
+  const tableColumns = [
+    {
+      key: 'niveau', label: t('taxonomieHotesPage.niveauLabel'), sortable: true, width: '100px',
+      render: (row) => <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">{niveauLabel[row.niveau]}</span>,
+    },
+    {
+      key: 'nom', label: t('taxonomieHotesPage.nomLabel'), sortable: true,
+      render: (row) => (
+        <div className={!row.actif ? 'opacity-50' : ''}>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={`text-sm font-medium text-fg ${ITALIC_LEVELS.includes(row.niveau) ? 'italic' : ''}`}>{row.nom}</span>
+            {row.auteur && <span className="text-xs text-fg-subtle">{row.auteur}{row.annee ? `, ${row.annee}` : ''}</span>}
+          </div>
+          {row.lignee && <div className="text-[11px] text-fg-subtle mt-0.5 truncate max-w-xs">{row.lignee}</div>}
+          {row.synonymes?.length > 0 && (
+            <div className="text-[11px] text-fg-subtle mt-0.5 italic truncate max-w-xs">
+              {t('taxonomieSpecimensPage.synonymesLabel')} {row.synonymes.map((s) => s.nom).join(', ')}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'nomCommun', label: t('taxonomieHotesPage.nomCommunLabel'), sortable: true,
+      render: (row) => row.nomCommun || <span className="text-fg-subtle">—</span>,
+    },
+    {
+      key: 'type', label: t('taxonomieSpecimensPage.typeSpecimenLabel'), width: '110px',
+      render: (row) => row.type
+        ? <span className={`badge text-[10px] border ${TYPE_COLOR[row.type] || 'bg-surface-2 text-fg-muted border-border-strong'}`}>{t(`specimenTypes.${row.type}`)}</span>
+        : <span className="text-fg-subtle">—</span>,
+    },
+    {
+      key: 'actif', label: t('referentielSimple.colStatut'), sortable: true, width: '90px',
+      render: (row) => (
+        <Badge tone={row.actif ? 'success' : 'default'} dot>
+          {row.actif ? t('referentielSimple.actif') : t('referentielSimple.inactif')}
+        </Badge>
+      ),
+    },
+    {
+      key: '_actions', label: '', width: '120px', headerClassName: 'text-right', className: 'text-right',
+      render: (row) => (
+        <div className="flex items-center justify-end gap-1">
+          {canEdit && (NIVEAU_ENFANT[row.niveau] || []).length > 0 && (
+            <button onClick={() => openCreateChild(row)} title={t('taxonomieHotesPage.addChild')}
+              className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
+              <Plus size={13} />
+            </button>
+          )}
+          {canEdit && (
+            <>
+              <button onClick={() => toggleActif(row)} title={row.actif ? t('taxonomieHotesPage.desactiver') : t('taxonomieHotesPage.activer')}
+                className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
+                {row.actif ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+              </button>
+              <button onClick={() => openEdit(row)} title={t('taxonomieHotesPage.modifier')}
+                className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
+                <Edit2 size={12} />
+              </button>
+            </>
+          )}
+          {canDelete && (
+            <button onClick={() => remove(row)} title={t('taxonomieHotesPage.supprimer')}
+              className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg">
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="max-w-screen-2xl space-y-5">
       <button onClick={() => navigate('/dictionnaire')} className="inline-flex items-center gap-1.5 text-sm text-fg-subtle hover:text-fg">
@@ -329,21 +465,38 @@ export default function TaxonomieSpecimensPage() {
         )}
       </div>
 
-      <div className="card p-3 flex items-center gap-2">
-        <span className="text-xs text-fg-muted">{t('taxonomieSpecimensPage.filterByType')}</span>
-        {[{ value: '', label: t('common.all') }, ...types].map((tp) => (
+      <div className="card p-3 flex items-center gap-2 flex-wrap justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-fg-muted">{t('taxonomieSpecimensPage.filterByType')}</span>
+          {[{ value: '', label: t('common.all') }, ...types].map((tp) => (
+            <button
+              key={tp.value}
+              onClick={() => setFilter(tp.value)}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                filterType === tp.value
+                  ? 'bg-primary text-white border-primary-600'
+                  : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'
+              }`}
+            >
+              {tp.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="inline-flex rounded-lg border border-border-strong overflow-hidden flex-shrink-0">
           <button
-            key={tp.value}
-            onClick={() => setFilter(tp.value)}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-              filterType === tp.value
-                ? 'bg-primary text-white border-primary-600'
-                : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'
-            }`}
+            onClick={() => changeView('tableau')}
+            className={`px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors ${view === 'tableau' ? 'bg-primary text-white' : 'bg-surface text-fg-muted hover:bg-surface-2'}`}
           >
-            {tp.label}
+            <Table2 size={13} /> {t('taxonomieHotesPage.vueTableau')}
           </button>
-        ))}
+          <button
+            onClick={() => changeView('arbre')}
+            className={`px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 border-l border-border-strong transition-colors ${view === 'arbre' ? 'bg-primary text-white' : 'bg-surface text-fg-muted hover:bg-surface-2'}`}
+          >
+            <ListTree size={13} /> {t('taxonomieHotesPage.vueArbre')}
+          </button>
+        </div>
       </div>
 
       <HierarchyInfoPanel />
@@ -354,7 +507,7 @@ export default function TaxonomieSpecimensPage() {
         </div>
       ) : tree.length === 0 ? (
         <div className="card p-12 text-center text-fg-subtle text-sm">{t('taxonomieHotesPage.noTaxonomy')}</div>
-      ) : (
+      ) : view === 'arbre' ? (
         <div className="card overflow-hidden">
           <div
             className="datatable-scroll overflow-y-auto p-2"
@@ -370,6 +523,61 @@ export default function TaxonomieSpecimensPage() {
               />
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="card overflow-hidden">
+          <div className="p-3 border-b border-border flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-subtle" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('taxonomieHotesPage.searchPlaceholder')}
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-border-strong bg-surface text-fg focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg">
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+            <Select
+              value={filterNiveau} onChange={setFilterNiveau}
+              wrapperClassName="w-44 flex-shrink-0"
+              options={[{ value: '', label: t('common.all') }, ...niveaux]}
+            />
+            <Select
+              value={filterActif} onChange={setFilterActif}
+              wrapperClassName="w-48 flex-shrink-0"
+              options={[
+                { value: 'all',      label: t('referentielSimple.filterAll') },
+                { value: 'actifs',   label: t('referentielSimple.filterActifsOnly') },
+                { value: 'inactifs', label: t('referentielSimple.filterInactifsOnly') },
+              ]}
+            />
+          </div>
+          <DataTable
+            columns={tableColumns}
+            rows={pagedRows}
+            sort={sort}
+            onSort={(key, dir) => setSort({ key, dir })}
+            minWidth="640px"
+            maxHeight="calc(100vh - 400px)"
+            empty={
+              <span className="text-fg-subtle text-sm">
+                {search || filterNiveau || filterActif !== 'all'
+                  ? t('referentielSimple.noResultsFilter')
+                  : t('taxonomieHotesPage.noTaxonomy')}
+              </span>
+            }
+          />
+          {filteredRows.length > 0 && (
+            <Pagination
+              page={page} pages={pageCount} total={filteredRows.length} limit={limit}
+              onChange={setPage}
+              onLimitChange={(n) => { setLimit(n); setPage(1); }}
+            />
+          )}
         </div>
       )}
 
@@ -462,12 +670,32 @@ export default function TaxonomieSpecimensPage() {
                     placeholder={t('taxonomieSpecimensPage.anneePlaceholder')}
                   />
                 </div>
-                <FormField
-                  label={t('taxonomieHotesPage.nomCommunLabel')} name="nomCommun"
-                  value={editing.nomCommun}
-                  onChange={(e) => setEditing({ ...editing, nomCommun: e.target.value })}
-                  placeholder={t('taxonomieSpecimensPage.nomCommunPlaceholder')}
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    label={t('taxonomieHotesPage.nomCommunLabel')} name="nomCommun"
+                    value={editing.nomCommun}
+                    onChange={(e) => setEditing({ ...editing, nomCommun: e.target.value })}
+                    placeholder={t('taxonomieSpecimensPage.nomCommunPlaceholder')}
+                  />
+                  <FormField
+                    label={t('taxonomieSpecimensPage.paysTypeLabel')} name="paysType"
+                    value={editing.paysType}
+                    onChange={(e) => setEditing({ ...editing, paysType: e.target.value })}
+                    placeholder={t('taxonomieSpecimensPage.paysTypePlaceholder')}
+                    hint={t('taxonomieSpecimensPage.paysTypeHint')}
+                  />
+                </div>
+
+                {editing.synonymes?.length > 0 && (
+                  <div className="px-3 py-2.5 bg-surface-2 border border-border rounded-xl text-xs text-fg-muted">
+                    <span className="text-[10px] uppercase tracking-wide text-fg-subtle mr-2">{t('taxonomieSpecimensPage.synonymesLabel')}</span>
+                    {editing.synonymes.map((s, i) => (
+                      <span key={s.id} className="italic">
+                        {i > 0 && ', '}{s.nom}{s.auteur ? ` (${s.auteur}${s.annee ? `, ${s.annee}` : ''})` : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Description optionnelle */}
