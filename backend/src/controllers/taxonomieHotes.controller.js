@@ -32,6 +32,34 @@ const validateHierarchy = (niveau, parent) => {
   return null;
 };
 
+// Niveaux où un nom doit être unique sur tout l'arbre, pas seulement sous le
+// même parent — même règle et même raison que TaxonomieSpecimen (voir schema.
+// prisma) : sans ce garde-fou, deux branches distinctes peuvent porter le
+// même nom de genre. Pas de colonne "type" ici (TaxonomieHote n'en a pas,
+// contrairement à TaxonomieSpecimen) — l'unicité globale porte juste sur
+// (niveau, nom). espece/sous_espece restent uniques par parent seulement
+// (nomenclature binomiale).
+const GLOBAL_UNIQUE_LEVELS = ['ordre', 'famille', 'sous_famille', 'genre', 'sous_genre'];
+
+// Cherche un doublon existant ; renvoie le message d'erreur ou null.
+const checkDuplicate = async ({ niveau, nom, parentId, excludeId }) => {
+  const where = GLOBAL_UNIQUE_LEVELS.includes(niveau)
+    ? { niveau, nom: { equals: nom.trim(), mode: 'insensitive' } }
+    : { niveau, nom: nom.trim(), parentId };
+  if (excludeId) where.id = { not: excludeId };
+
+  const existing = await prisma.taxonomieHote.findFirst({
+    where, include: { parent: { select: { niveau: true, nom: true } } },
+  });
+  if (!existing) return null;
+
+  if (GLOBAL_UNIQUE_LEVELS.includes(niveau)) {
+    const location = existing.parent ? `sous ${existing.parent.niveau} "${existing.parent.nom}"` : 'à la racine';
+    return `"${nom}" existe déjà à ce niveau ${location} — un nom de ${niveau} doit être unique sur tout l'arbre`;
+  }
+  return `"${nom}" existe déjà à ce niveau sous ce parent`;
+};
+
 const list = async (req, res) => {
   const { niveau, parentId, actif, search } = req.query;
   const where = {};
@@ -101,10 +129,8 @@ const create = async (req, res) => {
   const erreur = validateHierarchy(niveau, parent);
   if (erreur) return res.status(400).json({ error: erreur });
 
-  const existing = await prisma.taxonomieHote.findFirst({
-    where: { niveau, nom: nom.trim(), parentId: parent?.id ?? null },
-  });
-  if (existing) return res.status(409).json({ error: `"${nom}" existe déjà à ce niveau sous ce parent` });
+  const dupError = await checkDuplicate({ niveau, nom, parentId: parent?.id ?? null });
+  if (dupError) return res.status(409).json({ error: dupError });
 
   const item = await prisma.taxonomieHote.create({
     data: {
@@ -134,6 +160,7 @@ const update = async (req, res) => {
   if (nomCommun !== undefined)   data.nomCommun   = nomCommun || null;
   if (description !== undefined) data.description = description || null;
 
+  let effectiveParentId = before.parentId;
   if (parentId !== undefined) {
     let parent = null;
     if (parentId !== null && parentId !== '') {
@@ -144,7 +171,16 @@ const update = async (req, res) => {
     const erreur = validateHierarchy(before.niveau, parent);
     if (erreur) return res.status(400).json({ error: erreur });
     data.parentId = parent?.id ?? null;
+    effectiveParentId = data.parentId;
   }
+
+  const dupError = await checkDuplicate({
+    niveau:   before.niveau,
+    nom:      data.nom ?? before.nom,
+    parentId: effectiveParentId,
+    excludeId: id,
+  });
+  if (dupError) return res.status(409).json({ error: dupError });
 
   data.updatedById = req.user?.id ?? null;
 

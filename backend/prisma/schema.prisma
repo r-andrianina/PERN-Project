@@ -394,6 +394,13 @@ model TaxonomieSynonyme {
 }
 
 // --- Taxonomie hôtes (mêmes niveaux)
+// NB : deux index d'unicité PARTIELS + FONCTIONNELS (lower(nom)) protègent contre
+// les doublons — voir migration `..._taxonomie_hotes_unique_indexes`. Même
+// principe que TaxonomieSpecimen, sans colonne "type" (absente ici) :
+//   - taxonomie_hotes_global_unique_idx : (niveau, lower(nom)) pour
+//     ordre/famille/sous_famille/genre/sous_genre — nom unique sur tout l'arbre.
+//   - taxonomie_hotes_leaf_unique_idx   : (niveau, lower(nom), parent_id) pour
+//     espece/sous_espece — unicité par parent (épithète répétable entre genres).
 model TaxonomieHote {
   id          Int               @id @default(autoincrement())
   niveau      NiveauTaxonomique
