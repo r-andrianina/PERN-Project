@@ -14,7 +14,7 @@ const ExcelJS  = require('exceljs');
 const prisma   = require('../config/prisma');
 const {
   LIFESTAGE, SEX, COLLECTION_METHOD, PRESERVATIVE, ORGANISM_PART, BLOOD_MEAL,
-  normalizeKey, parseScientificName, buildHeaderMap, cellValue,
+  normalizeKey, parseScientificName, buildHeaderMap, cellValue, hasHeader,
 } = require('../utils/importMappings');
 const { nextAvailablePositions } = require('../utils/container');
 
@@ -312,7 +312,7 @@ const importMoustiques = async (req, res) => {
   const hMap = buildHeaderMap(ws.getRow(1));
   const requiredHeaders = ['SERIES', 'MISSION_ORDER_NUMBER', 'SCIENTIFIC_NAME'];
   for (const h of requiredHeaders) {
-    if (!hMap[h] && !hMap[h.replace(/ /g, '_')]) {
+    if (!hasHeader(hMap, h)) {
       return res.status(400).json({
         error: `Colonne obligatoire manquante : "${h}". Vérifiez que le fichier suit le format IPM.`,
       });
@@ -357,6 +357,12 @@ const importMoustiques = async (req, res) => {
       logs.push({ ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau, code, raison });
     };
 
+    // Filet par ligne : toute exception non prévue (helper findOrCreate* qui
+    // throw, champ trop long → P2000, coupure DB ponctuelle…) est isolée ici.
+    // On journalise la ligne en erreur et on continue, au lieu d'abandonner
+    // tout l'import en laissant des projets/missions/localités déjà créés
+    // orphelins et un fichier à moitié importé difficile à rejouer.
+    try {
     // ── 1. Projet + Mission ──
     if (!ordreMission) { addLog('erreur', 'MISSION_MANQUANTE', 'MISSION_ORDER_NUMBER manquant'); continue; }
 
@@ -474,7 +480,13 @@ const importMoustiques = async (req, res) => {
     const organePreleve = ORGANISM_PART[rawOrgane] ?? null;
     const solutionId    = await resolveSolution(rawPres);
 
-    const nombre = parseInt(cellValue(row, hMap, 'NUMBER') ?? 1) || 1;
+    // NUMBER ≤ 0 ou non numérique → 1 : jamais de compte négatif/zéro stocké.
+    const rawNombre    = cellValue(row, hMap, 'NUMBER');
+    const parsedNombre = parseInt(rawNombre ?? 1);
+    const nombre       = Number.isFinite(parsedNombre) && parsedNombre > 0 ? parsedNombre : 1;
+    if (rawNombre != null && rawNombre !== '' && parsedNombre !== nombre) {
+      addLog('avertissement', 'NOMBRE_INVALIDE', `Valeur NUMBER "${rawNombre}" invalide (≤ 0 ou non numérique) — ramené à 1`);
+    }
     const notes  = toString(cellValue(row, hMap, 'REMARKS', 'OTHER_INFORMATIONS', 'MISC_METADATA'));
 
     // ── 6. Container ──
@@ -616,6 +628,11 @@ const importMoustiques = async (req, res) => {
         addLog('erreur', 'ERREUR_BDD', `Erreur base de données : ${err.message}`);
       }
     }
+    } catch (rowErr) {
+      // Filet par ligne ouvert en début de boucle : la ligne est perdue mais
+      // l'import continue sur les suivantes.
+      addLog('erreur', 'ERREUR_LIGNE', `Erreur inattendue sur la ligne : ${rowErr.message}`);
+    }
   }
 
   // ── Résumé final ──
@@ -737,7 +754,7 @@ const validateMoustiques = async (req, res) => {
 
   const hMap = buildHeaderMap(ws.getRow(1));
   for (const h of ['SERIES', 'MISSION_ORDER_NUMBER', 'SCIENTIFIC_NAME']) {
-    if (!hMap[h]) {
+    if (!hasHeader(hMap, h)) {
       return res.status(400).json({
         error: `Colonne obligatoire manquante : "${h}". Vérifiez que le fichier suit le format IPM.`,
       });
@@ -848,7 +865,12 @@ const validateMoustiques = async (req, res) => {
     // 5. Container : split PLAQUE ou position occupée
     const boxId    = toString(cellValue(row, hMap, 'BOX_PLATE_ID'));
     const position = toString(cellValue(row, hMap, 'TUBE_OR_WELL_ID'));
-    const nombre   = parseInt(cellValue(row, hMap, 'NUMBER') ?? 1) || 1;
+    const rawNombre    = cellValue(row, hMap, 'NUMBER');
+    const parsedNombre = parseInt(rawNombre ?? 1);
+    const nombre       = Number.isFinite(parsedNombre) && parsedNombre > 0 ? parsedNombre : 1;
+    if (rawNombre != null && rawNombre !== '' && parsedNombre !== nombre) {
+      addLog('avertissement', 'NOMBRE_INVALIDE', `Valeur NUMBER "${rawNombre}" invalide (≤ 0 ou non numérique) — sera ramené à 1`);
+    }
 
     if (boxId) {
       const container = await prisma.container.findUnique({

@@ -3,6 +3,7 @@
 // Filtre par specimensAutorises (RBAC).
 
 const prisma = require('../config/prisma');
+const { BYPASS_ROLES } = require('../config/rbac');
 
 // Génère les 6 derniers mois (du plus ancien au plus récent)
 function derniersMois(n = 6) {
@@ -23,7 +24,7 @@ function derniersMois(n = 6) {
 
 // GET /api/v1/dashboard/stats
 const getStats = async (req, res) => {
-  const autorises = req.user.role === 'admin'
+  const autorises = BYPASS_ROLES.includes(req.user.role)
     ? ['moustique', 'tique', 'puce']
     : (req.user.specimensAutorises || []);
 

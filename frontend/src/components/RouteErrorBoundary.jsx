@@ -8,10 +8,12 @@
 
 import { useRouteError } from 'react-router-dom';
 import { RefreshCw, AlertTriangle } from 'lucide-react';
+import { useT } from '../lib/i18n';
 
 const CHUNK_LOAD_PATTERN = /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed/i;
 
 export default function RouteErrorBoundary() {
+  const t = useT();
   const error = useRouteError();
   const message = error?.message || String(error ?? '');
   const isChunkLoadError = CHUNK_LOAD_PATTERN.test(message);
@@ -38,24 +40,22 @@ export default function RouteErrorBoundary() {
 
           {isChunkLoadError ? (
             <>
-              <h2 className="text-base font-semibold text-fg mb-2">Nouvelle version disponible</h2>
+              <h2 className="text-base font-semibold text-fg mb-2">{t('routeError.chunkTitle')}</h2>
               <p className="text-sm text-fg-subtle leading-relaxed mb-5">
-                L'application a été mise à jour depuis l'ouverture de cette page.
-                Rechargez pour récupérer la dernière version.
+                {t('routeError.chunkMessage')}
               </p>
             </>
           ) : (
             <>
-              <h2 className="text-base font-semibold text-fg mb-2">Une erreur inattendue s'est produite</h2>
+              <h2 className="text-base font-semibold text-fg mb-2">{t('routeError.genericTitle')}</h2>
               <p className="text-sm text-fg-subtle leading-relaxed mb-5">
-                Un rechargement résout la plupart du temps ce genre de problème.
-                Si ça persiste, contactez l'administrateur.
+                {t('routeError.genericMessage')}
               </p>
             </>
           )}
 
           <button type="button" onClick={reload} className="btn-primary w-full justify-center">
-            <RefreshCw size={15} /> Recharger la page
+            <RefreshCw size={15} /> {t('routeError.reloadPage')}
           </button>
 
           {!isChunkLoadError && message && (

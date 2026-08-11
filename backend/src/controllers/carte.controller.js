@@ -3,6 +3,7 @@
 // Respecte le RBAC : seuls les types autorisés dans specimensAutorises sont renvoyés.
 
 const prisma = require('../config/prisma');
+const { BYPASS_ROLES } = require('../config/rbac');
 
 const taxoLabel = (t) => {
   if (!t) return null;
@@ -11,7 +12,7 @@ const taxoLabel = (t) => {
 
 // GET /api/v1/carte/specimens
 const getSpecimens = async (req, res) => {
-  const autorises = req.user.role === 'admin'
+  const autorises = BYPASS_ROLES.includes(req.user.role)
     ? ['moustique', 'tique', 'puce']
     : (req.user.specimensAutorises || []);
 

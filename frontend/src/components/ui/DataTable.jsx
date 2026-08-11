@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback, Fragment } from 'react';
 import { ChevronUp, ChevronsUpDown } from 'lucide-react';
+import { useT } from '../../lib/i18n';
 
 const DENSITY = {
   compact: { td: 'px-3 py-2',   th: 'px-3 py-2.5' },
@@ -78,6 +79,7 @@ export default function DataTable({
   maxHeight = 'calc(100vh - 300px)',
   className = '',
 }) {
+  const t = useT();
   const scrollRef = useRef(null);
   const [shadows, setShadows] = useState({ left: false, right: false });
 
@@ -179,7 +181,7 @@ export default function DataTable({
             ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="py-16 text-center">
-                  {empty ?? <span className="text-fg-subtle text-sm">Aucun résultat</span>}
+                  {empty ?? <span className="text-fg-subtle text-sm">{t('common.noResults')}</span>}
                 </td>
               </tr>
             ) : (

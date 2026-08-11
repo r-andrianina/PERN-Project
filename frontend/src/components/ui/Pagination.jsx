@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useT } from '../../lib/i18n';
 
 const LIMIT_OPTIONS = [25, 50, 100];
 
@@ -24,6 +25,7 @@ function pageNumbers(page, pages) {
  * (seulement quand le focus n'est pas dans un <input>)
  */
 export default function Pagination({ page, pages, total, limit, onChange, onLimitChange }) {
+  const t = useT();
 
   useEffect(() => {
     const handler = (e) => {
@@ -52,12 +54,12 @@ export default function Pagination({ page, pages, total, limit, onChange, onLimi
       {/* Gauche : compteur + sélecteur de limite */}
       <div className="flex items-center gap-3">
         <span className="text-xs text-fg-subtle">
-          {from}–{to} sur <span className="font-medium text-fg">{total}</span>
+          {from}–{to} {t('pagination.of')} <span className="font-medium text-fg">{total}</span>
         </span>
 
         {onLimitChange && (
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-fg-subtle hidden sm:inline">par page :</span>
+            <span className="text-xs text-fg-subtle hidden sm:inline">{t('pagination.perPage')}</span>
             <select
               value={limit}
               onChange={(e) => {
@@ -86,7 +88,7 @@ export default function Pagination({ page, pages, total, limit, onChange, onLimi
           <button
             onClick={() => onChange(page - 1)}
             disabled={page === 1}
-            aria-label="Page précédente"
+            aria-label={t('pagination.prevPage')}
             className={`${btnBase} ${page === 1 ? btnDisabled : btnIdle}`}
           >
             <ChevronLeft size={13} />
@@ -109,7 +111,7 @@ export default function Pagination({ page, pages, total, limit, onChange, onLimi
           <button
             onClick={() => onChange(page + 1)}
             disabled={page === pages}
-            aria-label="Page suivante"
+            aria-label={t('pagination.nextPage')}
             className={`${btnBase} ${page === pages ? btnDisabled : btnIdle}`}
           >
             <ChevronRight size={13} />

@@ -144,11 +144,22 @@ ssh -i "$KEY" "$NAS" \
 
 ## Après configuration HTTPS (domaine Synology)
 
+Config actuelle (2026-08-04) : `CLIENT_URL=https://sm.ipmnas.synology.me:8443`
+— voir `configs.md` § 8 pour le détail (port 8443, pas 443 : occupé par DSM
+lui-même pour ce nom d'hôte côté Portail des applications).
+
 ```bash
 ssh -i "$USERPROFILE/.ssh/nas_deploy" Henintsoa_DEV@192.168.64.18
 nano /volume1/docker/specimenmanager/backend/.env.production
-# Changer : CLIENT_URL=https://VOTRE_DOMAINE.synology.me
+# Changer : CLIENT_URL=https://VOTRE_DOMAINE.synology.me[:PORT]
 
 echo 'MOT_DE_PASSE' | sudo -S /usr/local/bin/docker compose \
-  -f /volume1/docker/specimenmanager/docker-compose.prod.yml restart backend
+  -f /volume1/docker/specimenmanager/docker-compose.prod.yml up -d backend
 ```
+
+> ⚠️ **`up -d`, pas `restart`.** `restart` relance le container existant
+> avec les variables d'environnement déjà figées à sa création — il ne relit
+> jamais `.env.production`. Seul `up -d` détecte le changement et recrée le
+> container. Piège constaté le 2026-08-04 : `CLIENT_URL` mis à jour dans le
+> fichier, `restart` exécuté, mais le header CORS renvoyait encore l'ancienne
+> valeur jusqu'à relancer avec `up -d`.

@@ -19,6 +19,10 @@ services:
       POSTGRES_DB:       specimenmanager
       POSTGRES_USER:     smuser
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      # Publié UNIQUEMENT sur le loopback du NAS (jamais exposé au LAN/internet) :
+      # accès réservé au NAS lui-même et aux tunnels SSH (ex: DBeaver en suivi).
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata16:/var/lib/postgresql/data
       # Active PostGIS au premier démarrage (base vide uniquement)

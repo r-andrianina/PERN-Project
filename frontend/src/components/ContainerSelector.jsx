@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Loader2, Layers, Box, X, AlertTriangle, Check } from 'lucide-react';
 import api from '../api/axios';
 import { Select } from './ui';
+import { useT, interpolate } from '../lib/i18n';
 
 // Génère toutes les positions d'un container
 const buildPositions = (type) => {
@@ -35,6 +36,7 @@ const buildPositions = (type) => {
 
 // ── Modal de création ────────────────────────────────────────
 function CreateContainerModal({ missionId, type, onCreated, onClose }) {
+  const t = useT();
   const [notes,   setNotes]   = useState('');
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
@@ -45,7 +47,7 @@ function CreateContainerModal({ missionId, type, onCreated, onClose }) {
       const r = await api.post('/containers', { type, missionId, notes });
       onCreated(r.data.container);
     } catch (err) {
-      setError(err.response?.data?.error || 'Erreur');
+      setError(err.response?.data?.error || t('common.error'));
     } finally { setLoading(false); }
   };
 
@@ -59,9 +61,9 @@ function CreateContainerModal({ missionId, type, onCreated, onClose }) {
             </div>
             <div>
               <h2 className="text-base font-bold text-white">
-                Nouvelle {type === 'PLAQUE' ? 'plaque (96 puits)' : 'boîte (81 tubes)'}
+                {type === 'PLAQUE' ? t('containerSelector.newPlate') : t('containerSelector.newBox')}
               </h2>
-              <p className="text-xs text-white/80">Code généré automatiquement</p>
+              <p className="text-xs text-white/80">{t('containerSelector.autoCode')}</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
@@ -73,24 +75,24 @@ function CreateContainerModal({ missionId, type, onCreated, onClose }) {
           {error && <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">{error}</div>}
 
           <div className="bg-surface-2 rounded-xl p-3 text-xs text-fg-muted">
-            Le code sera de la forme <code className="font-mono font-semibold text-fg">{type === 'PLAQUE' ? 'P' : 'B'}_&lt;n° mission&gt;_AAAAMM_n</code>
-            {' '}où AAAAMM correspond au mois de début de la mission, et n est un compteur propre à cette mission.
+            {t('containerSelector.codeFormatPrefix')} <code className="font-mono font-semibold text-fg">{type === 'PLAQUE' ? 'P' : 'B'}_&lt;n° mission&gt;_AAAAMM_n</code>
+            {' '}{t('containerSelector.codeFormatSuffix')}
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-fg-muted">Notes (optionnel)</label>
+            <label className="text-xs font-semibold text-fg-muted">{t('containerSelector.notesOptional')}</label>
             <textarea
               value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
-              placeholder="ex: Plaque dédiée aux Anopheles femelles…"
+              placeholder={t('containerSelector.notesPlaceholder')}
               className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 resize-none"
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="button" onClick={onClose} className="btn-secondary">{t('common.cancel')}</button>
             <button type="button" disabled={loading} onClick={submit} className="btn-primary">
               {loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-              Créer
+              {t('common.create')}
             </button>
           </div>
         </div>
@@ -101,6 +103,7 @@ function CreateContainerModal({ missionId, type, onCreated, onClose }) {
 
 // ── Grille de visualisation ──────────────────────────────────
 function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositions = [] }) {
+  const t = useT();
   if (!type) return null;
 
   const isPlaque = type === 'PLAQUE';
@@ -150,7 +153,7 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
                   type="button"
                   onClick={() => !occ && !tem && onSelect(pos)}
                   disabled={occ || tem}
-                  title={tem ? 'H12 — réservé au témoin (SOP)' : occ ? `${pos} : ${occupied.get(pos).map((s) => s.idTerrain || `#${s.id}`).join(', ')}` : pos}
+                  title={tem ? t('containerSelector.controlWell') : occ ? `${pos} : ${occupied.get(pos).map((s) => s.idTerrain || `#${s.id}`).join(', ')}` : pos}
                   className={`${cellSize} rounded-md text-[9px] font-mono transition-all border
                     ${tem
                       ? 'bg-amber-100 text-amber-700 border-amber-300 cursor-not-allowed'
@@ -177,7 +180,7 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
         {/* Position sélectionnée */}
         {selectedPosition && (
           <div>
-            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-1">Position choisie</p>
+            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-1">{t('containerSelector.chosenPosition')}</p>
             <p className="text-3xl font-bold font-mono" style={{ color: 'rgb(var(--primary))' }}>{selectedPosition}</p>
           </div>
         )}
@@ -186,7 +189,7 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
         {autoPositions.length > 0 && (
           <div>
             <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2">
-              Auto-affectées ({autoPositions.length})
+              {t('containerSelector.autoAssigned')} ({autoPositions.length})
             </p>
             <div className="flex flex-wrap gap-1">
               {autoPositions.map(p => (
@@ -200,18 +203,18 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
 
         {/* Occupation */}
         <div>
-          <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2">Occupation</p>
+          <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2">{t('containerSelector.occupation')}</p>
           <div className="space-y-1.5 mb-3">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-fg-muted">Libres</span>
+              <span className="text-fg-muted">{t('containerSelector.free')}</span>
               <span className="font-bold text-fg tabular-nums">{freeCount}</span>
             </div>
             <div className="flex justify-between items-center text-xs">
-              <span className="text-fg-muted">Occupés</span>
+              <span className="text-fg-muted">{t('containerSelector.occupied')}</span>
               <span className="font-bold text-fg tabular-nums">{occupiedCount}</span>
             </div>
             <div className="flex justify-between items-center text-xs border-t border-border pt-1.5">
-              <span className="text-fg-muted">Total utiles</span>
+              <span className="text-fg-muted">{t('containerSelector.totalUseful')}</span>
               <span className="font-bold text-fg tabular-nums">{totalCount - temoinCount}</span>
             </div>
           </div>
@@ -221,29 +224,29 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
               style={{ width: `${pct}%`, backgroundColor: 'rgb(var(--primary))' }}
             />
           </div>
-          <p className="text-[10px] text-fg-subtle mt-1.5">{pct}% utilisé</p>
+          <p className="text-[10px] text-fg-subtle mt-1.5">{interpolate(t('containerSelector.usedPct'), { pct })}</p>
         </div>
 
         {/* Légende */}
         <div className="mt-auto border-t border-border-strong/40 pt-3 space-y-1.5">
-          <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2">Légende</p>
+          <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2">{t('containerSelector.legend')}</p>
           <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
-            <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-surface border border-border-strong inline-block" /> Libre
+            <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-surface border border-border-strong inline-block" /> {t('containerSelector.legendFree')}
           </span>
           <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
-            <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-primary-600 border border-primary-700 inline-block" /> Sélectionné
+            <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-primary-600 border border-primary-700 inline-block" /> {t('containerSelector.legendSelected')}
           </span>
           {autoPositions.length > 0 && (
             <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
-              <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-emerald-200 border border-emerald-400 inline-block" /> Auto ({autoPositions.length})
+              <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-emerald-200 border border-emerald-400 inline-block" /> {t('containerSelector.legendAuto')} ({autoPositions.length})
             </span>
           )}
           <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
-            <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-gray-300 border border-gray-400 inline-block" /> Occupé
+            <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-gray-300 border border-gray-400 inline-block" /> {t('containerSelector.legendOccupied')}
           </span>
           {isPlaque && (
             <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
-              <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-amber-100 border border-amber-300 inline-block" /> Témoin H12
+              <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-amber-100 border border-amber-300 inline-block" /> {t('containerSelector.legendControlWell')}
             </span>
           )}
         </div>
@@ -254,6 +257,7 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
 
 // ── Composant principal ──────────────────────────────────────
 export default function ContainerSelector({ missionId, value, onChange, nombre = 1, error }) {
+  const t = useT();
   const { containerId, position, insertMode = 'single' } = value || {};
 
   const [type, setType] = useState('PLAQUE');
@@ -348,7 +352,7 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
               : 'text-fg-muted hover:text-fg'
           }`}
         >
-          <Layers size={14} /> Plaque (96 puits)
+          <Layers size={14} /> {t('containerSelector.plateLabel')}
         </button>
         <button
           type="button"
@@ -359,7 +363,7 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
               : 'text-fg-muted hover:text-fg'
           }`}
         >
-          <Box size={14} /> Boîte (81 tubes)
+          <Box size={14} /> {t('containerSelector.boxLabel')}
         </button>
       </div>
 
@@ -367,14 +371,14 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
       <div className="flex items-end gap-2">
         <div className="flex-1 space-y-1.5">
           <label className="text-xs font-semibold text-fg-muted tracking-wide">
-            {isPlaque ? 'Plaque' : 'Boîte'} de conservation
+            {isPlaque ? t('containerSelector.plate') : t('containerSelector.box')} {t('containerSelector.conservationLabel')}
           </label>
           <Select
             value={containerId || ''}
             onChange={handleSelectContainer}
             disabled={!missionId || loading}
             options={[
-              { value: '', label: '— Sélectionner —' },
+              { value: '', label: `— ${t('common.select')} —` },
               ...containers.map((c) => ({
                 value: c.id,
                 label: `${c.code}${c.notes ? ` — ${c.notes.slice(0, 30)}` : ''}`,
@@ -386,7 +390,7 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
           type="button"
           onClick={() => setShowModal(true)}
           disabled={!missionId}
-          title={`Nouvelle ${isPlaque ? 'plaque' : 'boîte'}`}
+          title={isPlaque ? t('containerSelector.newPlateShort') : t('containerSelector.newBoxShort')}
           className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors ${
             isPlaque
               ? 'bg-emerald-50 border border-emerald-200 text-emerald-600 hover:bg-emerald-100'
@@ -399,14 +403,14 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
 
       {!missionId && (
         <p className="text-xs text-warning flex items-center gap-1.5">
-          <AlertTriangle size={12} /> Sélectionnez d'abord une mission via la cascade ci-dessus.
+          <AlertTriangle size={12} /> {t('containerSelector.selectMissionFirst')}
         </p>
       )}
 
       {/* Mode d'insertion — BOITE + nombre>1 */}
       {containerData?.container?.type === 'BOITE' && nombre > 1 && (
         <div className="bg-warning/10 border border-warning/20 rounded-xl p-4 space-y-2">
-          <p className="text-xs font-semibold text-amber-800 mb-2">Mode d'insertion</p>
+          <p className="text-xs font-semibold text-amber-800 mb-2">{t('containerSelector.insertMode')}</p>
           <label className="flex items-start gap-2.5 cursor-pointer">
             <input
               type="radio" name="insertMode" value="single"
@@ -415,8 +419,8 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
               className="mt-0.5"
             />
             <div className="text-xs">
-              <p className="font-semibold text-fg">1 enregistrement ({nombre} individus dans le même tube)</p>
-              <p className="text-fg-muted">Vous choisissez la position du tube, les {nombre} individus partagent ce tube.</p>
+              <p className="font-semibold text-fg">{interpolate(t('containerSelector.singleModeTitle'), { n: nombre })}</p>
+              <p className="text-fg-muted">{interpolate(t('containerSelector.singleModeHint'), { n: nombre })}</p>
             </div>
           </label>
           <label className="flex items-start gap-2.5 cursor-pointer">
@@ -427,8 +431,8 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
               className="mt-0.5"
             />
             <div className="text-xs">
-              <p className="font-semibold text-fg">{nombre} enregistrements (1 individu / tube)</p>
-              <p className="text-fg-muted">Le système assigne automatiquement les {nombre} prochaines positions libres.</p>
+              <p className="font-semibold text-fg">{interpolate(t('containerSelector.splitModeTitle'), { n: nombre })}</p>
+              <p className="text-fg-muted">{interpolate(t('containerSelector.splitModeHint'), { n: nombre })}</p>
             </div>
           </label>
         </div>
@@ -439,8 +443,7 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-start gap-2.5 text-xs text-emerald-800">
           <Check size={14} className="flex-shrink-0 mt-0.5 text-emerald-600" />
           <span>
-            <strong>Split automatique :</strong> {nombre} enregistrements distincts seront créés, un par puit,
-            aux {nombre} prochaines positions libres (en vert sur la grille).
+            <strong>{t('containerSelector.autoSplitLabel')}</strong> {interpolate(t('containerSelector.autoSplitHint'), { n: nombre })}
           </span>
         </div>
       )}

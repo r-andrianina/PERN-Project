@@ -41,8 +41,13 @@ api.interceptors.response.use(
       // spammerait un message par requête en échec au lieu d'un état global).
       useConnectionStore.getState().setDown();
     } else if (status === 401) {
-      // Session expirée ou token invalide → redirection login (une seule fois)
-      if (!isRedirecting401) {
+      // Un 401 ne signifie "session expirée" QUE si la requête portait un
+      // token (donc était censée être authentifiée). Sans token — ex: un
+      // /auth/login avec identifiants invalides — c'est un rejet normal,
+      // pas une session qui expire ; on laisse l'appelant (ex: authStore)
+      // afficher son propre message métier au lieu de le masquer ici.
+      const hadToken = !!error.config?.headers?.Authorization;
+      if (hadToken && !isRedirecting401) {
         isRedirecting401 = true;
         localStorage.removeItem('token');
         localStorage.removeItem('user');

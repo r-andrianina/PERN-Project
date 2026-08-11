@@ -144,6 +144,10 @@ model User {
   prenom       String    @db.VarChar(100)
   email        String    @unique @db.VarChar(150)
   passwordHash String    @map("password_hash")
+  // Horodatage du dernier changement de mot de passe. Sert à révoquer les JWT
+  // émis avant ce moment (un token dont l'iat est antérieur est refusé) —
+  // reset admin ou changement self-service coupent ainsi les sessions actives.
+  passwordChangedAt  DateTime?          @map("password_changed_at")
   role               Role               @default(lecteur)
   specimensAutorises TypeSpecimenTaxon[] @default(dbgenerated("ARRAY['moustique','tique','puce']::\"TypeSpecimenTaxon\"[]")) @map("specimens_autorises")
   actif              Boolean            @default(false)
@@ -329,6 +333,14 @@ model MethodeCollecte {
 // =============================================================
 
 // --- Taxonomie spécimens (hiérarchique : ordre→famille→sous_famille→genre→sous_genre→espece→sous_espece)
+// NB : deux index d'unicité PARTIELS + FONCTIONNELS (lower(nom)) protègent contre
+// les doublons — voir migration `..._taxonomie_specimens_unique_indexes`. Prisma
+// ne sait pas les exprimer ici et les ignore (aucun faux drift), NE PAS tenter de
+// les modéliser en @@unique (les règles diffèrent par niveau) :
+//   - taxonomie_specimens_global_unique_idx : (niveau, lower(nom), type) pour
+//     ordre/famille/sous_famille/genre/sous_genre — nom unique sur tout l'arbre.
+//   - taxonomie_specimens_leaf_unique_idx   : (niveau, lower(nom), parent_id) pour
+//     espece/sous_espece — unicité par parent (épithète répétable entre genres).
 model TaxonomieSpecimen {
   id          Int                @id @default(autoincrement())
   niveau      NiveauTaxonomique
@@ -337,6 +349,7 @@ model TaxonomieSpecimen {
   type        TypeSpecimenTaxon? // renseigné en haut de l'arbre (ordre)
   auteur      String?            @db.VarChar(100)
   annee       Int?
+  paysType    String?            @map("pays_type") @db.VarChar(150) // localité type (Dico_Taxo.xlsx, colonne pays_type) — info de provenance, pas un filtre
   nomCommun   String?            @map("nom_commun") @db.VarChar(200)
   description String?            @db.Text
   actif       Boolean            @default(true)
@@ -352,12 +365,32 @@ model TaxonomieSpecimen {
   tiques          Tique[]
   puces           Puce[]
   autresSpecimens AutreSpecimen[]
+  synonymes       TaxonomieSynonyme[]
 
   @@index([parentId])
   @@index([niveau])
   @@index([type])
   @@index([nom])
   @@map("taxonomie_specimens")
+}
+
+// --- Synonymes taxonomiques (Dico_Taxo.xlsx, statut SYN + rattachement) —
+// alias de recherche uniquement, pas des nœuds de la hiérarchie : un
+// synonyme n'a pas de place propre dans l'arbre, il redirige vers le nom
+// actuellement valide (taxonomieId).
+model TaxonomieSynonyme {
+  id          Int      @id @default(autoincrement())
+  nom         String   @db.VarChar(150)
+  auteur      String?  @db.VarChar(100)
+  annee       Int?
+  taxonomieId Int      @map("taxonomie_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  taxonomie TaxonomieSpecimen @relation(fields: [taxonomieId], references: [id], onDelete: Cascade)
+
+  @@index([taxonomieId])
+  @@index([nom])
+  @@map("taxonomie_synonymes")
 }
 
 // --- Taxonomie hôtes (mêmes niveaux)

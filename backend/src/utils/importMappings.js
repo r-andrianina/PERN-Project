@@ -127,8 +127,18 @@ function cellValue(row, hMap, ...keys) {
   return null;
 }
 
+/**
+ * Vrai si la colonne `name` est présente dans le header map, en appliquant la
+ * même normalisation que cellValue/buildHeaderMap (majuscules + espaces → _).
+ * Centralise le test de présence d'en-tête pour que l'import et la validation
+ * à sec utilisent exactement la même règle.
+ */
+function hasHeader(hMap, name) {
+  return Boolean(hMap[name.toUpperCase().replace(/\s+/g, '_')]);
+}
+
 module.exports = {
   LIFESTAGE, SEX, COLLECTION_METHOD, PRESERVATIVE, ORGANISM_PART, BLOOD_MEAL,
   PARITE_SOP, toParietéSOP,
-  normalizeKey, parseScientificName, buildHeaderMap, cellValue,
+  normalizeKey, parseScientificName, buildHeaderMap, cellValue, hasHeader,
 };

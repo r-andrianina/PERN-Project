@@ -11,8 +11,10 @@ import { Card } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
+import { useT, interpolate } from '../../lib/i18n';
 
 export default function NouveauMoustique() {
+  const t = useT();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -84,12 +86,12 @@ export default function NouveauMoustique() {
 
   const validate = () => {
     const errs = {};
-    if (!form.methodeId)   errs.methodeId   = 'La méthode de collecte est obligatoire';
-    if (!form.taxonomieId) errs.taxonomieId = 'La taxonomie est obligatoire (référentiel)';
+    if (!form.methodeId)   errs.methodeId   = t('nouveauSpecimen.methodeRequired');
+    if (!form.taxonomieId) errs.taxonomieId = t('nouveauSpecimen.taxonomieRequired');
     const n = parseInt(form.nombre);
-    if (!n || n < 1) errs.nombre = 'Nombre invalide';
+    if (!n || n < 1) errs.nombre = t('nouveauSpecimen.nombreInvalide');
     if (form.containerId && !form.position && form.insertMode !== 'split') {
-      errs.position = 'Sélectionnez une position dans le container';
+      errs.position = t('nouveauSpecimen.positionRequired');
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -115,28 +117,33 @@ export default function NouveauMoustique() {
       setIsDirty(false);
       navigate('/specimens/moustiques');
     } catch (err) {
-      setErrors({ submit: err.response?.data?.error || 'Erreur lors de la création' });
+      setErrors({ submit: err.response?.data?.error || t('nouveauSpecimen.creationError') });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const taxonomieOptions = taxonomies.map(t => ({
-    value: t.id,
-    label: t.parent ? `${t.parent.nom} ${t.nom}` : t.nom,
+  const taxonomieOptions = taxonomies.map(tx => ({
+    value: tx.id,
+    label: tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom,
   }));
   const solutionOptions  = solutions.map(s => ({ value: s.id, label: `${s.nom}${s.temperature ? ' (' + s.temperature + ')' : ''}` }));
-  const sexeOptions    = [{ value:'M', label:'Mâle' }, { value:'F', label:'Femelle' }, { value:'inconnu', label:'Inconnu' }];
+  const sexeOptions    = [{ value:'M', label: t('sexe.M') }, { value:'F', label: t('sexe.F') }, { value:'inconnu', label: t('sexe.inconnu') }];
   const stadeOptions   = STADE_OPTIONS_MOUSTIQUE;
   const pariteOptions  = [{ value:'Nulle', label:'Nulle' }, { value:'Paucie', label:'Paucie' }, { value:'Multi', label:'Multi' }];
-  const organeOptions  = [{ value:'Tête', label:'Tête' }, { value:'Thorax', label:'Thorax' }, { value:'Abdomen', label:'Abdomen' }, { value:'Entier', label:'Entier' }];
+  const organeOptions  = [
+    { value: 'Tête',    label: t('specimenDetail.organeTete') },
+    { value: 'Thorax',  label: t('specimenDetail.organeThorax') },
+    { value: 'Abdomen', label: t('specimenDetail.organeAbdomen') },
+    { value: 'Entier',  label: t('specimenDetail.organeEntier') },
+  ];
 
-  const selectedTaxo = taxonomies.find((t) => t.id === parseInt(form.taxonomieId));
+  const selectedTaxo = taxonomies.find((tx) => tx.id === parseInt(form.taxonomieId));
 
   return (
     <div className="space-y-5">
       <Link to="/specimens/moustiques" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
-        <ChevronLeft size={16} /> Moustiques
+        <ChevronLeft size={16} /> {t('dashboard.moustiques')}
       </Link>
 
       <form onSubmit={handleSubmit}>
@@ -154,7 +161,7 @@ export default function NouveauMoustique() {
         <div className="card p-6">
           <h2 className="section-title">
             <SpecimenIcon type="moustique" size={18} />
-            Identification du spécimen
+            {t('nouveauSpecimen.identification')}
           </h2>
           <div className="space-y-4">
             <MethodeCascade
@@ -170,10 +177,10 @@ export default function NouveauMoustique() {
               error={errors.idTerrain}
             />
             <FormField
-              label="Genre / Espèce (référentiel)" name="taxonomieId" type="select"
+              label={t('nouveauSpecimen.genreEspece')} name="taxonomieId" type="select"
               value={form.taxonomieId} onChange={handleChange}
               options={taxonomieOptions} required error={errors.taxonomieId}
-              hint="Sélection obligatoire depuis le dictionnaire"
+              hint={t('nouveauSpecimen.genreEspeceHint')}
             />
           </div>
         </div>
@@ -182,46 +189,46 @@ export default function NouveauMoustique() {
         <div className="card p-6">
           <h2 className="section-title">
             <Microscope size={17} className="text-blue-500" />
-            Morphologie
+            {t('nouveauSpecimen.morphologie')}
           </h2>
 
           {stadeImmature && (
             <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-xl flex items-start gap-2 text-xs text-info">
               <Info size={13} className="mt-0.5 flex-shrink-0" />
-              <span>Au stade <strong>{formatStade(form.stade)}</strong>, le sexe ne peut pas être déterminé — Sexe, Parité et Repas sang sont désactivés.</span>
+              <span>{t('nouveauSpecimen.stadePrefix')} <strong>{formatStade(form.stade)}</strong>, {t('nouveauSpecimen.stadeImmatureHint')}</span>
             </div>
           )}
           {!stadeImmature && form.sexe === 'M' && (
             <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-xl flex items-start gap-2 text-xs text-info">
               <Info size={13} className="mt-0.5 flex-shrink-0" />
-              <span>Un mâle ne se gorge pas de sang — la parité et le repas sang sont désactivés.</span>
+              <span>{t('nouveauSpecimen.maleHint')}</span>
             </div>
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <FormField label="Nombre" name="nombre" type="number" value={form.nombre} onChange={handleChange} required error={errors.nombre} />
-            <FormField label="Stade" name="stade" type="select" value={form.stade} onChange={handleChange} options={stadeOptions} />
-            <FormField label="Sexe" name="sexe" type="select"
+            <FormField label={t('nouveauSpecimen.nombre')} name="nombre" type="number" value={form.nombre} onChange={handleChange} required error={errors.nombre} />
+            <FormField label={t('nouveauSpecimen.stade')} name="stade" type="select" value={form.stade} onChange={handleChange} options={stadeOptions} />
+            <FormField label={t('nouveauSpecimen.sexe')} name="sexe" type="select"
               value={sexeForce} onChange={handleChange}
               options={sexeOptions} disabled={sexeDisabled}
-              hint={sexeDisabled ? 'Indéterminable au stade larvaire' : undefined}
+              hint={sexeDisabled ? t('nouveauSpecimen.sexeIndeterminable') : undefined}
             />
-            <FormField label="Parité" name="parite" type="select"
+            <FormField label={t('nouveauSpecimen.parite')} name="parite" type="select"
               value={form.parite} onChange={handleChange}
               options={pariteOptions} disabled={pariteDisabled}
-              hint={pariteDisabled ? 'Femelle adulte uniquement' : undefined}
+              hint={pariteDisabled ? t('nouveauSpecimen.femelleUniquement') : undefined}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <FormField label="Organe prélevé" name="organePreleve" type="select"
+            <FormField label={t('nouveauSpecimen.organePreleve')} name="organePreleve" type="select"
               value={form.organePreleve} onChange={handleChange}
               options={organeOptions} disabled={stadeImmature}
             />
-            <FormField label="Statut sanguin" name="repasSang" type="select"
+            <FormField label={t('nouveauSpecimen.statutSanguin')} name="repasSang" type="select"
               value={form.repasSang} onChange={handleChange}
               options={GORGEMENT_OPTIONS} disabled={repasSangDisabled}
-              hint={repasSangDisabled ? (form.sexe === 'M' ? 'Un mâle ne se gorge pas (mâle)' : 'Femelle adulte uniquement') : undefined}
+              hint={repasSangDisabled ? (form.sexe === 'M' ? t('nouveauSpecimen.maleNeGorgePas') : t('nouveauSpecimen.femelleUniquement')) : undefined}
             />
           </div>
         </div>
@@ -230,13 +237,13 @@ export default function NouveauMoustique() {
         <div className="card p-6">
           <h2 className="section-title">
             <FlaskConical size={17} className="text-purple-500" />
-            Conservation
+            {t('nouveauSpecimen.conservation')}
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-            <FormField label="Solution de conservation" name="solutionId" type="select"
+            <FormField label={t('nouveauSpecimen.solutionConservation')} name="solutionId" type="select"
               value={form.solutionId} onChange={handleChange} options={solutionOptions} />
-            <FormField label="Date de collecte" name="dateCollecte" type="date"
+            <FormField label={t('nouveauSpecimen.dateCollecte')} name="dateCollecte" type="date"
               value={form.dateCollecte} onChange={handleChange} />
           </div>
 
@@ -254,20 +261,20 @@ export default function NouveauMoustique() {
         <div className="card p-6">
           <h2 className="section-title">
             <FileText size={17} className="text-gray-400" />
-            Notes et observations
+            {t('nouveauSpecimen.notesObservations')}
           </h2>
           <FormField name="notes" type="textarea"
             value={form.notes} onChange={handleChange}
-            placeholder="Conditions de collecte, état du spécimen, observations particulières..."
+            placeholder={t('nouveauSpecimen.notesPlaceholder')}
           />
         </div>
 
         <div className="flex items-center justify-end gap-3">
-          <Link to="/specimens/moustiques" className="btn-secondary">Annuler</Link>
+          <Link to="/specimens/moustiques" className="btn-secondary">{t('common.cancel')}</Link>
           <button type="submit" disabled={isLoading} className="btn-primary">
             {isLoading
-              ? <><Loader2 size={15} className="animate-spin" /> Enregistrement…</>
-              : <><Check size={15} /> Enregistrer le spécimen</>
+              ? <><Loader2 size={15} className="animate-spin" /> {t('nouveauSpecimen.saving')}</>
+              : <><Check size={15} /> {t('nouveauSpecimen.saveSpecimen')}</>
             }
           </button>
         </div>
@@ -281,51 +288,51 @@ export default function NouveauMoustique() {
             <Card padding="sm" tone="primary">
               <div className="flex items-center gap-2 mb-3">
                 <SpecimenIcon type="moustique" size={22} />
-                <p className="text-xs font-semibold text-fg uppercase tracking-wider">Aperçu</p>
+                <p className="text-xs font-semibold text-fg uppercase tracking-wider">{t('nouveauSpecimen.preview')}</p>
               </div>
               <div className="space-y-2.5">
                 <div>
-                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Espèce</p>
+                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
                   {selectedTaxo ? (
                     <p className="text-sm font-semibold italic text-specimen-moustique">
                       {selectedTaxo.parent?.nom ? `${selectedTaxo.parent.nom} ` : ''}{selectedTaxo.nom}
                     </p>
                   ) : (
-                    <p className="text-xs text-fg-subtle italic">— à sélectionner —</p>
+                    <p className="text-xs text-fg-subtle italic">{t('nouveauSpecimen.toSelect')}</p>
                   )}
                 </div>
                 {form.idTerrain && (
                   <div>
                     <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                      <Tag size={9} /> ID terrain
+                      <Tag size={9} /> {t('nouveauSpecimen.idTerrain')}
                     </p>
                     <p className="text-sm font-mono font-bold text-primary">{form.idTerrain}</p>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <p className="text-fg-subtle mb-0.5">Nombre</p>
+                    <p className="text-fg-subtle mb-0.5">{t('nouveauSpecimen.nombre')}</p>
                     <p className="font-semibold text-fg">{form.nombre || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-fg-subtle mb-0.5">Sexe</p>
-                    <p className="font-semibold text-fg capitalize">{sexeForce === 'inconnu' ? '—' : sexeForce === 'M' ? 'Mâle' : 'Femelle'}</p>
+                    <p className="text-fg-subtle mb-0.5">{t('nouveauSpecimen.sexe')}</p>
+                    <p className="font-semibold text-fg capitalize">{sexeForce === 'inconnu' ? '—' : sexeForce === 'M' ? t('sexe.M') : t('sexe.F')}</p>
                   </div>
                   {form.stade && (
                     <div>
-                      <p className="text-fg-subtle mb-0.5">Stade</p>
+                      <p className="text-fg-subtle mb-0.5">{t('nouveauSpecimen.stade')}</p>
                       <p className="font-semibold text-fg">{formatStade(form.stade)}</p>
                     </div>
                   )}
                   {form.parite && (
                     <div>
-                      <p className="text-fg-subtle mb-0.5">Parité</p>
+                      <p className="text-fg-subtle mb-0.5">{t('nouveauSpecimen.parite')}</p>
                       <p className="font-semibold text-fg">{form.parite}</p>
                     </div>
                   )}
                 </div>
                 {form.repasSang !== 'N' && (
-                  <p className="text-xs text-danger font-medium">Statut sanguin : {formatGorgement(form.repasSang)}</p>
+                  <p className="text-xs text-danger font-medium">{t('nouveauSpecimen.statutSanguin')} : {formatGorgement(form.repasSang)}</p>
                 )}
               </div>
             </Card>
@@ -333,10 +340,10 @@ export default function NouveauMoustique() {
             {/* Conservation */}
             {(form.solutionId || form.containerId || form.dateCollecte) && (
               <Card padding="sm">
-                <p className="text-xs font-semibold text-fg uppercase tracking-wider mb-2">Conservation</p>
-                {form.dateCollecte && <p className="text-xs text-fg-muted">Date : {new Date(form.dateCollecte).toLocaleDateString('fr-FR')}</p>}
+                <p className="text-xs font-semibold text-fg uppercase tracking-wider mb-2">{t('nouveauSpecimen.conservation')}</p>
+                {form.dateCollecte && <p className="text-xs text-fg-muted">{t('nouveauSpecimen.dateLabel')} {new Date(form.dateCollecte).toLocaleDateString(t('common.locale'))}</p>}
                 {form.containerId && <p className="text-xs text-fg-muted mt-1">
-                  Container {form.position ? `— position ${form.position}` : '(position à choisir)'}
+                  Container {form.position ? `— ${interpolate(t('nouveauSpecimen.containerPositionChosen'), { pos: form.position })}` : t('nouveauSpecimen.containerPositionToChoose')}
                 </p>}
               </Card>
             )}
@@ -344,11 +351,11 @@ export default function NouveauMoustique() {
             {/* Aide */}
             <Card padding="sm">
               <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
-                <span className="block font-semibold text-fg mb-1">Conseils</span>
-                <span className="block">• La <strong>taxonomie</strong> est obligatoire — choisissez au niveau genre / espèce.</span>
-                <span className="block">• Le <strong>stade</strong> détermine le sexe : une larve est toujours « inconnu ».</span>
-                <span className="block">• Un <strong>mâle</strong> n'effectue pas de repas sang.</span>
-                <span className="block">• L'ID terrain (<code className="font-mono text-[10px]">AKZ_n</code>) est généré automatiquement.</span>
+                <span className="block font-semibold text-fg mb-1">{t('nouveauSpecimen.tips')}</span>
+                <span className="block">• {t('nouveauSpecimen.helpTaxonomiePrefix')} <strong>{t('nouveauSpecimen.helpTaxonomieWord')}</strong> {t('nouveauSpecimen.helpTaxonomieSuffix')}</span>
+                <span className="block">• {t('nouveauSpecimen.helpStadePrefix')} <strong>{t('nouveauSpecimen.helpStadeWord')}</strong> {t('nouveauSpecimen.helpStadeSuffix')}</span>
+                <span className="block">• {t('nouveauSpecimen.helpMalePrefix')} <strong>{t('nouveauSpecimen.helpMaleWord')}</strong> {t('nouveauSpecimen.helpMaleSuffix')}</span>
+                <span className="block">• {t('nouveauSpecimen.helpIdTerrainPrefix')}<code className="font-mono text-[10px]">AKZ_n</code>{t('nouveauSpecimen.helpIdTerrainSuffix')}</span>
               </p>
             </Card>
           </aside>

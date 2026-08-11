@@ -6,9 +6,9 @@ import { Card, Badge, Button, PageHeader, Spinner, Breadcrumb, DatePicker } from
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
+import { useT, interpolate } from '../../lib/i18n';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
-const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
 
 function Field({ label, children }) {
   return (
@@ -29,6 +29,8 @@ function SidebarRow({ label, children }) {
 }
 
 export default function AutreSpecimenDetail() {
+  const t = useT();
+  const SEXE_LABEL = { M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') };
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -60,9 +62,9 @@ export default function AutreSpecimenDetail() {
         setSpecimen(r.data.specimen);
         initEdit(r.data.specimen);
       })
-      .catch(() => toast.error('Spécimen introuvable'))
+      .catch(() => toast.error(t('autreSpecimenDetail.loadError')))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, t]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -78,9 +80,9 @@ export default function AutreSpecimenDetail() {
       setSpecimen(r.data.specimen);
       initEdit(r.data.specimen);
       setEditing(false);
-      toast.success('Spécimen mis à jour');
+      toast.success(t('autreSpecimenDetail.updateSuccess'));
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la mise à jour');
+      toast.error(err.response?.data?.error || t('autreSpecimenDetail.updateError'));
     } finally {
       setSaving(false);
     }
@@ -88,17 +90,17 @@ export default function AutreSpecimenDetail() {
 
   const handleDelete = async () => {
     const ok = await dialog.confirm({
-      title:   'Supprimer ce spécimen ?',
-      message: 'Cette action est irréversible.',
+      title:   t('autreSpecimenDetail.deleteTitle'),
+      message: t('autreSpecimenDetail.deleteMessage'),
       danger:  true,
     });
     if (!ok) return;
     try {
       await api.delete(`/autres-specimens/${id}`);
-      toast.success('Spécimen supprimé');
+      toast.success(t('autreSpecimenDetail.deleteSuccess'));
       navigate('/specimens/autres');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur suppression');
+      toast.error(err.response?.data?.error || t('autreSpecimenDetail.deleteError'));
     }
   };
 
@@ -106,7 +108,7 @@ export default function AutreSpecimenDetail() {
     setEditAttrs((p) => p.map((a, idx) => idx === i ? { ...a, [field]: val } : a));
 
   if (loading) return <div className="flex items-center justify-center py-16"><Spinner /></div>;
-  if (!specimen) return <div className="text-center text-fg-subtle py-16">Spécimen introuvable</div>;
+  if (!specimen) return <div className="text-center text-fg-subtle py-16">{t('autreSpecimenDetail.notFound')}</div>;
 
   const s = specimen;
   const mission  = s.methode?.localite?.mission;
@@ -115,28 +117,28 @@ export default function AutreSpecimenDetail() {
   return (
     <div className="max-w-screen-2xl space-y-5">
       <Breadcrumb items={[
-        { label: 'Autres spécimens', href: '/specimens/autres' },
+        { label: t('autreSpecimenDetail.breadcrumbLabel'), href: '/specimens/autres' },
         { label: s.idTerrain || `#${s.id}` },
       ]} />
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <PageHeader
           icon={Bug} iconTone="primary"
-          title={s.idTerrain || `Spécimen #${s.id}`}
-          subtitle={s.typeSpecimen?.nom ?? 'Autre spécimen'}
+          title={s.idTerrain || interpolate(t('autreSpecimenDetail.specimenN'), { id: s.id })}
+          subtitle={s.typeSpecimen?.nom ?? t('autreSpecimenDetail.otherSpecimen')}
         />
         <div className="flex gap-2 flex-wrap">
           {canEdit && !editing && (
-            <Button icon={Pencil} variant="secondary" onClick={() => setEditing(true)}>Modifier</Button>
+            <Button icon={Pencil} variant="secondary" onClick={() => setEditing(true)}>{t('autreSpecimenDetail.edit')}</Button>
           )}
           {editing && (
             <>
-              <Button icon={Save} onClick={handleSave} disabled={saving}>{saving ? 'Sauvegarde…' : 'Sauvegarder'}</Button>
-              <Button icon={X} variant="ghost" onClick={() => { setEditing(false); initEdit(s); }}>Annuler</Button>
+              <Button icon={Save} onClick={handleSave} disabled={saving}>{saving ? t('autreSpecimenDetail.saving') : t('autreSpecimenDetail.save')}</Button>
+              <Button icon={X} variant="ghost" onClick={() => { setEditing(false); initEdit(s); }}>{t('autreSpecimenDetail.cancel')}</Button>
             </>
           )}
           {isAdmin && !editing && (
-            <Button icon={Trash2} variant="danger" onClick={handleDelete}>Supprimer</Button>
+            <Button icon={Trash2} variant="danger" onClick={handleDelete}>{t('autreSpecimenDetail.delete')}</Button>
           )}
         </div>
       </div>
@@ -148,17 +150,17 @@ export default function AutreSpecimenDetail() {
           <Card>
             <div className="p-5 border-b border-border">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-fg">
-                <Bug size={15} className="text-primary" /> Identification
+                <Bug size={15} className="text-primary" /> {t('autreSpecimenDetail.identification')}
               </h3>
             </div>
             <div className="p-5 grid grid-cols-2 md:grid-cols-3 gap-4">
-              <Field label="Type de spécimen">{s.typeSpecimen?.nom}</Field>
-              <Field label="Taxonomie">
+              <Field label={t('autreSpecimenDetail.typeSpecimen')}>{s.typeSpecimen?.nom}</Field>
+              <Field label={t('autreSpecimenDetail.taxonomie')}>
                 {s.taxonomie
                   ? <span className="italic">{s.taxonomie.parent ? `${s.taxonomie.parent.nom} ${s.taxonomie.nom}` : s.taxonomie.nom}</span>
                   : null}
               </Field>
-              <Field label="ID terrain">
+              <Field label={t('autreSpecimenDetail.idTerrain')}>
                 {s.idTerrain ? <Badge tone="primary" className="font-mono">{s.idTerrain}</Badge> : null}
               </Field>
             </div>
@@ -168,43 +170,43 @@ export default function AutreSpecimenDetail() {
           <Card>
             <div className="p-5 border-b border-border">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-fg">
-                <Microscope size={15} className="text-blue-500" /> Morphologie
+                <Microscope size={15} className="text-blue-500" /> {t('autreSpecimenDetail.morphologie')}
               </h3>
             </div>
             <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
               {editing ? (
                 <>
-                  <div><label className="text-xs text-fg-subtle block mb-1">Nombre</label>
+                  <div><label className="text-xs text-fg-subtle block mb-1">{t('autreSpecimenDetail.nombre')}</label>
                     <input type="number" min={1} value={editForm.nombre}
                       onChange={(e) => setEditForm((f) => ({ ...f, nombre: e.target.value }))}
                       className="input-base w-full text-sm" /></div>
-                  <div><label className="text-xs text-fg-subtle block mb-1">Stade</label>
+                  <div><label className="text-xs text-fg-subtle block mb-1">{t('autreSpecimenDetail.stade')}</label>
                     <select value={editForm.stade} onChange={(e) => setEditForm((f) => ({ ...f, stade: e.target.value }))}
                       className="input-base w-full text-sm">
                       <option value="">—</option>
-                      <option value="Ad">Adulte</option>
-                      <option value="L">Larve</option>
-                      <option value="N">Nymphe</option>
-                      <option value="E">Œuf</option>
+                      <option value="Ad">{t('autreSpecimenDetail.stadeAdulte')}</option>
+                      <option value="L">{t('autreSpecimenDetail.stadeLarve')}</option>
+                      <option value="N">{t('autreSpecimenDetail.stadeNymphe')}</option>
+                      <option value="E">{t('autreSpecimenDetail.stadeOeuf')}</option>
                     </select></div>
-                  <div><label className="text-xs text-fg-subtle block mb-1">Sexe</label>
+                  <div><label className="text-xs text-fg-subtle block mb-1">{t('autreSpecimenDetail.sexe')}</label>
                     <select value={editForm.sexe} onChange={(e) => setEditForm((f) => ({ ...f, sexe: e.target.value }))}
                       className="input-base w-full text-sm">
-                      <option value="inconnu">Inconnu</option>
-                      <option value="M">Mâle</option>
-                      <option value="F">Femelle</option>
+                      <option value="inconnu">{t('sexe.inconnu')}</option>
+                      <option value="M">{t('sexe.M')}</option>
+                      <option value="F">{t('sexe.F')}</option>
                     </select></div>
-                  <div><label className="text-xs text-fg-subtle block mb-1">Date collecte</label>
+                  <div><label className="text-xs text-fg-subtle block mb-1">{t('autreSpecimenDetail.dateCollecte')}</label>
                     <DatePicker value={editForm.dateCollecte}
                       onChange={(val) => setEditForm((f) => ({ ...f, dateCollecte: val }))} /></div>
                 </>
               ) : (
                 <>
-                  <Field label="Nombre"><Badge tone="default">{s.nombre}</Badge></Field>
-                  <Field label="Stade">{s.stade || null}</Field>
-                  <Field label="Sexe"><Badge tone={SEXE_TONE[s.sexe]}>{SEXE_LABEL[s.sexe]}</Badge></Field>
-                  <Field label="Date collecte">
-                    {s.dateCollecte ? new Date(s.dateCollecte).toLocaleDateString('fr-FR') : null}
+                  <Field label={t('autreSpecimenDetail.nombre')}><Badge tone="default">{s.nombre}</Badge></Field>
+                  <Field label={t('autreSpecimenDetail.stade')}>{s.stade || null}</Field>
+                  <Field label={t('autreSpecimenDetail.sexe')}><Badge tone={SEXE_TONE[s.sexe]}>{SEXE_LABEL[s.sexe]}</Badge></Field>
+                  <Field label={t('autreSpecimenDetail.dateCollecte')}>
+                    {s.dateCollecte ? new Date(s.dateCollecte).toLocaleDateString(t('common.locale')) : null}
                   </Field>
                 </>
               )}
@@ -215,7 +217,7 @@ export default function AutreSpecimenDetail() {
           <Card>
             <div className="p-5 border-b border-border">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-fg">
-                <FileText size={15} className="text-warning" /> Attributs spécifiques
+                <FileText size={15} className="text-warning" /> {t('autreSpecimenDetail.specificAttrs')}
               </h3>
             </div>
             <div className="p-5">
@@ -223,10 +225,10 @@ export default function AutreSpecimenDetail() {
                 <div className="space-y-2">
                   {editAttrs.map((attr, i) => (
                     <div key={i} className="flex gap-2 items-center">
-                      <input type="text" placeholder="Clé" value={attr.cle}
+                      <input type="text" placeholder={t('autreSpecimenDetail.key')} value={attr.cle}
                         onChange={(e) => setAttrField(i, 'cle', e.target.value)}
                         className="input-base flex-1 text-sm" />
-                      <input type="text" placeholder="Valeur" value={attr.valeur}
+                      <input type="text" placeholder={t('autreSpecimenDetail.value')} value={attr.valeur}
                         onChange={(e) => setAttrField(i, 'valeur', e.target.value)}
                         className="input-base flex-1 text-sm" />
                       <button type="button" onClick={() => setEditAttrs((p) => p.filter((_, idx) => idx !== i))}
@@ -237,7 +239,7 @@ export default function AutreSpecimenDetail() {
                   ))}
                   <button type="button" onClick={() => setEditAttrs((p) => [...p, { cle: '', valeur: '' }])}
                     className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline mt-1">
-                    <Plus size={13} /> Ajouter un attribut
+                    <Plus size={13} /> {t('autreSpecimenDetail.addAttribute')}
                   </button>
                 </div>
               ) : s.attributs && Object.keys(s.attributs).length > 0 ? (
@@ -250,7 +252,7 @@ export default function AutreSpecimenDetail() {
                   ))}
                 </dl>
               ) : (
-                <p className="text-sm text-fg-subtle">Aucun attribut spécifique enregistré.</p>
+                <p className="text-sm text-fg-subtle">{t('autreSpecimenDetail.noAttribute')}</p>
               )}
             </div>
           </Card>
@@ -259,7 +261,7 @@ export default function AutreSpecimenDetail() {
           <Card>
             <div className="p-5 border-b border-border">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-fg">
-                <FileText size={15} className="text-fg-subtle" /> Observations
+                <FileText size={15} className="text-fg-subtle" /> {t('autreSpecimenDetail.observations')}
               </h3>
             </div>
             <div className="p-5">
@@ -279,28 +281,28 @@ export default function AutreSpecimenDetail() {
           <Card>
             <div className="p-4 border-b border-border">
               <h3 className="flex items-center gap-2 text-xs font-semibold text-fg-subtle uppercase tracking-wider">
-                <MapPin size={12} /> Localisation
+                <MapPin size={12} /> {t('autreSpecimenDetail.localisation')}
               </h3>
             </div>
             <div className="p-4 space-y-0">
-              <SidebarRow label="Mission">{mission?.ordreMission}</SidebarRow>
-              <SidebarRow label="Projet">{mission?.projet?.nom}</SidebarRow>
-              <SidebarRow label="Localité">{localite?.nom}</SidebarRow>
-              <SidebarRow label="Fokontany">{localite?.fokontany}</SidebarRow>
-              <SidebarRow label="Méthode">{s.methode?.typeMethode?.nom}</SidebarRow>
+              <SidebarRow label={t('autreSpecimenDetail.mission')}>{mission?.ordreMission}</SidebarRow>
+              <SidebarRow label={t('autreSpecimenDetail.projet')}>{mission?.projet?.nom}</SidebarRow>
+              <SidebarRow label={t('autreSpecimenDetail.localite')}>{localite?.nom}</SidebarRow>
+              <SidebarRow label={t('autreSpecimenDetail.fokontany')}>{localite?.fokontany}</SidebarRow>
+              <SidebarRow label={t('autreSpecimenDetail.methode')}>{s.methode?.typeMethode?.nom}</SidebarRow>
             </div>
           </Card>
 
           <Card>
             <div className="p-4 border-b border-border">
               <h3 className="flex items-center gap-2 text-xs font-semibold text-fg-subtle uppercase tracking-wider">
-                <FlaskConical size={12} /> Conservation
+                <FlaskConical size={12} /> {t('autreSpecimenDetail.conservation')}
               </h3>
             </div>
             <div className="p-4 space-y-0">
-              <SidebarRow label="Solution">{s.solution?.nom}</SidebarRow>
-              <SidebarRow label="Container">{s.container?.code}</SidebarRow>
-              <SidebarRow label="Position">{s.position}</SidebarRow>
+              <SidebarRow label={t('autreSpecimenDetail.solution')}>{s.solution?.nom}</SidebarRow>
+              <SidebarRow label={t('autreSpecimenDetail.container')}>{s.container?.code}</SidebarRow>
+              <SidebarRow label={t('autreSpecimenDetail.position')}>{s.position}</SidebarRow>
             </div>
           </Card>
 
@@ -310,7 +312,7 @@ export default function AutreSpecimenDetail() {
               className="w-full"
               onClick={() => navigate(`/labo/nouvelle?specimenType=autre&specimenId=${s.id}`)}
             >
-              <Beaker size={14} /> Créer une manipulation labo
+              <Beaker size={14} /> {t('autreSpecimenDetail.createLaboManip')}
             </Button>
           </Card>
         </div>

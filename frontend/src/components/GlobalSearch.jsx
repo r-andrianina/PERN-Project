@@ -11,10 +11,7 @@ import { useT } from '../lib/i18n';
 import useAuthStore from '../store/authStore';
 import SpecimenIcon from './SpecimenIcon';
 
-const TYPE_LABEL = { moustique: 'Moustique', tique: 'Tique', puce: 'Puce' };
 const TYPE_TONE  = { moustique: '#1D9E75',   tique: '#f59e0b', puce: '#ef4444' };
-
-const STATUT_PROJET = { actif: 'Actif', termine: 'Terminé', suspendu: 'Suspendu' };
 
 // Surligne toutes les occurrences de `query` dans `text` (insensible à la casse).
 // Utilise split avec groupe capturant : les indices impairs sont les segments concordants.
@@ -319,7 +316,7 @@ export default function GlobalSearch() {
 
             {/* Erreur réseau */}
             {searchError && (
-              <p className="text-sm text-danger text-center py-6">Impossible de contacter le serveur.</p>
+              <p className="text-sm text-danger text-center py-6">{t('globalSearch.networkError')}</p>
             )}
 
             {/* Aucun résultat */}
@@ -349,7 +346,7 @@ export default function GlobalSearch() {
                       </div>
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0"
                         style={{ color: TYPE_TONE[s._type], borderColor: `${TYPE_TONE[s._type]}40`, background: `${TYPE_TONE[s._type]}12` }}>
-                        {TYPE_LABEL[s._type]}
+                        {t(`globalSearch.typeLabel.${s._type}`)}
                       </span>
                     </button>
                   );
@@ -397,7 +394,9 @@ export default function GlobalSearch() {
                         <p className="text-sm font-medium text-fg truncate"><Highlight text={p.nom} query={query} /></p>
                         <p className="text-xs text-fg-subtle truncate font-mono"><Highlight text={p.code} query={query} /></p>
                       </div>
-                      <span className="text-[10px] text-fg-subtle flex-shrink-0">{STATUT_PROJET[p.statut] || p.statut}</span>
+                      <span className="text-[10px] text-fg-subtle flex-shrink-0">
+                        {['actif', 'termine', 'suspendu'].includes(p.statut) ? t(`globalSearch.statutProjet.${p.statut}`) : p.statut}
+                      </span>
                     </button>
                   );
                 })}
@@ -409,7 +408,7 @@ export default function GlobalSearch() {
               <div className="px-4 pt-2 pb-1 border-t border-border mt-1">
                 <button onClick={() => { navigate(`/recherche?search=${encodeURIComponent(query)}`); setOpen(false); }}
                   className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
-                  <ArrowRight size={12} /> {t('common.seeAll')} dans la recherche
+                  <ArrowRight size={12} /> {t('common.seeAll')} {t('globalSearch.seeAllInSearch')}
                 </button>
               </div>
             )}
@@ -420,13 +419,13 @@ export default function GlobalSearch() {
         {!query.trim() && history.length > 0 && (
           <div className="py-2">
             <div className="flex items-center justify-between px-4 py-1.5">
-              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">Récents</p>
+              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">{t('globalSearch.recent')}</p>
               <button
                 type="button"
                 onClick={clearHistory}
                 className="text-[10px] text-fg-subtle hover:text-danger transition-colors"
               >
-                Effacer tout
+                {t('globalSearch.clearAll')}
               </button>
             </div>
             {history.map((term) => (
@@ -443,7 +442,7 @@ export default function GlobalSearch() {
                   type="button"
                   onClick={(e) => removeHistoryEntry(term, e)}
                   className="opacity-0 group-hover:opacity-100 text-fg-subtle hover:text-fg transition-all p-0.5 rounded"
-                  aria-label={`Supprimer "${term}" de l'historique`}
+                  aria-label={`${t('common.delete')} "${term}"`}
                 >
                   <X size={12} />
                 </button>
@@ -455,9 +454,9 @@ export default function GlobalSearch() {
         {/* Hint clavier */}
         {!hasResults && !showEmpty && (
           <div className={`flex items-center justify-center gap-4 px-4 text-[11px] text-fg-subtle ${!query.trim() && history.length > 0 ? 'pb-3 pt-1 border-t border-border' : 'py-4'}`}>
-            <span><kbd className="bg-surface-2 border border-border rounded px-1">↑↓</kbd> Naviguer</span>
-            <span><kbd className="bg-surface-2 border border-border rounded px-1">↵</kbd> Ouvrir</span>
-            <span><kbd className="bg-surface-2 border border-border rounded px-1">Esc</kbd> Fermer</span>
+            <span><kbd className="bg-surface-2 border border-border rounded px-1">↑↓</kbd> {t('globalSearch.navigate')}</span>
+            <span><kbd className="bg-surface-2 border border-border rounded px-1">↵</kbd> {t('globalSearch.open')}</span>
+            <span><kbd className="bg-surface-2 border border-border rounded px-1">Esc</kbd> {t('common.close')}</span>
           </div>
         )}
       </div>

@@ -6,7 +6,9 @@ services:
     environment:
       POSTGRES_DB: specimenmanager
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1346h
+      # Mot de passe hors du fichier committé : défini dans .env (voir .env.example).
+      # Doit correspondre au volume pgdata existant et au DATABASE_URL de backend/.env.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD dans .env (voir .env.example)}
     ports:
       - "5435:5432"
     volumes:

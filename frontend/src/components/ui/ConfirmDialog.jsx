@@ -5,37 +5,39 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2, AlertTriangle, HelpCircle } from 'lucide-react';
 import { dialogEmitter } from '../../lib/dialog';
+import { useT } from '../../lib/i18n';
 
-// ── Config par variante ───────────────────────────────────────
+// ── Config par variante (labels résolus au rendu via t()) ──────
 const VARIANT_CFG = {
   danger: {
-    icon:         Trash2,
-    iconBg:       'bg-danger/10',
-    iconColor:    'text-danger',
-    accentBar:    'bg-danger/20',
-    confirmCls:   'btn-danger',
-    confirmLabel: 'Supprimer',
+    icon:      Trash2,
+    iconBg:    'bg-danger/10',
+    iconColor: 'text-danger',
+    accentBar: 'bg-danger/20',
+    confirmCls: 'btn-danger',
+    confirmLabelKey: 'common.delete',
   },
   warning: {
-    icon:         AlertTriangle,
-    iconBg:       'bg-warning/10',
-    iconColor:    'text-warning',
-    accentBar:    'bg-warning/20',
-    confirmCls:   'btn-primary',
-    confirmLabel: 'Confirmer',
+    icon:      AlertTriangle,
+    iconBg:    'bg-warning/10',
+    iconColor: 'text-warning',
+    accentBar: 'bg-warning/20',
+    confirmCls: 'btn-primary',
+    confirmLabelKey: 'common.confirm',
   },
   info: {
-    icon:         HelpCircle,
-    iconBg:       'bg-info/10',
-    iconColor:    'text-info',
-    accentBar:    'bg-info/20',
-    confirmCls:   'btn-primary',
-    confirmLabel: 'Confirmer',
+    icon:      HelpCircle,
+    iconBg:    'bg-info/10',
+    iconColor: 'text-info',
+    accentBar: 'bg-info/20',
+    confirmCls: 'btn-primary',
+    confirmLabelKey: 'common.confirm',
   },
 };
 
 // ── Modal individuel ──────────────────────────────────────────
 function ConfirmModal({ dlg, onResolve }) {
+  const t = useT();
   const [visible, setVisible] = useState(false);
   const cfg  = VARIANT_CFG[dlg.variant] ?? VARIANT_CFG.danger;
   const Icon = cfg.icon;
@@ -101,7 +103,7 @@ function ConfirmModal({ dlg, onResolve }) {
             onClick={() => resolve(false)}
             className="btn-secondary text-sm"
           >
-            {dlg.cancelLabel ?? 'Annuler'}
+            {dlg.cancelLabel ?? t('common.cancel')}
           </button>
           <button
             type="button"
@@ -109,7 +111,7 @@ function ConfirmModal({ dlg, onResolve }) {
             onClick={() => resolve(true)}
             className={`${cfg.confirmCls} text-sm`}
           >
-            {dlg.confirmLabel ?? cfg.confirmLabel}
+            {dlg.confirmLabel ?? t(cfg.confirmLabelKey)}
           </button>
         </div>
       </div>

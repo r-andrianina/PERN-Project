@@ -3,6 +3,7 @@
 
 const prisma  = require('../config/prisma');
 const ExcelJS = require('exceljs');
+const { BYPASS_ROLES } = require('../config/rbac');
 const {
   resolveSpecimenDescendants,
   resolveHoteDescendants,
@@ -98,7 +99,7 @@ function computeStats(items) {
 
 // Retourne les types effectivement accessibles à l'utilisateur connecté
 function resolveAllowedTypes(requestedTypes, user) {
-  if (user?.role === 'admin') return requestedTypes;
+  if (BYPASS_ROLES.includes(user?.role)) return requestedTypes;
   const autorises = user?.specimensAutorises || [];
   return requestedTypes.filter(t => autorises.includes(t));
 }

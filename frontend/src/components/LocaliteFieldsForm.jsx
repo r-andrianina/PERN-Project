@@ -3,6 +3,7 @@ import { Loader2, Check, Tag, Plus, Trash2, Lock, Unlock, UserRound, MapPinned }
 import api from '../api/axios';
 import FormField from './FormField';
 import MapPicker from './MapPicker';
+import { useT } from '../lib/i18n';
 
 // Champs Localité communs à la création de mission et à l'édition d'une
 // localité existante (NouvelleMission.jsx / MissionDetail.jsx) :
@@ -17,6 +18,7 @@ import MapPicker from './MapPicker';
 //   pré-remplit le brouillon en cours (champs + contacts, copiés sans leur
 //   id d'origine — ils deviennent des contacts indépendants du brouillon).
 export default function LocaliteFieldsForm({ value, onChange, errors = {}, excludeId }) {
+  const t = useT();
   const [autoFill, setAutoFill] = useState(null); // 'loading' | 'match' | 'nearest' | 'existing' | 'none' | null
   const [altitudeLoading, setAltitudeLoading] = useState(false);
   const [geoLocked, setGeoLocked] = useState(false);
@@ -128,30 +130,30 @@ export default function LocaliteFieldsForm({ value, onChange, errors = {}, exclu
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
       <div className="space-y-4 flex flex-col">
         <FormField
-          label="Nom de la localité" name="nom"
+          label={t('localiteForm.nameLabel')} name="nom"
           value={value.nom} onChange={(e) => set({ nom: e.target.value })}
-          placeholder="ex: Grotte Ambodiriana / Ankazobe"
+          placeholder={t('localiteForm.namePlaceholder')}
           required error={errors.nom}
         />
 
         {autoFill === 'loading' && (
           <div className="p-2.5 bg-info/10 border border-info/20 rounded-xl flex items-center gap-2 text-xs text-info">
-            <Loader2 size={12} className="animate-spin" /> Recherche du fokontany à ces coordonnées…
+            <Loader2 size={12} className="animate-spin" /> {t('localiteForm.lookupLoading')}
           </div>
         )}
         {autoFill === 'match' && (
           <div className="p-2.5 bg-success/10 border border-success/20 rounded-xl flex items-center gap-2 text-xs text-success">
-            <Check size={12} /> Région / district / commune / fokontany pré-remplis depuis la base PostGIS — champs verrouillés
+            <Check size={12} /> {t('localiteForm.lookupMatch')}
           </div>
         )}
         {autoFill === 'nearest' && (
           <div className="p-2.5 bg-warning/10 border border-warning/20 rounded-xl flex items-center gap-2 text-xs text-warning">
-            <Tag size={12} /> Point hors polygones — fokontany le plus proche utilisé — champs verrouillés
+            <Tag size={12} /> {t('localiteForm.lookupNearest')}
           </div>
         )}
         {autoFill === 'existing' && (
           <div className="p-2.5 bg-info/10 border border-info/20 rounded-xl flex items-center gap-2 text-xs text-info">
-            <MapPinned size={12} /> Localité existante sélectionnée — champs et contacts copiés, verrouillés
+            <MapPinned size={12} /> {t('localiteForm.lookupExisting')}
           </div>
         )}
 
@@ -160,55 +162,55 @@ export default function LocaliteFieldsForm({ value, onChange, errors = {}, exclu
             type="button" onClick={unlockGeo}
             className="self-start inline-flex items-center gap-1.5 text-xs font-medium text-fg-muted hover:text-fg bg-surface-2 hover:bg-surface-3 px-3 py-1.5 rounded-lg transition-colors"
           >
-            <Unlock size={12} /> Corriger manuellement
+            <Unlock size={12} /> {t('localiteForm.unlock')}
           </button>
         )}
 
         <FormField
-          label="Région" name="region"
+          label={t('localiteForm.region')} name="region"
           value={value.region} onChange={(e) => set({ region: e.target.value })}
-          placeholder="ex: Analamanga" required
+          placeholder={t('localiteForm.regionPlaceholder')} required
           error={errors.region} disabled={geoLocked}
-          hint={geoLocked ? undefined : 'Pré-rempli au clic sur la carte'}
+          hint={geoLocked ? undefined : t('localiteForm.regionHint')}
         />
         <div className="grid grid-cols-2 gap-3">
           <FormField
-            label="District" name="district"
+            label={t('localiteForm.district')} name="district"
             value={value.district} onChange={(e) => set({ district: e.target.value })}
-            placeholder="ex: Ankazobe" required
+            placeholder={t('localiteForm.districtPlaceholder')} required
             error={errors.district} disabled={geoLocked}
           />
           <FormField
-            label="Commune" name="commune"
+            label={t('localiteForm.commune')} name="commune"
             value={value.commune} onChange={(e) => set({ commune: e.target.value })}
-            placeholder="Commune" required
+            placeholder={t('localiteForm.commune')} required
             error={errors.commune} disabled={geoLocked}
           />
         </div>
         <FormField
-          label="Fokontany" name="fokontany"
+          label={t('localiteForm.fokontany')} name="fokontany"
           value={value.fokontany} onChange={(e) => set({ fokontany: e.target.value })}
-          placeholder="Fokontany" required
+          placeholder={t('localiteForm.fokontany')} required
           error={errors.fokontany} disabled={geoLocked}
         />
         <div className="grid grid-cols-3 gap-3 mt-auto">
           <FormField
-            label="Latitude" name="latitude"
+            label={t('localiteForm.latitude')} name="latitude"
             value={value.latitude} onChange={(e) => set({ latitude: e.target.value })}
             onBlur={() => lookupFokontany(value.latitude, value.longitude)}
-            placeholder="-18.9137" hint={geoLocked ? undefined : 'Cliquez sur la carte'}
+            placeholder="-18.9137" hint={geoLocked ? undefined : t('localiteForm.latitudeHint')}
             disabled={geoLocked}
           />
           <FormField
-            label="Longitude" name="longitude"
+            label={t('localiteForm.longitude')} name="longitude"
             value={value.longitude} onChange={(e) => set({ longitude: e.target.value })}
             onBlur={() => lookupFokontany(value.latitude, value.longitude)}
             placeholder="47.5361" disabled={geoLocked}
           />
           <FormField
-            label="Altitude (m)" name="altitudeM"
+            label={t('localiteForm.altitude')} name="altitudeM"
             value={value.altitudeM} onChange={(e) => set({ altitudeM: e.target.value })}
-            placeholder={altitudeLoading ? 'Calcul…' : '1200'}
+            placeholder={altitudeLoading ? t('localiteForm.altitudeComputing') : '1200'}
             disabled={geoLocked || altitudeLoading}
           />
         </div>
@@ -216,17 +218,17 @@ export default function LocaliteFieldsForm({ value, onChange, errors = {}, exclu
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-fg-muted uppercase tracking-wider flex items-center gap-1.5">
-              <UserRound size={12} /> Contacts locaux
+              <UserRound size={12} /> {t('localiteForm.localContacts')}
             </p>
             <button
               type="button" onClick={addContact}
               className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 px-2 py-1 rounded-lg transition-colors"
             >
-              <Plus size={12} /> Ajouter
+              <Plus size={12} /> {t('localiteForm.add')}
             </button>
           </div>
           {contacts.length === 0 && (
-            <p className="text-xs text-fg-subtle italic">Aucun contact local renseigné.</p>
+            <p className="text-xs text-fg-subtle italic">{t('localiteForm.noContact')}</p>
           )}
           <div className="space-y-2">
             {contacts.map((c, i) => (
@@ -234,22 +236,22 @@ export default function LocaliteFieldsForm({ value, onChange, errors = {}, exclu
                 <FormField
                   name={`contact_${i}_nom`}
                   value={c.nom} onChange={(e) => updateContact(i, 'nom', e.target.value)}
-                  placeholder="Nom"
+                  placeholder={t('localiteForm.contactName')}
                 />
                 <FormField
                   name={`contact_${i}_telephone`}
                   value={c.telephone || ''} onChange={(e) => updateContact(i, 'telephone', e.target.value)}
-                  placeholder="Téléphone"
+                  placeholder={t('localiteForm.contactPhone')}
                 />
                 <FormField
                   name={`contact_${i}_statut`}
                   value={c.statut || ''} onChange={(e) => updateContact(i, 'statut', e.target.value)}
-                  placeholder="ex: Chef fokontany"
+                  placeholder={t('localiteForm.contactStatus')}
                 />
                 <button
                   type="button" onClick={() => removeContact(i)}
                   className="mt-1 p-2.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
-                  aria-label="Supprimer ce contact"
+                  aria-label={t('localiteForm.removeContact')}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -261,12 +263,12 @@ export default function LocaliteFieldsForm({ value, onChange, errors = {}, exclu
 
       <div className="flex flex-col">
         <p className="text-xs font-semibold text-fg-muted tracking-wide mb-1.5 flex items-center gap-1.5">
-          Carte — cliquez pour placer le point GPS et auto-remplir
+          {t('localiteForm.mapHint')}
           {geoLocked && <Lock size={11} className="text-fg-subtle" />}
         </p>
         {existingPoints.length > 0 && (
           <p className="text-[11px] text-fg-subtle mb-1.5">
-            Points gris = localités déjà existantes — cliquez pour réutiliser leurs infos.
+            {t('localiteForm.existingPointsHint')}
           </p>
         )}
         <div className="flex-1 min-h-[480px]">

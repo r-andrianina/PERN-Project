@@ -17,6 +17,10 @@ describe('schemas/auth', () => {
       expect(r.data.email).toBe('x@y.co');
       expect(r.data.nom).toBe('Rakoto');
     });
+    it('rejette un nom ou prénom composé uniquement d\'espaces (trim avant min)', () => {
+      expect(schema.register.safeParse({ nom: '   ', prenom: 'B', email: 'a@b.co', password: '12345678' }).success).toBe(false);
+      expect(schema.register.safeParse({ nom: 'A', prenom: '  ', email: 'a@b.co', password: '12345678' }).success).toBe(false);
+    });
   });
 
   describe('createUser', () => {

@@ -3,6 +3,7 @@ import { MapPin, Unlock } from 'lucide-react';
 import FormField from './FormField';
 import MapPicker from './MapPicker';
 import { useApiQuery, useApiQueries } from '../hooks';
+import { useT } from '../lib/i18n';
 
 // Palette qualitative fixe — assignation stable par hash du code de type
 // (ex: "CDC", "BG", "HLC"...) pour que la couleur d'un type reste la même
@@ -19,11 +20,6 @@ const colorForCode = (code) => {
   return PALETTE[hash % PALETTE.length];
 };
 
-const INTERIEUR_EXTERIEUR_OPTIONS = [
-  { value: 'interieur', label: 'Intérieur' },
-  { value: 'exterieur', label: 'Extérieur' },
-];
-
 // Champs Méthode de collecte communs à MissionDetail.jsx (méthode déjà
 // persistée, rattachée à une localité existante) et à NouvelleMission.jsx
 // (méthode brouillon, en mémoire, tant que la mission n'est pas créée).
@@ -39,6 +35,11 @@ const INTERIEUR_EXTERIEUR_OPTIONS = [
 // excludeMethodeId (optionnel) : id de la méthode en cours d'édition, pour ne
 //   pas la superposer sur elle-même dans la carte des pièges existants.
 export default function MethodeFieldsForm({ value, onChange, localiteCoords, excludeMethodeId }) {
+  const t = useT();
+  const INTERIEUR_EXTERIEUR_OPTIONS = [
+    { value: 'interieur', label: t('methodeForm.interieur') },
+    { value: 'exterieur', label: t('methodeForm.exterieur') },
+  ];
   const { results, loading: loadingRefs } = useApiQueries([
     { url: '/dictionnaire/types-methode',       params: { actif: 'true' }, key: 'typesMethode', select: (r) => r.items ?? [] },
     { url: '/dictionnaire/types-habitat',       params: { actif: 'true' }, key: 'typesHabitat', select: (r) => r.items ?? [] },
@@ -133,42 +134,42 @@ export default function MethodeFieldsForm({ value, onChange, localiteCoords, exc
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormField label="Type de méthode" name="typeMethodeId" type="select"
+        <FormField label={t('methodeForm.typeMethode')} name="typeMethodeId" type="select"
           value={value.typeMethodeId} onChange={(e) => set({ typeMethodeId: e.target.value })}
           options={typeMethodeOptions} required disabled={loadingRefs}
-          hint="Depuis le dictionnaire" />
-        <FormField label="Numéro" name="numero" type="number"
+          hint={t('methodeForm.typeMethodeHint')} />
+        <FormField label={t('methodeForm.numero')} name="numero" type="number"
           value={value.numero} onChange={(e) => set({ numero: e.target.value })}
-          hint={identifiant ? `Identifiant : ${identifiant}` : undefined} />
+          hint={identifiant ? `${t('methodeForm.identifiantPrefix')} ${identifiant}` : undefined} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <FormField label="Type d'habitat" name="typeHabitatId" type="select"
+        <FormField label={t('methodeForm.typeHabitat')} name="typeHabitatId" type="select"
           value={value.typeHabitatId} onChange={(e) => set({ typeHabitatId: e.target.value })}
           options={typeHabitatOptions} disabled={loadingRefs} />
-        <FormField label="Type d'environnement" name="typeEnvironnementId" type="select"
+        <FormField label={t('methodeForm.typeEnvironnement')} name="typeEnvironnementId" type="select"
           value={value.typeEnvironnementId} onChange={(e) => set({ typeEnvironnementId: e.target.value })}
           options={typeEnvOptions} disabled={loadingRefs} />
-        <FormField label="Intérieur / Extérieur" name="interieurExterieur" type="select"
+        <FormField label={t('methodeForm.interieurExterieur')} name="interieurExterieur" type="select"
           value={value.interieurExterieur} onChange={(e) => set({ interieurExterieur: e.target.value })}
           options={INTERIEUR_EXTERIEUR_OPTIONS} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormField label="Date et heure de pose" name="datePose" type="datetime-local"
+        <FormField label={t('methodeForm.datePose')} name="datePose" type="datetime-local"
           value={value.datePose} onChange={(e) => set({ datePose: e.target.value })} />
-        <FormField label="Date et heure de relève" name="dateReleve" type="datetime-local"
+        <FormField label={t('methodeForm.dateReleve')} name="dateReleve" type="datetime-local"
           value={value.dateReleve} onChange={(e) => set({ dateReleve: e.target.value })} />
       </div>
 
-      <FormField label="Notes" name="notes" type="textarea"
+      <FormField label={t('common.notes')} name="notes" type="textarea"
         value={value.notes} onChange={(e) => set({ notes: e.target.value })}
-        placeholder="Conditions de terrain, observations particulières…" />
+        placeholder={t('methodeForm.notesPlaceholder')} />
 
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-semibold text-fg-muted tracking-wide">
-            Localisation du piège
+            {t('methodeForm.trapLocation')}
           </p>
           {!mapOpen ? (
             <button
@@ -176,7 +177,7 @@ export default function MethodeFieldsForm({ value, onChange, localiteCoords, exc
               onClick={() => setMapOpen(true)}
               className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
             >
-              <Unlock size={11} /> Préciser une position différente de la localité
+              <Unlock size={11} /> {t('methodeForm.specifyPosition')}
             </button>
           ) : (
             <button
@@ -184,7 +185,7 @@ export default function MethodeFieldsForm({ value, onChange, localiteCoords, exc
               onClick={() => { setMapOpen(false); set({ latitude: '', longitude: '', altitudeM: '' }); }}
               className="text-xs font-medium text-fg-subtle hover:text-fg"
             >
-              Utiliser la position de la localité
+              {t('methodeForm.useLocalityPosition')}
             </button>
           )}
         </div>
@@ -193,7 +194,7 @@ export default function MethodeFieldsForm({ value, onChange, localiteCoords, exc
           <>
             {legendTypes.length > 0 && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2 text-[10px] text-fg-subtle">
-                <span className="flex items-center gap-1 font-medium"><MapPin size={10} /> Pièges existants :</span>
+                <span className="flex items-center gap-1 font-medium"><MapPin size={10} /> {t('methodeForm.existingTraps')}</span>
                 {legendTypes.map(([code, color]) => (
                   <span key={code} className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full inline-block" style={{ background: color }} />
@@ -214,21 +215,21 @@ export default function MethodeFieldsForm({ value, onChange, localiteCoords, exc
             </div>
             <div className="grid grid-cols-3 gap-3 mt-3">
               <div>
-                <p className="text-[10px] text-fg-subtle uppercase tracking-wide mb-0.5">Latitude</p>
+                <p className="text-[10px] text-fg-subtle uppercase tracking-wide mb-0.5">{t('localiteForm.latitude')}</p>
                 <p className="text-sm font-mono text-fg">{value.latitude || '—'}</p>
               </div>
               <div>
-                <p className="text-[10px] text-fg-subtle uppercase tracking-wide mb-0.5">Longitude</p>
+                <p className="text-[10px] text-fg-subtle uppercase tracking-wide mb-0.5">{t('localiteForm.longitude')}</p>
                 <p className="text-sm font-mono text-fg">{value.longitude || '—'}</p>
               </div>
-              <FormField label="Altitude (m)" name="altitudeM" type="number"
+              <FormField label={t('localiteForm.altitude')} name="altitudeM" type="number"
                 value={value.altitudeM} onChange={(e) => set({ altitudeM: e.target.value })}
-                placeholder={altitudeLoading ? 'Calcul…' : '—'} disabled={altitudeLoading} />
+                placeholder={altitudeLoading ? t('localiteForm.altitudeComputing') : '—'} disabled={altitudeLoading} />
             </div>
           </>
         ) : (
           <div className="text-xs text-fg-subtle italic">
-            <p>Hérite de la position de la localité.</p>
+            <p>{t('methodeForm.inheritsPosition')}</p>
             {localiteCoords?.latitude != null && localiteCoords?.longitude != null && (
               <p className="font-mono not-italic mt-1">
                 {localiteCoords.latitude}, {localiteCoords.longitude}

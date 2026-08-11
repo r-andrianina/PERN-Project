@@ -6,14 +6,16 @@ import AutocompleteUser from '../../components/AutocompleteUser';
 import { Card } from '../../components/ui';
 import { useFormSubmit } from '../../hooks';
 import { useApiQuery } from '../../hooks';
+import { useT, interpolate } from '../../lib/i18n';
 
-const STATUT_INFO = {
-  actif:    { label: 'Actif',    cls: 'bg-success/10 text-success border-success/20' },
-  termine:  { label: 'Terminé',  cls: 'bg-surface-3 text-fg-muted border-border-strong' },
-  suspendu: { label: 'Suspendu', cls: 'bg-warning/10 text-warning border-warning/20' },
+const STATUT_CLS = {
+  actif:    'bg-success/10 text-success border-success/20',
+  termine:  'bg-surface-3 text-fg-muted border-border-strong',
+  suspendu: 'bg-warning/10 text-warning border-warning/20',
 };
 
 export default function NouveauProjet() {
+  const t = useT();
   const navigate = useNavigate();
 
   // Chargement des utilisateurs pour l'autocomplete
@@ -29,8 +31,8 @@ export default function NouveauProjet() {
       dateDebut: '', dateFin: '', statut: 'actif',
     },
     validate: (f) => ({
-      nom:     !f.nom  && 'Le nom est obligatoire',
-      dateFin: f.dateDebut && f.dateFin && f.dateFin < f.dateDebut && 'La date de fin doit être postérieure à la date de début',
+      nom:     !f.nom  && t('nouveauProjet.nameRequired'),
+      dateFin: f.dateDebut && f.dateFin && f.dateFin < f.dateDebut && t('nouveauProjet.endAfterStart'),
     }),
     onSubmit: (f) => api.post('/projets', {
       ...f,
@@ -50,15 +52,15 @@ export default function NouveauProjet() {
     : null;
 
   const statutOptions = [
-    { value: 'actif',    label: 'Actif'    },
-    { value: 'termine',  label: 'Terminé'  },
-    { value: 'suspendu', label: 'Suspendu' },
+    { value: 'actif',    label: t('projetStatus.actif')    },
+    { value: 'termine',  label: t('projetStatus.termine')  },
+    { value: 'suspendu', label: t('projetStatus.suspendu') },
   ];
 
   return (
     <div className="space-y-5">
       <Link to="/projets" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
-        <ChevronLeft size={16} /> Projets
+        <ChevronLeft size={16} /> {t('nouveauProjet.backToList')}
       </Link>
 
       <form onSubmit={handleSubmit}>
@@ -74,44 +76,44 @@ export default function NouveauProjet() {
           <Card padding="md">
             <h2 className="section-title">
               <FolderOpen size={17} className="text-primary" />
-              Informations du projet
+              {t('nouveauProjet.projectInfo')}
             </h2>
             <div className="space-y-5">
-              <FormField label="Nom du projet" name="nom"
+              <FormField label={t('nouveauProjet.projectName')} name="nom"
                 value={form.nom} onChange={handleChange}
-                placeholder="ex: Surveillance vecteurs Madagascar 2026" required
+                placeholder={t('nouveauProjet.projectNamePlaceholder')} required
                 error={errors.nom} />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <AutocompleteUser
-                  label="Porteur du projet"
+                  label={t('nouveauProjet.projectLead')}
                   value={form.porteur}
                   onChange={handlePorteurChange}
                   users={users}
-                  placeholder="Nom ou choisir un utilisateur"
-                  hint={matchedUser ? `Lié à l'utilisateur ${matchedUser.email}` : 'Champ libre — peut être un partenaire externe'}
+                  placeholder={t('nouveauProjet.leadPlaceholder')}
+                  hint={matchedUser ? interpolate(t('nouveauProjet.linkedToUser'), { email: matchedUser.email }) : t('nouveauProjet.freeTextHint')}
                 />
-                <FormField label="Statut" name="statut" type="select"
+                <FormField label={t('nouveauProjet.status')} name="statut" type="select"
                   value={form.statut} onChange={handleChange} options={statutOptions} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField label="Date de début" name="dateDebut" type="date"
+                <FormField label={t('nouveauProjet.startDate')} name="dateDebut" type="date"
                   value={form.dateDebut} onChange={handleChange} />
-                <FormField label="Date de fin" name="dateFin" type="date"
+                <FormField label={t('nouveauProjet.endDate')} name="dateFin" type="date"
                   value={form.dateFin} onChange={handleChange} error={errors.dateFin} />
               </div>
 
-              <FormField label="Poste analytique (PA)" name="posteAnalytique"
+              <FormField label={t('nouveauProjet.analyticCode')} name="posteAnalytique"
                 value={form.posteAnalytique} onChange={handleChange}
                 placeholder="ex: PA-2026-014"
-                hint="Référence budgétaire du projet" />
+                hint={t('nouveauProjet.analyticCodeHint')} />
             </div>
 
             <div className="flex items-center justify-end gap-3 mt-6 pt-5 border-t border-border">
-              <Link to="/projets" className="btn-secondary">Annuler</Link>
+              <Link to="/projets" className="btn-secondary">{t('common.cancel')}</Link>
               <button type="submit" disabled={isLoading} className="btn-primary">
-                {isLoading ? 'Création…' : 'Créer le projet'}
+                {isLoading ? t('nouveauProjet.creating') : t('nouveauProjet.createProject')}
               </button>
             </div>
           </Card>
@@ -121,24 +123,24 @@ export default function NouveauProjet() {
             <Card tone="primary" padding="sm">
               <div className="flex items-center gap-2 mb-3">
                 <Briefcase size={14} className="text-primary" />
-                <p className="text-xs font-semibold text-fg uppercase tracking-wider">Aperçu</p>
+                <p className="text-xs font-semibold text-fg uppercase tracking-wider">{t('nouveauProjet.preview')}</p>
               </div>
               <div className="space-y-3">
                 <div>
-                  <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">Nom</span>
+                  <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.name')}</span>
                   <p className="text-sm font-semibold text-fg mt-0.5">
-                    {form.nom || <span className="text-fg-subtle font-normal italic">— à définir —</span>}
+                    {form.nom || <span className="text-fg-subtle font-normal italic">{t('nouveauProjet.undefined')}</span>}
                   </p>
                 </div>
                 {form.porteur && (
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <User size={11} className="text-fg-subtle" />
-                      <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">Porteur</span>
+                      <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.lead')}</span>
                     </div>
                     <p className="text-xs text-fg">
                       {form.porteur}
-                      {matchedUser && <span className="ml-1.5 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">utilisateur</span>}
+                      {matchedUser && <span className="ml-1.5 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">{t('nouveauProjet.userTag')}</span>}
                     </p>
                   </div>
                 )}
@@ -146,24 +148,24 @@ export default function NouveauProjet() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <Calendar size={11} className="text-fg-subtle" />
-                      <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">Période</span>
+                      <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.period')}</span>
                     </div>
                     <p className="text-xs text-fg">
-                      {form.dateDebut ? new Date(form.dateDebut).toLocaleDateString('fr-FR') : '?'}
+                      {form.dateDebut ? new Date(form.dateDebut).toLocaleDateString(t('common.locale')) : '?'}
                       {' → '}
-                      {form.dateFin   ? new Date(form.dateFin).toLocaleDateString('fr-FR')   : '?'}
+                      {form.dateFin   ? new Date(form.dateFin).toLocaleDateString(t('common.locale'))   : '?'}
                     </p>
                     {dureeJours !== null && (
-                      <p className="text-[10px] text-fg-subtle mt-0.5">{dureeJours} jour{dureeJours > 1 ? 's' : ''}</p>
+                      <p className="text-[10px] text-fg-subtle mt-0.5">{dureeJours} {t('nouveauProjet.days')}</p>
                     )}
                   </div>
                 )}
                 <div>
-                  <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">Statut</span>
+                  <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.status')}</span>
                   <div className="mt-1">
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full border ${STATUT_INFO[form.statut]?.cls}`}>
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full border ${STATUT_CLS[form.statut]}`}>
                       <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
-                      {STATUT_INFO[form.statut]?.label}
+                      {t(`projetStatus.${form.statut}`)}
                     </span>
                   </div>
                 </div>
@@ -173,11 +175,11 @@ export default function NouveauProjet() {
             <Card padding="sm">
               <div className="flex items-center gap-2 mb-2">
                 <Info size={13} className="text-info" />
-                <p className="text-xs font-semibold text-fg">Aide</p>
+                <p className="text-xs font-semibold text-fg">{t('nouveauProjet.help')}</p>
               </div>
               <ul className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
-                <li>• Le <strong>porteur</strong> peut être un utilisateur de la base ou un partenaire externe.</li>
-                <li>• Les missions s'ajoutent après la création du projet.</li>
+                <li>• {t('nouveauProjet.helpLeadPrefix')} <strong>{t('nouveauProjet.leadWord')}</strong> {t('nouveauProjet.helpLeadSuffix')}</li>
+                <li>• {t('nouveauProjet.helpMissions')}</li>
               </ul>
             </Card>
           </aside>

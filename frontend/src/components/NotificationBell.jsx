@@ -8,6 +8,7 @@ import api from '../api/axios';
 import { toast } from '../lib/toast';
 import { formatNotificationText, formatRelativeDate, resolveEntityUrl } from '../utils/notifications';
 import useAuthStore from '../store/authStore';
+import { useT } from '../lib/i18n';
 
 // Poll de secours si SSE déconnecté (perte réseau, redémarrage serveur)
 const FALLBACK_POLL_MS = 60000;
@@ -22,14 +23,14 @@ const AVATAR_COLORS = [
   'bg-purple-100 text-purple-600',
 ];
 
-// Badge coloré par type d'action
+// Badge coloré par type d'action (label résolu au rendu via t())
 const ACTION_CFG = {
-  CREATE:     { label: 'Créé',      cls: 'bg-success/10 text-success    border-success/20' },
-  UPDATE:     { label: 'Modifié',   cls: 'bg-info/10    text-info       border-info/20'    },
-  DELETE:     { label: 'Supprimé',  cls: 'bg-danger/10  text-danger     border-danger/20'  },
-  ACTIVATE:   { label: 'Activé',    cls: 'bg-primary/10 text-primary    border-primary/20' },
-  DEACTIVATE: { label: 'Désactivé', cls: 'bg-surface-2  text-fg-subtle  border-border'     },
-  READ:       { label: 'Consulté',  cls: 'bg-surface-2  text-fg-subtle  border-border'     },
+  CREATE:     { cls: 'bg-success/10 text-success    border-success/20' },
+  UPDATE:     { cls: 'bg-info/10    text-info       border-info/20'    },
+  DELETE:     { cls: 'bg-danger/10  text-danger     border-danger/20'  },
+  ACTIVATE:   { cls: 'bg-primary/10 text-primary    border-primary/20' },
+  DEACTIVATE: { cls: 'bg-surface-2  text-fg-subtle  border-border'     },
+  READ:       { cls: 'bg-surface-2  text-fg-subtle  border-border'     },
 };
 
 function UserAvatar({ user }) {
@@ -47,16 +48,18 @@ function UserAvatar({ user }) {
 }
 
 function ActionBadge({ action }) {
+  const t = useT();
   const cfg = ACTION_CFG[action];
   if (!cfg) return null;
   return (
     <span className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${cfg.cls}`}>
-      {cfg.label}
+      {t(`notificationBell.actionLabels.${action}`)}
     </span>
   );
 }
 
 export default function NotificationBell() {
+  const t           = useT();
   const navigate    = useNavigate();
   const updateUser  = useAuthStore((s) => s.updateUser);
 
@@ -88,11 +91,11 @@ export default function NotificationBell() {
     const newItems = await fetchNotifications();
     if (!openRef.current && newItems?.length > 0 && !newItems[0].isRead) {
       toast.info(formatNotificationText(newItems[0]), {
-        title:    'Nouvelle activité',
+        title:    t('notificationBell.newActivity'),
         duration: 4000,
       });
     }
-  }, [fetchNotifications]);
+  }, [fetchNotifications, t]);
 
   // ── Handler SSE permissions_changed — mise à jour silencieuse ──
   const updateUserRef = useRef(updateUser);
@@ -102,24 +105,24 @@ export default function NotificationBell() {
     try {
       const data = JSON.parse(e.data);
       updateUserRef.current({ specimensAutorises: data.specimensAutorises });
-      toast.info(data.message || 'Vos permissions ont été mises à jour.', {
-        title:    'Permissions modifiées',
+      toast.info(data.message || t('notificationBell.permissionsChangedDefault'), {
+        title:    t('notificationBell.permissionsChanged'),
         duration: 8000,
       });
     } catch { /* non bloquant */ }
-  }, []);
+  }, [t]);
 
   // ── Handler SSE account_updated — changement de rôle en temps réel (F1) ──
   const handleAccountUpdated = useCallback((e) => {
     try {
       const data = JSON.parse(e.data);
       if (data.role) updateUserRef.current({ role: data.role });
-      toast.info(data.message || 'Votre compte a été mis à jour.', {
-        title:    'Compte modifié',
+      toast.info(data.message || t('notificationBell.accountUpdatedDefault'), {
+        title:    t('notificationBell.accountUpdated'),
         duration: 8000,
       });
     } catch { /* non bloquant */ }
-  }, []);
+  }, [t]);
 
   // ── SSE + polling de secours ────────────────────────────────────
   useEffect(() => {
@@ -224,7 +227,7 @@ export default function NotificationBell() {
         type="button"
         onClick={() => (open ? close() : openMenu())}
         className="relative p-2 rounded-lg text-fg-muted hover:bg-surface-2 hover:text-fg transition-colors"
-        aria-label="Notifications"
+        aria-label={t('notificationBell.title')}
         aria-haspopup="true"
         aria-expanded={open}
       >
@@ -252,11 +255,11 @@ export default function NotificationBell() {
           {/* En-tête */}
           <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-fg">Notifications</p>
+              <p className="text-sm font-semibold text-fg">{t('notificationBell.title')}</p>
               {/* ÉTAPE 4 : Indicateur SSE offline dans le header */}
               {sseStatus === 'offline' && (
                 <span className="flex items-center gap-1 text-[10px] text-warning font-medium">
-                  <WifiOff size={10} /> temps réel inactif
+                  <WifiOff size={10} /> {t('notificationBell.realtimeOffline')}
                 </span>
               )}
             </div>
@@ -266,7 +269,7 @@ export default function NotificationBell() {
                 onClick={markAllRead}
                 className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
               >
-                <CheckCheck size={13} /> Tout marquer comme lu
+                <CheckCheck size={13} /> {t('notificationBell.markAllRead')}
               </button>
             )}
           </div>
@@ -274,7 +277,7 @@ export default function NotificationBell() {
           {/* ÉTAPE 2 : Liste enrichie avec avatar + badge d'action */}
           <div className="flex-1 overflow-y-auto divide-y divide-border">
             {items.length === 0 ? (
-              <p className="px-3.5 py-8 text-center text-sm text-fg-subtle">Aucune notification</p>
+              <p className="px-3.5 py-8 text-center text-sm text-fg-subtle">{t('notificationBell.empty')}</p>
             ) : items.map((item) => {
               const url = resolveEntityUrl(item.entity, item.entityId, item.action);
               return (
@@ -323,7 +326,7 @@ export default function NotificationBell() {
               onClick={close}
               className="flex items-center justify-center gap-1 text-xs font-medium text-primary hover:underline"
             >
-              Voir tout l'historique <ArrowRight size={11} />
+              {t('notificationBell.seeAllHistory')} <ArrowRight size={11} />
             </Link>
           </div>
         </div>,

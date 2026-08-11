@@ -45,21 +45,14 @@ export const hasMinRole = (userRole, minRole) =>
 /** admin et superviseur voient tout — bypass membership, specimen filter, etc. */
 export const canBypass = (userRole) => bypassRoles.includes(userRole);
 
-export const ROLE_LABELS = {
-  admin:       'Admin',
-  superviseur: 'Superviseur',
-  chercheur:   'Chercheur',
-  technicien:  'Technicien',
-  lecteur:     'Lecteur',
-};
+// Libellé/description d'un rôle, traduits selon la langue courante — appelés
+// depuis le rendu d'un composant qui utilise déjà useT() (donc re-rendu au
+// changement de langue) ; import tardif pour éviter un cycle i18n.js ↔ roles.js.
+import { t as translate } from './i18n';
+import useLangStore from '../store/languageStore';
 
-export const ROLE_DESCRIPTIONS = {
-  admin:       'Accès total — gestion des utilisateurs, référentiels, toutes les données',
-  superviseur: 'Gestion des projets et membres — création/modification sans accès admin',
-  chercheur:   'Création et modification de toutes les données scientifiques',
-  technicien:  'Saisie de spécimens, méthodes de collecte et import Excel',
-  lecteur:     'Consultation uniquement — aucune modification possible',
-};
+export const roleLabel = (role) => translate(`roles.${role}.label`, useLangStore.getState().lang);
+export const roleDescription = (role) => translate(`roles.${role}.description`, useLangStore.getState().lang);
 
 export const ROLE_COLORS = {
   admin:       'bg-role-admin/10 text-role-admin border-role-admin/20',

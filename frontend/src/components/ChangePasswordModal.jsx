@@ -5,8 +5,12 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { KeyRound, X, Eye, EyeOff, Check, Loader2 } from 'lucide-react';
 import api from '../api/axios';
+import { useT } from '../lib/i18n';
+import useAuthStore from '../store/authStore';
 
 export default function ChangePasswordModal({ onClose }) {
+  const t = useT();
+  const setToken = useAuthStore((s) => s.setToken);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword,     setNewPassword]     = useState('');
   const [showCurrent,     setShowCurrent]     = useState(false);
@@ -18,10 +22,13 @@ export default function ChangePasswordModal({ onClose }) {
   const submit = async (e) => {
     e.preventDefault(); setError(null); setLoading(true);
     try {
-      await api.patch('/auth/me/password', { currentPassword, newPassword });
+      const res = await api.patch('/auth/me/password', { currentPassword, newPassword });
+      // Le backend révoque les anciens JWT (dont celui-ci) et en ré-émet un
+      // frais : on le stocke pour rester connecté au lieu d'être déconnecté.
+      if (res.data?.token) setToken(res.data.token);
       setDone(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'Erreur');
+      setError(err.response?.data?.error || t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -35,7 +42,7 @@ export default function ChangePasswordModal({ onClose }) {
             <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
               <KeyRound size={16} className="text-white" />
             </div>
-            <h2 className="text-base font-bold text-white">Changer mon mot de passe</h2>
+            <h2 className="text-base font-bold text-white">{t('changePasswordModal.title')}</h2>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
             <X size={18} />
@@ -47,14 +54,14 @@ export default function ChangePasswordModal({ onClose }) {
               <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center mx-auto">
                 <Check size={20} className="text-success" />
               </div>
-              <p className="text-sm font-medium text-fg">Mot de passe modifié avec succès</p>
-              <button onClick={onClose} className="btn-primary mx-auto mt-2">Fermer</button>
+              <p className="text-sm font-medium text-fg">{t('changePasswordModal.success')}</p>
+              <button onClick={onClose} className="btn-primary mx-auto mt-2">{t('common.close')}</button>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
               {error && <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">{error}</div>}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-fg-muted">Mot de passe actuel <span className="text-danger">*</span></label>
+                <label className="text-xs font-semibold text-fg-muted">{t('changePasswordModal.currentPassword')} <span className="text-danger">*</span></label>
                 <div className="relative">
                   <input type={showCurrent ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
                     required autoComplete="current-password"
@@ -65,22 +72,22 @@ export default function ChangePasswordModal({ onClose }) {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-fg-muted">Nouveau mot de passe <span className="text-danger">*</span></label>
+                <label className="text-xs font-semibold text-fg-muted">{t('changePasswordModal.newPassword')} <span className="text-danger">*</span></label>
                 <div className="relative">
                   <input type={showNew ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
                     required minLength={8} autoComplete="new-password"
                     className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary pr-10"
-                    placeholder="8 caractères minimum" />
+                    placeholder={t('changePasswordModal.newPasswordHint')} />
                   <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle">
                     {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+                <button type="button" onClick={onClose} className="btn-secondary">{t('common.cancel')}</button>
                 <button type="submit" disabled={loading} className="btn-primary">
                   {loading ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
-                  Modifier
+                  {t('changePasswordModal.submit')}
                 </button>
               </div>
             </form>

@@ -3,6 +3,8 @@
 
 import { create } from 'zustand';
 import api from '../api/axios';
+import { t } from '../lib/i18n';
+import useLangStore from './languageStore';
 
 const useAuthStore = create((set) => ({
   // État initial — récupéré depuis localStorage si déjà connecté
@@ -34,7 +36,7 @@ const useAuthStore = create((set) => ({
       // une réponse HTTP avec un message métier (identifiants invalides…) —
       // deux cas très différents, affichés différemment par LoginPage.
       const isNetworkError = !err.response;
-      const message = err.response?.data?.error || 'Erreur de connexion';
+      const message = err.response?.data?.error || t('authStore.connectionError', useLangStore.getState().lang);
       set({ isLoading: false, error: message, isNetworkError });
       return { success: false, error: message, isNetworkError };
     }
@@ -60,6 +62,16 @@ const useAuthStore = create((set) => ({
       localStorage.setItem('user', JSON.stringify(updated));
       return { user: updated };
     }),
+
+  // =============================================================
+  //  SET TOKEN
+  //  Remplace le JWT courant (ex: token ré-émis après changement de
+  //  mot de passe) sans forcer une reconnexion.
+  // =============================================================
+  setToken: (token) => {
+    localStorage.setItem('token', token);
+    set({ token });
+  },
 
   // =============================================================
   //  CLEAR ERROR

@@ -7,17 +7,19 @@ import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner, Pagination, DataTable } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
+import { useT, interpolate } from '../../lib/i18n';
 
 const ROLES = { admin: 5, superviseur: 4, chercheur: 3, technicien: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
-const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
 
-const taxoLabel = (t) =>
-  t ? `${t.parent?.nom ? t.parent.nom + ' ' : ''}${t.nom}` : '';
+const taxoLabel = (tx) =>
+  tx ? `${tx.parent?.nom ? tx.parent.nom + ' ' : ''}${tx.nom}` : '';
 
 export default function HotesPage() {
+  const t = useT();
+  const SEXE_LABEL = { M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') };
   const navigate   = useNavigate();
   const { user }   = useAuthStore();
   const canDelete  = isMin(user?.role, 'chercheur');
@@ -36,13 +38,13 @@ export default function HotesPage() {
 
   const remove = useCallback(async (h) => {
     const ok = await dialog.confirm({
-      title: "Supprimer cet hôte ?",
-      message: `L'hôte #${h.id} sera définitivement supprimé.`,
+      title: t('hotesPage.deleteTitle'),
+      message: interpolate(t('hotesPage.deleteMessage'), { id: h.id }),
     });
     if (!ok) return;
     try { await api.delete(`/hotes/${h.id}`); refresh(); }
-    catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
-  }, [refresh]);
+    catch (err) { toast.error(err.response?.data?.error || t('common.error')); }
+  }, [refresh, t]);
 
   // Filtre + tri côté client
   const filtered = useMemo(() => {
@@ -73,10 +75,10 @@ export default function HotesPage() {
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
-      const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv), 'fr');
+      const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv), t('common.locale'));
       return sort.dir === 'asc' ? cmp : -cmp;
     });
-  }, [data, search, sort]);
+  }, [data, search, sort, t]);
 
   const hotes     = data ?? [];
   const pageCount = Math.ceil(filtered.length / limit) || 1;
@@ -86,7 +88,7 @@ export default function HotesPage() {
   const columns = useMemo(() => [
     {
       key: 'id',
-      label: 'Identifiant',
+      label: t('hotesPage.colIdentifiant'),
       sortable: true,
       skeletonWidth: '40%',
       width: '110px',
@@ -98,7 +100,7 @@ export default function HotesPage() {
     },
     {
       key: 'espece',
-      label: 'Espèce (référentiel)',
+      label: t('hotesPage.colEspeceRef'),
       sortable: true,
       skeletonWidth: '80%',
       render: (h) => (
@@ -114,39 +116,39 @@ export default function HotesPage() {
     },
     {
       key: 'especeLocale',
-      label: 'Espèce locale',
+      label: t('hotesPage.colEspeceLocale'),
       skeletonWidth: '65%',
       hidden: 'hidden md:table-cell',
       render: (h) => <span className="text-fg-muted text-xs">{h.especeLocale || null}</span>,
     },
     {
       key: 'sexe',
-      label: 'Sexe',
+      label: t('specimenList.colSexe'),
       sortable: true,
       skeletonWidth: '50%',
       render: (h) => (
         <Badge tone={SEXE_TONE[h.sexe] ?? 'default'}>
-          {SEXE_LABEL[h.sexe] ?? 'Inconnu'}
+          {SEXE_LABEL[h.sexe] ?? t('sexe.inconnu')}
         </Badge>
       ),
     },
     {
       key: 'age',
-      label: 'Âge',
+      label: t('hotesPage.colAge'),
       skeletonWidth: '45%',
       hidden: 'hidden lg:table-cell',
       render: (h) => <span className="text-fg-muted text-xs">{h.age || null}</span>,
     },
     {
       key: 'etatSante',
-      label: 'État',
+      label: t('hotesPage.colEtat'),
       skeletonWidth: '55%',
       hidden: 'hidden lg:table-cell',
       render: (h) => <span className="text-fg-muted text-xs">{h.etatSante || null}</span>,
     },
     {
       key: 'localite',
-      label: 'Localité',
+      label: t('specimenList.colLocalite'),
       skeletonWidth: '70%',
       hidden: 'hidden sm:table-cell',
       render: (h) => (
@@ -158,7 +160,7 @@ export default function HotesPage() {
     },
     {
       key: 'total',
-      label: 'Spécimens',
+      label: t('hotesPage.colSpecimens'),
       sortable: true,
       skeletonWidth: '40%',
       width: '88px',
@@ -177,28 +179,28 @@ export default function HotesPage() {
       render: (h) => canDelete ? (
         <button
           onClick={(e) => { e.stopPropagation(); remove(h); }}
-          title="Supprimer"
+          title={t('hotesPage.delete')}
           className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
         >
           <Trash2 size={13} />
         </button>
       ) : null,
     },
-  ], [canDelete, remove]);
+  ], [canDelete, remove, t, SEXE_LABEL]);
 
   return (
     <div className="space-y-5">
       <PageHeader
         icon={PawPrint} iconTone="warning"
-        title="Hôtes"
-        subtitle={`${hotes.length} hôte(s) enregistré(s)`}
-        actions={<Button icon={Plus} onClick={() => navigate('/hotes/nouveau')}>Nouvel hôte</Button>}
+        title={t('hotesPage.title')}
+        subtitle={interpolate(t('hotesPage.subtitle'), { n: hotes.length })}
+        actions={<Button icon={Plus} onClick={() => navigate('/hotes/nouveau')}>{t('hotesPage.newHote')}</Button>}
       />
 
       {isLoading ? <Spinner.Block /> : hotes.length === 0 ? (
         <EmptyState
-          icon={PawPrint} title="Aucun hôte enregistré"
-          action={{ label: 'Enregistrer le premier hôte', icon: Plus, onClick: () => navigate('/hotes/nouveau') }}
+          icon={PawPrint} title={t('hotesPage.noneYet')}
+          action={{ label: t('hotesPage.addFirst'), icon: Plus, onClick: () => navigate('/hotes/nouveau') }}
         />
       ) : (
         <Card padding="none" className="overflow-hidden">
@@ -209,7 +211,7 @@ export default function HotesPage() {
               <Search size={14} className="text-fg-subtle flex-shrink-0" />
               <input
                 type="text"
-                placeholder="Rechercher par identifiant, espèce ou localité…"
+                placeholder={t('hotesPage.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="flex-1 text-sm bg-transparent border-none outline-none text-fg placeholder-fg-subtle"
@@ -221,7 +223,7 @@ export default function HotesPage() {
               )}
             </div>
             <span className="text-xs text-fg-subtle whitespace-nowrap font-medium">
-              {filtered.length} résultat(s)
+              {interpolate(t('hotesPage.resultsCount'), { n: filtered.length })}
             </span>
           </div>
 
@@ -236,7 +238,7 @@ export default function HotesPage() {
             maxHeight="calc(100vh - 310px)"
             empty={
               <span className="text-fg-subtle text-sm">
-                Aucun hôte pour «&nbsp;{search}&nbsp;»
+                {interpolate(t('hotesPage.noneForSearch'), { query: search })}
               </span>
             }
           />

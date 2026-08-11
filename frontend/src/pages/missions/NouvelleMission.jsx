@@ -10,6 +10,7 @@ import LocaliteFieldsForm from '../../components/LocaliteFieldsForm';
 import MethodeFieldsForm from '../../components/MethodeFieldsForm';
 import AgentMultiSelect from '../../components/AgentMultiSelect';
 import { useApiQuery } from '../../hooks';
+import { useT, interpolate } from '../../lib/i18n';
 
 const defaultLocalite = () => ({
   nom: '', pays: 'Madagascar',
@@ -29,13 +30,14 @@ const defaultMethode = () => ({
 //    pas créée). Ne fait aucun appel API, se contente de renvoyer l'objet
 //    au parent via onSave.
 function MethodeDraftModal({ localite, initial, onClose, onSave }) {
+  const t = useT();
   const [form, setForm] = useState(initial ?? defaultMethode());
   const isEdit = !!initial;
 
   const { data: typesMethode } = useApiQuery('/dictionnaire/types-methode', {
     params: { actif: 'true' }, select: (r) => r.items ?? [],
   });
-  const selectedType = (typesMethode ?? []).find((t) => t.id === parseInt(form.typeMethodeId));
+  const selectedType = (typesMethode ?? []).find((tm) => tm.id === parseInt(form.typeMethodeId));
   const identifiant  = selectedType ? `${selectedType.code}_${form.numero || 1}` : null;
 
   // Numéro auto-incrémenté : dès qu'un type de méthode est (re)choisi lors
@@ -69,9 +71,9 @@ function MethodeDraftModal({ localite, initial, onClose, onSave }) {
             </div>
             <div>
               <h2 className="text-base font-bold text-white">
-                {isEdit ? 'Modifier la méthode' : 'Nouvelle méthode'}
+                {isEdit ? t('nouvelleMission.editMethodTitle') : t('nouvelleMission.newMethodTitle')}
               </h2>
-              <p className="text-xs text-white/80">{localite.nom || 'Localité sans nom'}{identifiant ? ` — ${identifiant}` : ''}</p>
+              <p className="text-xs text-white/80">{localite.nom || t('nouvelleMission.unnamedLocality')}{identifiant ? ` — ${identifiant}` : ''}</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
@@ -83,9 +85,9 @@ function MethodeDraftModal({ localite, initial, onClose, onSave }) {
           <MethodeFieldsForm value={form} onChange={handleFieldsChange} localiteCoords={localite} />
 
           <div className="flex justify-end gap-2 pt-3 border-t border-border">
-            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="button" onClick={onClose} className="btn-secondary">{t('common.cancel')}</button>
             <button type="submit" className="btn-primary">
-              <Check size={15} /> {isEdit ? 'Enregistrer' : 'Ajouter la méthode'}
+              <Check size={15} /> {isEdit ? t('common.save') : t('nouvelleMission.addMethod')}
             </button>
           </div>
         </div>
@@ -98,14 +100,15 @@ function MethodeDraftModal({ localite, initial, onClose, onSave }) {
 //    piège brouillon (ex: CDC_2, CDC_3, CDC_4), chacune vide à part son
 //    type/numéro — à compléter individuellement ensuite, comme les localités.
 function MethodeBulkModal({ localite, onClose, onGenerate }) {
+  const t = useT();
   const [typeMethodeId, setTypeMethodeId] = useState('');
   const [count, setCount] = useState('1');
 
   const { data: typesMethode } = useApiQuery('/dictionnaire/types-methode', {
     params: { actif: 'true' }, select: (r) => r.items ?? [],
   });
-  const selectedType = (typesMethode ?? []).find((t) => t.id === parseInt(typeMethodeId));
-  const typeOptions  = (typesMethode ?? []).map((t) => ({ value: t.id, label: t.nom, keywords: t.code }));
+  const selectedType = (typesMethode ?? []).find((tm) => tm.id === parseInt(typeMethodeId));
+  const typeOptions  = (typesMethode ?? []).map((tm) => ({ value: tm.id, label: tm.nom, keywords: tm.code }));
 
   const nextNumero = selectedType
     ? (() => {
@@ -136,8 +139,8 @@ function MethodeBulkModal({ localite, onClose, onGenerate }) {
               <Layers size={16} className="text-white" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">Générer des pièges en série</h2>
-              <p className="text-xs text-white/80">{localite.nom || 'Localité sans nom'}</p>
+              <h2 className="text-base font-bold text-white">{t('nouvelleMission.bulkTitle')}</h2>
+              <p className="text-xs text-white/80">{localite.nom || t('nouvelleMission.unnamedLocality')}</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
@@ -146,24 +149,24 @@ function MethodeBulkModal({ localite, onClose, onGenerate }) {
         </div>
 
         <div className="p-6 space-y-4">
-          <FormField label="Type de méthode" name="typeMethodeId" type="select"
+          <FormField label={t('methodeForm.typeMethode')} name="typeMethodeId" type="select"
             value={typeMethodeId} onChange={(e) => setTypeMethodeId(e.target.value)}
             options={typeOptions} required />
-          <FormField label="Nombre de pièges" name="count" type="number"
+          <FormField label={t('nouvelleMission.trapCount')} name="count" type="number"
             value={count} onChange={(e) => setCount(e.target.value)}
-            hint="Une carte sera créée par piège, à compléter individuellement (habitat, environnement, position…)." />
+            hint={t('nouvelleMission.trapCountHint')} />
 
           {preview.length > 0 && (
             <div className="text-xs text-fg-subtle bg-surface-2/60 rounded-lg px-3 py-2">
-              <span className="font-medium text-fg-muted">Génèrera : </span>
+              <span className="font-medium text-fg-muted">{t('nouvelleMission.willGenerate')} </span>
               <span className="font-mono">{preview.join(', ')}</span>
             </div>
           )}
 
           <div className="flex justify-end gap-2 pt-3 border-t border-border">
-            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="button" onClick={onClose} className="btn-secondary">{t('common.cancel')}</button>
             <button type="submit" disabled={!typeMethodeId} className="btn-primary">
-              <Check size={15} /> Générer{n > 1 ? ` (${n})` : ''}
+              <Check size={15} /> {t('nouvelleMission.generate')}{n > 1 ? ` (${n})` : ''}
             </button>
           </div>
         </div>
@@ -173,6 +176,7 @@ function MethodeBulkModal({ localite, onClose, onGenerate }) {
 }
 
 export default function NouvelleMission() {
+  const t = useT();
   const navigate = useNavigate();
 
   const [mission, setMission] = useState({
@@ -282,15 +286,15 @@ export default function NouvelleMission() {
 
   const validate = () => {
     const errs = {};
-    if (!mission.ordreMission) errs.ordreMission = 'Ordre de mission obligatoire';
-    if (!mission.projetId)     errs.projetId     = 'Projet obligatoire';
-    if (!mission.dateDebut)    errs.dateDebut    = 'Date de début obligatoire';
+    if (!mission.ordreMission) errs.ordreMission = t('nouvelleMission.ordreMissionRequired');
+    if (!mission.projetId)     errs.projetId     = t('nouvelleMission.projetRequired');
+    if (!mission.dateDebut)    errs.dateDebut    = t('nouvelleMission.dateDebutRequired');
     localites.forEach((l, i) => {
-      if (!l.nom)       errs[`localite_${i}_nom`]       = 'Nom obligatoire';
-      if (!l.region)    errs[`localite_${i}_region`]    = 'Région obligatoire';
-      if (!l.district)  errs[`localite_${i}_district`]  = 'District obligatoire';
-      if (!l.commune)   errs[`localite_${i}_commune`]   = 'Commune obligatoire';
-      if (!l.fokontany) errs[`localite_${i}_fokontany`] = 'Fokontany obligatoire';
+      if (!l.nom)       errs[`localite_${i}_nom`]       = t('nouvelleMission.nomRequired');
+      if (!l.region)    errs[`localite_${i}_region`]    = t('nouvelleMission.regionRequired');
+      if (!l.district)  errs[`localite_${i}_district`]  = t('nouvelleMission.districtRequired');
+      if (!l.commune)   errs[`localite_${i}_commune`]   = t('nouvelleMission.communeRequired');
+      if (!l.fokontany) errs[`localite_${i}_fokontany`] = t('nouvelleMission.fokontanyRequired');
     });
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -343,7 +347,7 @@ export default function NouvelleMission() {
       );
       navigate(`/missions/${missionId}`);
     } catch (err) {
-      setErrors({ submit: err.response?.data?.error || 'Erreur lors de la création' });
+      setErrors({ submit: err.response?.data?.error || t('nouvelleMission.creationError') });
     } finally {
       setIsLoading(false);
     }
@@ -360,7 +364,7 @@ export default function NouvelleMission() {
     <div className="space-y-5">
 
       <Link to="/missions" className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg transition-colors">
-        <ChevronLeft size={16} /> Missions
+        <ChevronLeft size={16} /> {t('nouvelleMission.backToList')}
       </Link>
 
       <form onSubmit={handleSubmit}>
@@ -379,17 +383,17 @@ export default function NouvelleMission() {
         <div className="card p-6">
           <h2 className="section-title">
             <ClipboardList size={17} className="text-primary-500" />
-            Informations sur la mission
+            {t('nouvelleMission.missionInfo')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
-              label="Ordre de mission" name="ordreMission"
+              label={t('nouvelleMission.ordreMission')} name="ordreMission"
               value={mission.ordreMission} onChange={handleMissionChange}
-              placeholder="ex: 0256/2025" required error={errors.ordreMission}
-              hint="Format libre — ex: 0256/2025 ou MSN-2025-01"
+              placeholder={t('nouvelleMission.ordreMissionPlaceholder')} required error={errors.ordreMission}
+              hint={t('nouvelleMission.ordreMissionHint')}
             />
             <FormField
-              label="Projet" name="projetId" type="select"
+              label={t('nouvelleMission.projet')} name="projetId" type="select"
               value={mission.projetId} onChange={handleMissionChange}
               options={projetOptions} required error={errors.projetId}
             />
@@ -400,7 +404,7 @@ export default function NouvelleMission() {
                 début/Date de fin se retrouver naturellement côte à côte. */}
             <div className="space-y-2 md:col-span-2">
               <p className="text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
-                <User size={12} /> Chef de mission
+                <User size={12} /> {t('nouvelleMission.missionLead')}
               </p>
               <div className="flex gap-2 mb-2">
                 <button
@@ -412,7 +416,7 @@ export default function NouvelleMission() {
                       : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'
                   }`}
                 >
-                  <UserCheck size={12} /> Utilisateur du système
+                  <UserCheck size={12} /> {t('nouvelleMission.systemUser')}
                 </button>
                 <button
                   type="button"
@@ -423,7 +427,7 @@ export default function NouvelleMission() {
                       : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'
                   }`}
                 >
-                  <UserX size={12} /> Personne externe
+                  <UserX size={12} /> {t('nouvelleMission.externalPerson')}
                 </button>
               </div>
               {chefMode === 'systeme' ? (
@@ -436,42 +440,42 @@ export default function NouvelleMission() {
                 <FormField
                   name="chefMissionNom"
                   value={mission.chefMissionNom} onChange={handleMissionChange}
-                  placeholder="Nom et prénom du chef de mission (personne externe)"
-                  hint="Cette personne n'a pas de compte dans l'application"
+                  placeholder={t('nouvelleMission.leadNamePlaceholder')}
+                  hint={t('nouvelleMission.leadNameHint')}
                 />
               )}
             </div>
             <FormField
-              label="Date de début" name="dateDebut" type="date"
+              label={t('nouvelleMission.startDate')} name="dateDebut" type="date"
               value={mission.dateDebut} onChange={handleMissionChange}
               required error={errors.dateDebut}
             />
             <FormField
-              label="Date de fin" name="dateFin" type="date"
+              label={t('nouvelleMission.endDate')} name="dateFin" type="date"
               value={mission.dateFin} onChange={handleMissionChange}
             />
             <div className="md:col-span-2">
               <AgentMultiSelect
-                label="Agents de terrain"
+                label={t('agentMultiSelect.defaultLabel')}
                 value={mission.agentIds}
                 onChange={(ids) => setMission((m) => ({ ...m, agentIds: ids }))}
                 users={users}
                 max={20}
-                hint="Maximum 20 agents — sélection parmi les utilisateurs actifs"
+                hint={t('nouvelleMission.agentsHint')}
               />
             </div>
             <div className="md:col-span-2">
               <FormField
-                label="Objet de la mission" name="objet" type="textarea"
+                label={t('nouvelleMission.missionObject')} name="objet" type="textarea"
                 value={mission.objet} onChange={handleMissionChange}
-                placeholder="Objectif / cadre de la mission..."
+                placeholder={t('nouvelleMission.missionObjectPlaceholder')}
               />
             </div>
             <div className="md:col-span-2">
               <FormField
-                label="Observations" name="observations" type="textarea"
+                label={t('nouvelleMission.observations')} name="observations" type="textarea"
                 value={mission.observations} onChange={handleMissionChange}
-                placeholder="Notes, contexte de la mission..."
+                placeholder={t('nouvelleMission.observationsPlaceholder')}
               />
             </div>
           </div>
@@ -482,7 +486,7 @@ export default function NouvelleMission() {
           <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
             <h2 className="flex items-center gap-2.5 text-sm font-semibold text-gray-700">
               <MapPin size={17} className="text-primary-500" />
-              Localités
+              {t('nouvelleMission.localities')}
               <span className="bg-primary-100 text-primary-700 text-xs px-2 py-0.5 rounded-full font-medium">
                 {localites.length}
               </span>
@@ -491,7 +495,7 @@ export default function NouvelleMission() {
               type="button" onClick={addLocalite}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors"
             >
-              <Plus size={13} /> Ajouter
+              <Plus size={13} /> {t('nouvelleMission.add')}
             </button>
           </div>
 
@@ -508,7 +512,7 @@ export default function NouvelleMission() {
                       : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                   }`}
                 >
-                  {i + 1}. {l.nom || 'Sans nom'}{l.methodes?.length > 0 ? ` (${l.methodes.length})` : ''}
+                  {i + 1}. {l.nom || t('nouvelleMission.unnamed')}{l.methodes?.length > 0 ? ` (${l.methodes.length})` : ''}
                 </button>
               ))}
             </div>
@@ -519,10 +523,10 @@ export default function NouvelleMission() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Localité n°{index + 1}{loc.nom ? ` — ${loc.nom}` : ''}
+                    {interpolate(t('nouvelleMission.localityN'), { n: index + 1 })}{loc.nom ? ` — ${loc.nom}` : ''}
                   </p>
                   <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-info/10 text-info border border-info/20 px-1.5 py-0.5 rounded-full flex-shrink-0">
-                    <Beaker size={9} /> {loc.methodes?.length ?? 0} méthode{(loc.methodes?.length ?? 0) > 1 ? 's' : ''}
+                    <Beaker size={9} /> {loc.methodes?.length ?? 0} {t('nouvelleMission.methodCount')}
                   </span>
                 </div>
                 {localites.length > 1 && (
@@ -530,7 +534,7 @@ export default function NouvelleMission() {
                     type="button" onClick={() => removeLocalite(index)}
                     className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors"
                   >
-                    <Trash2 size={12} /> Supprimer
+                    <Trash2 size={12} /> {t('nouvelleMission.remove')}
                   </button>
                 )}
               </div>
@@ -552,7 +556,7 @@ export default function NouvelleMission() {
               <div className="mt-5 p-3 rounded-xl border border-border bg-surface-2/30">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-fg-muted uppercase tracking-wider flex items-center gap-1.5">
-                    <Beaker size={12} /> Méthodes de collecte ({loc.methodes?.length ?? 0})
+                    <Beaker size={12} /> {t('nouvelleMission.collectionMethods')} ({loc.methodes?.length ?? 0})
                   </p>
                   <div className="flex items-center gap-1.5">
                     <button
@@ -560,14 +564,14 @@ export default function NouvelleMission() {
                       onClick={() => setBulkModal({ localiteIndex: index })}
                       className="inline-flex items-center gap-1 text-xs font-medium text-fg-subtle hover:text-primary-600 bg-surface-2/60 hover:bg-primary-50 px-2.5 py-1 rounded-lg transition-colors"
                     >
-                      <Layers size={12} /> Générer en série
+                      <Layers size={12} /> {t('nouvelleMission.bulkGenerate')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setMethodeModal({ localiteIndex: index })}
                       className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 px-2.5 py-1 rounded-lg transition-colors"
                     >
-                      <Plus size={12} /> Ajouter
+                      <Plus size={12} /> {t('nouvelleMission.add')}
                     </button>
                   </div>
                 </div>
@@ -575,10 +579,10 @@ export default function NouvelleMission() {
                 {loc.methodes?.length > 0 ? (
                   <div className="space-y-1">
                     {loc.methodes.map((m, mIndex) => {
-                      const type = (typesMethode ?? []).find((t) => t.id === parseInt(m.typeMethodeId));
-                      const identifiant = type ? `${type.code}_${m.numero || 1}` : `Méthode ${mIndex + 1}`;
-                      const habitat = (typesHabitat ?? []).find((t) => t.id === parseInt(m.typeHabitatId));
-                      const env     = (typesEnv ?? []).find((t) => t.id === parseInt(m.typeEnvironnementId));
+                      const type = (typesMethode ?? []).find((tm) => tm.id === parseInt(m.typeMethodeId));
+                      const identifiant = type ? `${type.code}_${m.numero || 1}` : interpolate(t('nouvelleMission.methodFallback'), { n: mIndex + 1 });
+                      const habitat = (typesHabitat ?? []).find((tm) => tm.id === parseInt(m.typeHabitatId));
+                      const env     = (typesEnv ?? []).find((tm) => tm.id === parseInt(m.typeEnvironnementId));
                       // Position propre au piège si précisée, sinon héritée de la localité brouillon.
                       const lat = parseFloat(m.latitude  || loc.latitude);
                       const lng = parseFloat(m.longitude || loc.longitude);
@@ -591,18 +595,18 @@ export default function NouvelleMission() {
                               {[
                                 habitat?.nom,
                                 env?.nom,
-                                m.interieurExterieur === 'interieur' ? 'Intérieur' : m.interieurExterieur === 'exterieur' ? 'Extérieur' : null,
+                                m.interieurExterieur === 'interieur' ? t('methodeForm.interieur') : m.interieurExterieur === 'exterieur' ? t('methodeForm.exterieur') : null,
                               ].filter(Boolean).join(' · ')}
                             </span>
                             {m.datePose && (
                               <span className="text-fg-subtle whitespace-nowrap">
-                                {new Date(m.datePose).toLocaleDateString('fr-FR')}
+                                {new Date(m.datePose).toLocaleDateString(t('common.locale'))}
                               </span>
                             )}
                             {!Number.isNaN(lat) && !Number.isNaN(lng) && (
                               <span
                                 className={`inline-flex items-center gap-1 font-mono whitespace-nowrap ${m.latitude ? 'text-fg-subtle' : 'text-fg-subtle/60'}`}
-                                title={m.latitude ? 'Position propre au piège' : 'Position héritée de la localité'}
+                                title={m.latitude ? t('nouvelleMission.ownPosition') : t('nouvelleMission.inheritedPosition')}
                               >
                                 <MapPin size={9} />
                                 {lat.toFixed(4)}, {lng.toFixed(4)}
@@ -631,7 +635,7 @@ export default function NouvelleMission() {
                     })}
                   </div>
                 ) : (
-                  <p className="text-xs text-fg-subtle italic">Aucune méthode ajoutée.</p>
+                  <p className="text-xs text-fg-subtle italic">{t('nouvelleMission.noMethodAdded')}</p>
                 )}
               </div>
             </div>
@@ -639,11 +643,11 @@ export default function NouvelleMission() {
         </div>
 
         <div className="flex items-center justify-end gap-3 pt-2">
-          <Link to="/missions" className="btn-secondary">Annuler</Link>
+          <Link to="/missions" className="btn-secondary">{t('common.cancel')}</Link>
           <button type="submit" disabled={isLoading} className="btn-primary">
             {isLoading
-              ? <><Loader2 size={15} className="animate-spin" /> Création…</>
-              : <><Check size={15} /> Créer la mission</>
+              ? <><Loader2 size={15} className="animate-spin" /> {t('nouvelleMission.creating')}</>
+              : <><Check size={15} /> {t('nouvelleMission.createMission')}</>
             }
           </button>
         </div>
@@ -656,43 +660,43 @@ export default function NouvelleMission() {
             {/* Récap mission */}
             <div className="card p-4 bg-primary/5 border-primary/10">
               <p className="text-xs font-semibold text-fg uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <ClipboardList size={13} className="text-primary" /> Récapitulatif
+                <ClipboardList size={13} className="text-primary" /> {t('nouvelleMission.summary')}
               </p>
               <div className="space-y-3">
                 <div>
-                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Ordre de mission</p>
+                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouvelleMission.ordreMission')}</p>
                   <p className="text-sm font-mono font-bold text-primary">
-                    {mission.ordreMission || <span className="text-fg-subtle font-normal italic">— à définir —</span>}
+                    {mission.ordreMission || <span className="text-fg-subtle font-normal italic">{t('nouvelleMission.undefined')}</span>}
                   </p>
                 </div>
                 {selectedProjet && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">Projet</p>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouvelleMission.projet')}</p>
                     <p className="text-xs font-medium text-fg">{selectedProjet.nom}{selectedProjet.porteur ? ` / ${selectedProjet.porteur}` : ''}</p>
                   </div>
                 )}
                 {(mission.dateDebut || mission.dateFin) && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Calendar size={9} /> Période</p>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Calendar size={9} /> {t('nouvelleMission.period')}</p>
                     <p className="text-xs text-fg">
-                      {mission.dateDebut ? new Date(mission.dateDebut).toLocaleDateString('fr-FR') : '?'}
+                      {mission.dateDebut ? new Date(mission.dateDebut).toLocaleDateString(t('common.locale')) : '?'}
                       {' → '}
-                      {mission.dateFin ? new Date(mission.dateFin).toLocaleDateString('fr-FR') : '?'}
+                      {mission.dateFin ? new Date(mission.dateFin).toLocaleDateString(t('common.locale')) : '?'}
                     </p>
                   </div>
                 )}
                 {chefLabel && (
                   <div>
                     <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                      <User size={9} /> Chef
-                      {chefMode === 'externe' && <span className="ml-1 text-warning">(externe)</span>}
+                      <User size={9} /> {t('nouvelleMission.lead')}
+                      {chefMode === 'externe' && <span className="ml-1 text-warning">{t('nouvelleMission.external')}</span>}
                     </p>
                     <p className="text-xs text-fg">{chefLabel}</p>
                   </div>
                 )}
                 {selectedAgents.length > 0 && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-1.5">Agents ({selectedAgents.length}/20)</p>
+                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-1.5">{interpolate(t('nouvelleMission.agentsCount'), { n: selectedAgents.length })}</p>
                     <div className="flex flex-wrap gap-1">
                       {selectedAgents.map((u) => (
                         <span key={u.id} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
@@ -708,13 +712,13 @@ export default function NouvelleMission() {
             {/* Localités résumé */}
             <div className="card p-4">
               <p className="text-xs font-semibold text-fg uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Navigation size={13} className="text-primary" /> Localités ({localites.length})
+                <Navigation size={13} className="text-primary" /> {interpolate(t('nouvelleMission.localitiesCount'), { n: localites.length })}
               </p>
               <div className="space-y-1.5">
                 {localites.map((l, i) => (
                   <div key={i} className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg ${i === activeLocalite ? 'bg-primary/10 text-primary' : 'text-fg-muted'}`}>
                     <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0">{i + 1}</span>
-                    <span className="truncate">{l.nom || <span className="italic text-fg-subtle">Sans nom</span>}</span>
+                    <span className="truncate">{l.nom || <span className="italic text-fg-subtle">{t('nouvelleMission.unnamed')}</span>}</span>
                     {l.code && <span className="font-mono text-[10px] ml-auto">{l.code}</span>}
                   </div>
                 ))}
@@ -724,9 +728,9 @@ export default function NouvelleMission() {
             {/* Aide */}
             <div className="card p-4">
               <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
-                <span className="block">• L'<strong>ordre de mission</strong> doit être unique.</span>
-                <span className="block">• Chaque localité a un <strong>code à 3 lettres</strong> (ex: AKZ) qui préfixe les ID terrain des spécimens.</span>
-                <span className="block">• Cliquez sur la carte pour <strong>auto-remplir</strong> région / district / commune / fokontany.</span>
+                <span className="block">• {t('nouvelleMission.helpOrdrePrefix')} <strong>{t('nouvelleMission.helpOrdreWord')}</strong> {t('nouvelleMission.helpOrdreSuffix')}</span>
+                <span className="block">• {t('nouvelleMission.helpCodePrefix')} <strong>{t('nouvelleMission.helpCodeWord')}</strong> {t('nouvelleMission.helpCodeSuffix')}</span>
+                <span className="block">• {t('nouvelleMission.helpMapPrefix')} <strong>{t('nouvelleMission.helpMapWord')}</strong> {t('nouvelleMission.helpMapSuffix')}</span>
               </p>
             </div>
           </aside>

@@ -1,5 +1,7 @@
 import { Component } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { t } from '../lib/i18n';
+import useLangStore from '../store/languageStore';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -21,6 +23,7 @@ export default class ErrorBoundary extends Component {
 
     const isDev  = import.meta.env.DEV;
     const msg    = this.state.error?.message;
+    const lang   = useLangStore.getState().lang;
 
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center p-6">
@@ -33,10 +36,10 @@ export default class ErrorBoundary extends Component {
             </div>
 
             <h1 className="text-base font-bold text-fg leading-tight">
-              Une erreur inattendue s'est produite
+              {t('errorBoundary.title', lang)}
             </h1>
             <p className="text-sm text-fg-muted mt-2 leading-relaxed">
-              L'application a rencontré un problème. Rechargez la page ou revenez au tableau de bord.
+              {t('errorBoundary.message', lang)}
             </p>
 
             {isDev && msg && (
@@ -53,14 +56,14 @@ export default class ErrorBoundary extends Component {
               href="/dashboard"
               className="btn-secondary text-sm flex items-center gap-1.5"
             >
-              <Home size={14} /> Tableau de bord
+              <Home size={14} /> {t('nav.dashboard', lang)}
             </a>
             <button
               type="button"
               className="btn-primary text-sm flex items-center gap-1.5"
               onClick={() => window.location.reload()}
             >
-              <RefreshCw size={14} /> Recharger
+              <RefreshCw size={14} /> {t('errorBoundary.reload', lang)}
             </button>
           </div>
         </div>

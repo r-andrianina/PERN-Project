@@ -12,21 +12,22 @@ import api from '../../api/axios';
 import { Card, Badge, Button, EmptyState, PageHeader, Select, DataTable, DatePicker } from '../../components/ui';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS } from '../../utils/gorgement';
+import { useT, interpolate } from '../../lib/i18n';
 
 // ── Constantes UI ─────────────────────────────────────────────
 const TYPE_TONE  = { moustique: 'specimen-moustique', tique: 'specimen-tique', puce: 'specimen-puce' };
-const TYPE_LABEL = { moustique: 'Moustique', tique: 'Tique', puce: 'Puce' };
+const getTypeLabel = (t) => ({ moustique: t('specimenTypes.moustique'), tique: t('specimenTypes.tique'), puce: t('specimenTypes.puce') });
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
-const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
+const getSexeLabel = (t) => ({ M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') });
 
 const PARITE_OPTIONS = ['Nulle', 'Paucie', 'Multi'];
 const STADE_SUGGEST  = STADE_OPTIONS_MOUSTIQUE;
 
-const taxoLabel = (t) => {
-  if (!t) return '—';
-  if (t.parent?.nom) return `${t.parent.nom} ${t.nom}`;
-  return t.nom;
+const taxoLabel = (tx) => {
+  if (!tx) return '—';
+  if (tx.parent?.nom) return `${tx.parent.nom} ${tx.nom}`;
+  return tx.nom;
 };
 
 // ── Section de filtres repliable ─────────────────────────────
@@ -69,16 +70,19 @@ const methodeCode = (methode) => {
 };
 
 // ── Colonnes résultats ────────────────────────────────────────
-const RESULT_COLUMNS = [
+const getResultColumns = (t) => {
+  const typeLabel = getTypeLabel(t);
+  const sexeLabel = getSexeLabel(t);
+  return [
   {
     key:          '_type',
-    label:        'Type',
+    label:        t('specimenList.colType'),
     skeletonWidth: '55%',
-    render: (s) => <Badge tone={TYPE_TONE[s._type]}>{TYPE_LABEL[s._type]}</Badge>,
+    render: (s) => <Badge tone={TYPE_TONE[s._type]}>{typeLabel[s._type]}</Badge>,
   },
   {
     key:          'idTerrain',
-    label:        'ID terrain',
+    label:        t('specimenList.colIdTerrain'),
     skeletonWidth: '65%',
     render: (s) => s.idTerrain
       ? <Badge tone="primary" size="sm" className="font-mono font-bold">{s.idTerrain}</Badge>
@@ -86,14 +90,14 @@ const RESULT_COLUMNS = [
   },
   {
     key:          'taxonomie',
-    label:        'Taxonomie',
+    label:        t('recherchePage.colTaxonomie'),
     skeletonWidth: '80%',
     className:    'italic font-medium text-fg',
     render: (s) => taxoLabel(s.taxonomie),
   },
   {
     key:           'nombre',
-    label:         'Nb',
+    label:         t('specimenList.colNb'),
     skeletonWidth: '30%',
     width:         '50px',
     className:     'text-fg-muted font-semibold',
@@ -101,15 +105,15 @@ const RESULT_COLUMNS = [
   },
   {
     key:          'sexe',
-    label:        'Sexe',
+    label:        t('specimenList.colSexe'),
     skeletonWidth: '50%',
     render: (s) => (
-      <Badge tone={SEXE_TONE[s.sexe || 'inconnu']}>{SEXE_LABEL[s.sexe || 'inconnu']}</Badge>
+      <Badge tone={SEXE_TONE[s.sexe || 'inconnu']}>{sexeLabel[s.sexe || 'inconnu']}</Badge>
     ),
   },
   {
     key:          'stade',
-    label:        'Stade',
+    label:        t('specimenList.colStade'),
     skeletonWidth: '55%',
     hidden:       'hidden md:table-cell',
     className:    'text-xs text-fg-muted',
@@ -117,7 +121,7 @@ const RESULT_COLUMNS = [
   },
   {
     key:          'mission',
-    label:        'Mission',
+    label:        t('recherchePage.colMission'),
     skeletonWidth: '60%',
     hidden:       'hidden lg:table-cell',
     className:    'text-xs text-fg-muted font-mono',
@@ -125,7 +129,7 @@ const RESULT_COLUMNS = [
   },
   {
     key:          'localite',
-    label:        'Localité',
+    label:        t('specimenList.colLocalite'),
     skeletonWidth: '70%',
     hidden:       'hidden md:table-cell',
     render: (s) => {
@@ -143,7 +147,7 @@ const RESULT_COLUMNS = [
   },
   {
     key:          'methode',
-    label:        'Méthode',
+    label:        t('specimenList.colMethode'),
     skeletonWidth: '60%',
     hidden:       'hidden lg:table-cell',
     render: (s) => {
@@ -155,7 +159,7 @@ const RESULT_COLUMNS = [
   },
   {
     key:          'hote',
-    label:        'Hôte',
+    label:        t('specimenList.colHote'),
     skeletonWidth: '55%',
     hidden:       'hidden xl:table-cell',
     className:    'text-xs text-fg-muted',
@@ -163,16 +167,19 @@ const RESULT_COLUMNS = [
   },
   {
     key:          'dateCollecte',
-    label:        'Date',
+    label:        t('specimenList.colDate'),
     skeletonWidth: '65%',
     hidden:       'hidden sm:table-cell',
     className:    'text-xs text-fg-subtle whitespace-nowrap',
-    render: (s) => s.dateCollecte ? new Date(s.dateCollecte).toLocaleDateString('fr-FR') : null,
+    render: (s) => s.dateCollecte ? new Date(s.dateCollecte).toLocaleDateString(t('common.locale')) : null,
   },
-];
+  ];
+};
 
 // ── Page ──────────────────────────────────────────────────────
 export default function RecherchePage() {
+  const t = useT();
+  const typeLabel = getTypeLabel(t);
   const [searchParams, setSearchParams] = useSearchParams();
   const f = useMemo(() => Object.fromEntries(searchParams.entries()), [searchParams]);
 
@@ -200,10 +207,10 @@ export default function RecherchePage() {
       api.get('/dictionnaire/taxonomie-specimens', { params: { actif: 'true' } }),
       api.get('/dictionnaire/taxonomie-hotes',     { params: { actif: 'true' } }),
       api.get('/dictionnaire/solutions-conservation', { params: { actif: 'true' } }),
-    ]).then(([p, m, t, th, s]) => {
+    ]).then(([p, m, tax, th, s]) => {
       setProjets(p.data.projets   || []);
       setMissions(m.data.missions || []);
-      setTaxonomies(t.data.items   || []);
+      setTaxonomies(tax.data.items   || []);
       setTaxonomiesHote(th.data.items || []);
       setSolutions(s.data.items    || []);
     });
@@ -247,7 +254,7 @@ export default function RecherchePage() {
 
   const toggleType = (type) => {
     const current = (f.types || 'moustique,tique,puce').split(',');
-    const next = current.includes(type) ? current.filter((t) => t !== type) : [...current, type];
+    const next = current.includes(type) ? current.filter((ty) => ty !== type) : [...current, type];
     setFilter('types', next.length === 3 ? '' : next.join(','));
   };
 
@@ -272,24 +279,24 @@ export default function RecherchePage() {
       });
   };
 
-  const taxonomiesFiltered = taxonomies.filter((t) => !t.type || activeTypes.includes(t.type));
+  const taxonomiesFiltered = taxonomies.filter((tax) => !tax.type || activeTypes.includes(tax.type));
 
   return (
     <div className="flex flex-col gap-4">
 
       <PageHeader
         icon={Search} iconTone="primary"
-        title="Explorer les spécimens"
+        title={t('recherchePage.title')}
         subtitle={
           loading
-            ? 'Recherche en cours…'
-            : `${total} spécimen(s)${filterCount > 0 ? ` — ${filterCount} filtre(s) actif(s)` : ''}`
+            ? t('recherchePage.searchingLabel')
+            : `${interpolate(t('recherchePage.specimensCount'), { n: total })}${filterCount > 0 ? ` — ${interpolate(t('recherchePage.filtersActiveSuffix'), { n: filterCount })}` : ''}`
         }
         actions={
           <div className="flex items-center gap-2">
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" icon={RotateCcw} onClick={reset}>
-                Réinitialiser
+                {t('recherchePage.reset')}
               </Button>
             )}
             {/* Toggle filtres — mobile uniquement */}
@@ -298,7 +305,7 @@ export default function RecherchePage() {
               className="lg:hidden relative inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-border-strong bg-surface hover:bg-surface-2 transition-colors"
             >
               <SlidersHorizontal size={13} />
-              Filtres
+              {t('recherchePage.filtresLabel')}
               {filterCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
                   {filterCount}
@@ -306,7 +313,7 @@ export default function RecherchePage() {
               )}
             </button>
             <Button variant="secondary" size="sm" icon={Download} disabled={total === 0} onClick={handleExport}>
-              Export Excel
+              {t('recherchePage.exportExcel')}
             </Button>
           </div>
         }
@@ -324,7 +331,7 @@ export default function RecherchePage() {
           {/* Bouton toggle — flottant à l'arête droite */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            title={sidebarOpen ? 'Masquer les filtres' : 'Afficher les filtres'}
+            title={sidebarOpen ? t('recherchePage.hideFilters') : t('recherchePage.showFilters')}
             className="absolute -right-3 top-3.5 z-30 w-6 h-6
               flex items-center justify-center rounded-full
               bg-surface border border-border shadow-md
@@ -353,7 +360,7 @@ export default function RecherchePage() {
               <div className="px-4 py-3 border-b border-border bg-surface-2/60 flex items-center justify-between sticky top-0 z-10 backdrop-blur-sm">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal size={13} className="text-fg-subtle" />
-                  <span className="text-sm font-semibold text-fg">Filtres</span>
+                  <span className="text-sm font-semibold text-fg">{t('recherchePage.filtresLabel')}</span>
                   {filterCount > 0 && (
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold">
                       {filterCount}
@@ -363,17 +370,17 @@ export default function RecherchePage() {
                 {hasActiveFilters && (
                   <button
                     onClick={reset}
-                    title="Tout effacer"
+                    title={t('recherchePage.clearAll')}
                     className="text-xs text-fg-subtle hover:text-danger transition-colors flex items-center gap-1"
                   >
-                    <RotateCcw size={11} /> Reset
+                    <RotateCcw size={11} /> {t('recherchePage.resetShort')}
                   </button>
                 )}
               </div>
 
-          <FilterSection title="Type" icon={Bug}>
+          <FilterSection title={t('recherchePage.sectionType')} icon={Bug}>
             <div className="grid grid-cols-3 gap-1.5">
-              {Object.entries(TYPE_LABEL).map(([key, label]) => {
+              {Object.entries(typeLabel).map(([key, label]) => {
                 const active = activeTypes.includes(key);
                 return (
                   <button
@@ -391,18 +398,18 @@ export default function RecherchePage() {
             </div>
           </FilterSection>
 
-          <FilterSection title="Recherche" icon={Search}>
-            <input type="text" placeholder="Recherche dans les notes…"
+          <FilterSection title={t('recherchePage.sectionRecherche')} icon={Search}>
+            <input type="text" placeholder={t('recherchePage.searchNotesPlaceholder')}
               value={f.search || ''} onChange={(e) => setFilter('search', e.target.value)}
               className={inputCls} />
           </FilterSection>
 
-          <FilterSection title="Localisation" icon={MapPin}>
+          <FilterSection title={t('recherchePage.sectionLocalisation')} icon={MapPin}>
             <Select
               value={f.projetId || ''}
               onChange={(val) => setFilter('projetId', val)}
               options={[
-                { value: '', label: 'Tous les projets' },
+                { value: '', label: t('recherchePage.allProjects') },
                 ...projets.map((p) => ({ value: p.id, label: p.porteur ? `${p.nom} / ${p.porteur}` : p.nom })),
               ]}
             />
@@ -410,7 +417,7 @@ export default function RecherchePage() {
               value={f.missionId || ''}
               onChange={(val) => setFilter('missionId', val)}
               options={[
-                { value: '', label: 'Toutes les missions' },
+                { value: '', label: t('recherchePage.allMissions') },
                 ...missions.filter((m) => !f.projetId || m.projet?.id === parseInt(f.projetId))
                   .map((m) => ({ value: m.id, label: m.ordreMission })),
               ]}
@@ -420,7 +427,7 @@ export default function RecherchePage() {
               onChange={(val) => setFilter('localiteId', val)}
               disabled={!f.missionId}
               options={[
-                { value: '', label: 'Toutes les localités' },
+                { value: '', label: t('recherchePage.allLocalites') },
                 ...localites.map((l) => ({ value: l.id, label: l.nom })),
               ]}
             />
@@ -429,59 +436,59 @@ export default function RecherchePage() {
               onChange={(val) => setFilter('methodeId', val)}
               disabled={!f.localiteId}
               options={[
-                { value: '', label: 'Toutes les méthodes' },
+                { value: '', label: t('recherchePage.allMethodes') },
                 ...methodes.map((m) => ({
                   value: m.id,
                   label: `${m.typeMethode?.code ? `[${m.typeMethode.code}] ` : ''}${m.typeMethode?.nom || `#${m.id}`}`,
                 })),
               ]}
             />
-            <input className={inputCls} placeholder="Région" value={f.region || ''} onChange={(e) => setFilter('region', e.target.value)} />
-            <input className={inputCls} placeholder="District" value={f.district || ''} onChange={(e) => setFilter('district', e.target.value)} />
+            <input className={inputCls} placeholder={t('recherchePage.regionPlaceholder')} value={f.region || ''} onChange={(e) => setFilter('region', e.target.value)} />
+            <input className={inputCls} placeholder={t('recherchePage.districtPlaceholder')} value={f.district || ''} onChange={(e) => setFilter('district', e.target.value)} />
           </FilterSection>
 
-          <FilterSection title="Période" icon={Calendar}>
+          <FilterSection title={t('recherchePage.sectionPeriode')} icon={Calendar}>
             <div className="space-y-1.5">
-              <label className="text-xs text-fg-subtle">Du</label>
+              <label className="text-xs text-fg-subtle">{t('recherchePage.fromLabel')}</label>
               <DatePicker value={f.dateDebut || ''} onChange={(val) => setFilter('dateDebut', val)} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-fg-subtle">Au</label>
+              <label className="text-xs text-fg-subtle">{t('recherchePage.toLabel')}</label>
               <DatePicker value={f.dateFin || ''} onChange={(val) => setFilter('dateFin', val)} />
             </div>
           </FilterSection>
 
-          <FilterSection title="Taxonomie" icon={Bug}>
+          <FilterSection title={t('recherchePage.sectionTaxonomie')} icon={Bug}>
             <Select
               value={f.taxonomieId || ''}
               onChange={(val) => setFilter('taxonomieId', val)}
-              searchPlaceholder="Rechercher une taxonomie…"
+              searchPlaceholder={t('recherchePage.searchTaxonomiePlaceholder')}
               options={[
-                { value: '', label: 'Toutes les taxonomies' },
-                ...taxonomiesFiltered.map((t) => ({
-                  value: t.id,
-                  label: `[${t.niveau}] ${t.parent?.nom ? t.parent.nom + ' ' : ''}${t.nom}`,
+                { value: '', label: t('recherchePage.allTaxonomies') },
+                ...taxonomiesFiltered.map((tax) => ({
+                  value: tax.id,
+                  label: `[${tax.niveau}] ${tax.parent?.nom ? tax.parent.nom + ' ' : ''}${tax.nom}`,
                 })),
               ]}
             />
           </FilterSection>
 
-          <FilterSection title="Biologie" icon={Layers} defaultOpen={false}>
+          <FilterSection title={t('recherchePage.sectionBiologie')} icon={Layers} defaultOpen={false}>
             <Select
               value={f.sexe || ''}
               onChange={(val) => setFilter('sexe', val)}
               options={[
-                { value: '', label: 'Tous les sexes' },
-                { value: 'M', label: 'Mâle' },
-                { value: 'F', label: 'Femelle' },
-                { value: 'inconnu', label: 'Inconnu' },
+                { value: '', label: t('recherchePage.allSexes') },
+                { value: 'M', label: t('sexe.M') },
+                { value: 'F', label: t('sexe.F') },
+                { value: 'inconnu', label: t('sexe.inconnu') },
               ]}
             />
             <Select
               value={f.stade || ''}
               onChange={(val) => setFilter('stade', val)}
               options={[
-                { value: '', label: 'Tous les stades' },
+                { value: '', label: t('recherchePage.allStades') },
                 ...STADE_SUGGEST,
               ]}
             />
@@ -491,7 +498,7 @@ export default function RecherchePage() {
                   value={f.parite || ''}
                   onChange={(val) => setFilter('parite', val)}
                   options={[
-                    { value: '', label: 'Toutes parités' },
+                    { value: '', label: t('recherchePage.allParites') },
                     ...PARITE_OPTIONS.map((p) => ({ value: p, label: p })),
                   ]}
                 />
@@ -499,7 +506,7 @@ export default function RecherchePage() {
                   value={f.repasSang || ''}
                   onChange={(val) => setFilter('repasSang', val)}
                   options={[
-                    { value: '', label: 'Statut sanguin : tous' },
+                    { value: '', label: t('recherchePage.allBloodStatus') },
                     ...GORGEMENT_OPTIONS,
                   ]}
                 />
@@ -510,7 +517,7 @@ export default function RecherchePage() {
                 value={f.gorge || ''}
                 onChange={(val) => setFilter('gorge', val)}
                 options={[
-                  { value: '', label: 'Statut sanguin : tous' },
+                  { value: '', label: t('recherchePage.allBloodStatus') },
                   ...GORGEMENT_OPTIONS,
                 ]}
               />
@@ -518,37 +525,37 @@ export default function RecherchePage() {
           </FilterSection>
 
           {(activeTypes.includes('tique') || activeTypes.includes('puce')) && (
-            <FilterSection title="Hôte" icon={PawPrint} defaultOpen={false}>
+            <FilterSection title={t('recherchePage.sectionHote')} icon={PawPrint} defaultOpen={false}>
               <Select
                 value={f.hasHote || ''}
                 onChange={(val) => setFilter('hasHote', val)}
                 options={[
-                  { value: '', label: 'Présence hôte : tous' },
-                  { value: 'true', label: 'Avec hôte' },
-                  { value: 'false', label: 'Sans hôte' },
+                  { value: '', label: t('recherchePage.allHotePresence') },
+                  { value: 'true', label: t('recherchePage.withHote') },
+                  { value: 'false', label: t('recherchePage.withoutHote') },
                 ]}
               />
               <Select
                 value={f.taxonomieHoteId || ''}
                 onChange={(val) => setFilter('taxonomieHoteId', val)}
-                searchPlaceholder="Rechercher un hôte…"
+                searchPlaceholder={t('recherchePage.searchHotePlaceholder')}
                 options={[
-                  { value: '', label: 'Tous les hôtes' },
-                  ...taxonomiesHote.map((t) => ({
-                    value: t.id,
-                    label: `[${t.niveau}] ${t.parent?.nom ? t.parent.nom + ' ' : ''}${t.nom}`,
+                  { value: '', label: t('recherchePage.allHotes') },
+                  ...taxonomiesHote.map((tax) => ({
+                    value: tax.id,
+                    label: `[${tax.niveau}] ${tax.parent?.nom ? tax.parent.nom + ' ' : ''}${tax.nom}`,
                   })),
                 ]}
               />
             </FilterSection>
           )}
 
-          <FilterSection title="Conservation" icon={FlaskConical} defaultOpen={false}>
+          <FilterSection title={t('recherchePage.sectionConservation')} icon={FlaskConical} defaultOpen={false}>
             <Select
               value={f.solutionId || ''}
               onChange={(val) => setFilter('solutionId', val)}
               options={[
-                { value: '', label: 'Toutes les solutions' },
+                { value: '', label: t('recherchePage.allSolutions') },
                 ...solutions.map((s) => ({ value: s.id, label: s.nom })),
               ]}
             />
@@ -563,7 +570,7 @@ export default function RecherchePage() {
             <div className="px-4 py-3 border-b border-border bg-surface-2/60 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal size={13} className="text-fg-subtle" />
-                <span className="text-sm font-semibold text-fg">Filtres</span>
+                <span className="text-sm font-semibold text-fg">{t('recherchePage.filtresLabel')}</span>
                 {filterCount > 0 && (
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold">
                     {filterCount}
@@ -571,13 +578,13 @@ export default function RecherchePage() {
                 )}
               </div>
               <button onClick={() => setShowFilters(false)} className="text-xs text-fg-subtle hover:text-fg">
-                Masquer
+                {t('recherchePage.hideFilters')}
               </button>
             </div>
             {/* Sections filtres — identiques au desktop */}
-            <FilterSection title="Type" icon={Bug}>
+            <FilterSection title={t('recherchePage.sectionType')} icon={Bug}>
               <div className="grid grid-cols-3 gap-1.5">
-                {Object.entries(TYPE_LABEL).map(([key, label]) => {
+                {Object.entries(typeLabel).map(([key, label]) => {
                   const active = activeTypes.includes(key);
                   return (
                     <button key={key} type="button" onClick={() => toggleType(key)}
@@ -604,20 +611,20 @@ export default function RecherchePage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Card padding="none" className="p-4 border-l-4 border-l-primary">
                 <p className="text-xs text-fg-muted mb-1 flex items-center gap-1.5">
-                  <Hash size={12} className="text-primary" /> Spécimens
+                  <Hash size={12} className="text-primary" /> {t('recherchePage.statSpecimens')}
                 </p>
                 <p className="text-2xl font-bold text-primary leading-none">{stats.total}</p>
-                <p className="text-xs text-fg-subtle mt-1.5">{stats.totalIndividus} individu(s)</p>
+                <p className="text-xs text-fg-subtle mt-1.5">{stats.totalIndividus} {t('recherchePage.individualsSuffix')}</p>
               </Card>
 
               <Card padding="none" className="p-4">
                 <p className="text-xs text-fg-muted mb-2 flex items-center gap-1.5">
-                  <Bug size={12} className="text-fg-subtle" /> Par type
+                  <Bug size={12} className="text-fg-subtle" /> {t('recherchePage.statParType')}
                 </p>
                 <div className="space-y-1.5">
-                  {Object.entries(stats.parType).filter(([, v]) => v > 0).map(([t, count]) => (
-                    <div key={t} className="flex items-center justify-between">
-                      <Badge tone={TYPE_TONE[t]} size="xs">{TYPE_LABEL[t]}</Badge>
+                  {Object.entries(stats.parType).filter(([, v]) => v > 0).map(([ty, count]) => (
+                    <div key={ty} className="flex items-center justify-between">
+                      <Badge tone={TYPE_TONE[ty]} size="xs">{typeLabel[ty]}</Badge>
                       <span className="text-xs font-bold text-fg tabular-nums">{count}</span>
                     </div>
                   ))}
@@ -626,7 +633,7 @@ export default function RecherchePage() {
 
               <Card padding="none" className="p-4">
                 <p className="text-xs text-fg-muted mb-2 flex items-center gap-1.5">
-                  <TrendingUp size={12} className="text-fg-subtle" /> Top espèces
+                  <TrendingUp size={12} className="text-fg-subtle" /> {t('recherchePage.statTopEspeces')}
                 </p>
                 <div className="space-y-1.5">
                   {stats.topEspeces.slice(0, 3).map((e, i) => (
@@ -646,20 +653,20 @@ export default function RecherchePage() {
 
               <Card padding="none" className="p-4">
                 <p className="text-xs text-fg-muted mb-2 flex items-center gap-1.5">
-                  <Calendar size={12} className="text-fg-subtle" /> Période
+                  <Calendar size={12} className="text-fg-subtle" /> {t('recherchePage.statPeriode')}
                 </p>
                 {stats.periode.dateMin ? (
                   <div className="space-y-1">
                     <p className="text-sm font-semibold text-fg">
-                      {new Date(stats.periode.dateMin).toLocaleDateString('fr-FR')}
+                      {new Date(stats.periode.dateMin).toLocaleDateString(t('common.locale'))}
                     </p>
                     <p className="text-xs text-fg-subtle flex items-center gap-1">
                       <span>→</span>
-                      {new Date(stats.periode.dateMax).toLocaleDateString('fr-FR')}
+                      {new Date(stats.periode.dateMax).toLocaleDateString(t('common.locale'))}
                     </p>
                   </div>
                 ) : (
-                  <p className="text-sm text-fg-subtle">Non datée</p>
+                  <p className="text-sm text-fg-subtle">{t('recherchePage.notDated')}</p>
                 )}
               </Card>
             </div>
@@ -669,7 +676,7 @@ export default function RecherchePage() {
           {loading ? (
             <Card padding="none" className="overflow-hidden">
               <DataTable
-                columns={RESULT_COLUMNS}
+                columns={getResultColumns(t)}
                 rows={[]}
                 loading={true}
                 skeletonRows={10}
@@ -680,14 +687,14 @@ export default function RecherchePage() {
           ) : items.length === 0 ? (
             <EmptyState
               icon={Search}
-              title="Aucun spécimen ne correspond aux critères"
-              description={hasActiveFilters ? "Essayez d'élargir les critères ou de réinitialiser." : "Aucune donnée n'est encore enregistrée."}
-              action={hasActiveFilters ? { label: 'Réinitialiser', icon: RotateCcw, onClick: reset, variant: 'secondary' } : undefined}
+              title={t('recherchePage.noSpecimenMatch')}
+              description={hasActiveFilters ? t('recherchePage.noSpecimenFilterHint') : t('recherchePage.noDataYet')}
+              action={hasActiveFilters ? { label: t('recherchePage.reset'), icon: RotateCcw, onClick: reset, variant: 'secondary' } : undefined}
             />
           ) : (
             <Card padding="none" className="overflow-hidden">
               <DataTable
-                columns={RESULT_COLUMNS}
+                columns={getResultColumns(t)}
                 rows={items}
                 keyField="_key"
                 loading={false}
@@ -696,7 +703,7 @@ export default function RecherchePage() {
               />
               {total > items.length && (
                 <div className="px-4 py-3 border-t border-border bg-surface-2/50 text-xs text-fg-muted text-center">
-                  Affichage de {items.length} / {total} — précisez les filtres pour réduire
+                  {interpolate(t('recherchePage.displayingCount'), { shown: items.length, total })}
                 </div>
               )}
             </Card>

@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { createBaseLayer } from '../lib/mapLayers';
 import MapSearchBar from './MapSearchBar';
+import { useT } from '../lib/i18n';
 
 // Wraps a callback prop in a ref so the Leaflet click handler always calls
 // the latest version without needing to be re-registered.
@@ -49,6 +50,7 @@ export default function MapPicker({
   latitude, longitude, onChange, height = '340px',
   existingPoints, onSelectExisting,
 }) {
+  const t = useT();
   const mapRef      = useRef(null);
   const instanceRef = useRef(null);
   const markerRef   = useRef(null);
@@ -134,14 +136,14 @@ export default function MapPicker({
     for (const point of existingPoints) {
       if (point.latitude == null || point.longitude == null) continue;
       const marker = L.marker([point.latitude, point.longitude], { icon: createExistingIcon(point.color) });
-      marker.bindTooltip(point.tooltip || point.nom || 'Point', { direction: 'top', offset: [0, -4] });
+      marker.bindTooltip(point.tooltip || point.nom || t('common.point'), { direction: 'top', offset: [0, -4] });
       marker.on('click', (e) => {
         L.DomEvent.stopPropagation(e); // évite de déclencher le clic "placer un nouveau point"
         onSelectExistingRef.current?.(point);
       });
       marker.addTo(layer);
     }
-  }, [existingPoints]);
+  }, [existingPoints, t]);
 
   const handleSearchSelect = (lat, lng) => {
     const map = instanceRef.current;

@@ -13,6 +13,24 @@ const USER_SELECT = {
   specimensAutorises: true,
 };
 
+// Signe un JWT (8 h) à partir d'un enregistrement utilisateur. Factorisé pour
+// que login et changePassword produisent exactement le même payload — voir
+// enforceAccountActive (auth.middleware) qui s'appuie sur l'iat pour la
+// révocation sur changement de mot de passe.
+const signToken = (user) =>
+  jwt.sign(
+    {
+      id:                 user.id,
+      email:              user.email,
+      role:               user.role,
+      nom:                user.nom,
+      prenom:             user.prenom,
+      specimensAutorises: user.specimensAutorises,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '8h' }
+  );
+
 // =============================================================
 //  REGISTER
 // =============================================================
@@ -50,18 +68,7 @@ const login = async (req, res) => {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
 
-  const token = jwt.sign(
-    {
-      id:                 user.id,
-      email:              user.email,
-      role:               user.role,
-      nom:                user.nom,
-      prenom:             user.prenom,
-      specimensAutorises: user.specimensAutorises,  // embarqué dans le JWT
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: '8h' }
-  );
+  const token = signToken(user);
 
   return res.json({
     message: 'Connexion réussie',
@@ -138,6 +145,13 @@ const updateUser = async (req, res) => {
   if (email  !== undefined) data.email  = email;
   if (role   !== undefined) data.role   = role;
 
+  // Un admin ne peut pas se rétrograder lui-même : évite le verrouillage
+  // accidentel (dernier admin qui perd ses droits). Même esprit que les gardes
+  // self de activateUser/deleteUser. req.user.role est le rôle rafraîchi (B2).
+  if (id === req.user.id && data.role && data.role !== req.user.role) {
+    return res.status(400).json({ error: 'Vous ne pouvez pas modifier votre propre rôle' });
+  }
+
   if (data.email) {
     const conflict = await prisma.user.findFirst({ where: { email: data.email, NOT: { id } } });
     if (conflict) return res.status(409).json({ error: 'Email déjà utilisé par un autre compte' });
@@ -197,8 +211,11 @@ const updateSpecimenAccess = async (req, res) => {
     select: USER_SELECT,
   });
 
-  // Invalide le cache de permissions immédiatement (B)
+  // Invalide les deux caches immédiatement : celui de checkSpecimenAccess (B)
+  // ET le cache statut qui alimente req.user.specimensAutorises (carte/dashboard
+  // /recherche) — sinon le filtrage resterait périmé jusqu'à 30 s.
   invalidateSpecimenCache(id);
+  invalidateUserStatus(id);
 
   // Notifie l'utilisateur en temps réel via SSE s'il est connecté (D)
   sseManager.sendToUser(id, 'permissions_changed', {
@@ -233,8 +250,28 @@ const deleteUser = async (req, res) => {
 const resetPassword = async (req, res) => {
   const id = parseInt(req.params.id);
   const { password } = req.body; // longueur ≥8 validée par Zod
+
+  const before = await prisma.user.findUnique({
+    where: { id }, select: { nom: true, prenom: true, email: true, role: true },
+  });
+  if (!before) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
   const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.user.update({ where: { id }, data: { passwordHash } });
+  // passwordChangedAt coupe les sessions actives de la cible (les JWT émis
+  // avant ce reset sont refusés par enforceAccountActive) — sécurité clé
+  // quand un compte est réinitialisé parce qu'il est potentiellement compromis.
+  await prisma.user.update({ where: { id }, data: { passwordHash, passwordChangedAt: new Date() } });
+  invalidateUserStatus(id); // révocation immédiate sans attendre l'expiration du cache statut (30 s)
+
+  // Traçabilité : une réinitialisation de mot de passe par un admin est une
+  // action sensible — on l'historise comme les autres opérations sur User
+  // (jamais le mot de passe lui-même, seulement un marqueur).
+  await logAudit({
+    req, action: ACTIONS.UPDATE, entity: 'User', entityId: id,
+    oldValues: { nom: before.nom, prenom: before.prenom, email: before.email, role: before.role },
+    newValues: { passwordReset: true },
+  });
+
   return res.json({ message: 'Mot de passe réinitialisé' });
 };
 
@@ -252,8 +289,16 @@ const changePassword = async (req, res) => {
   if (!ok) return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
-  return res.json({ message: 'Mot de passe modifié avec succès' });
+  const changedAt = new Date();
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash, passwordChangedAt: changedAt } });
+  invalidateUserStatus(user.id); // coupe les AUTRES sessions du compte (autres navigateurs)
+
+  // On ré-émet un token frais pour la session courante : son iat est postérieur
+  // (ou égal à la seconde près) à passwordChangedAt, donc il n'est PAS révoqué —
+  // l'utilisateur qui change son mot de passe reste connecté ici, seules ses
+  // autres sessions sont coupées. Le frontend remplace le token stocké.
+  const token = signToken(user);
+  return res.json({ message: 'Mot de passe modifié avec succès', token });
 };
 
 // =============================================================

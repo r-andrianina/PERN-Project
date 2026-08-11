@@ -12,10 +12,10 @@ import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 import { STADE_OPTIONS_PUCE, formatStade } from '../../utils/stade';
 import { taxoLabel as _taxoLabel } from '../../utils/taxoLabel';
+import { useT, interpolate } from '../../lib/i18n';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
-const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
-const taxoLabel  = (t) => t ? _taxoLabel(t) : '—';
+const taxoLabel  = (tx) => tx ? _taxoLabel(tx) : '—';
 
 function Field({ label, children }) {
   return (
@@ -61,6 +61,8 @@ function EditSelect({ label, value, onChange, options }) {
 }
 
 export default function PuceDetail() {
+  const t = useT();
+  const SEXE_LABEL = { M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') };
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -87,9 +89,9 @@ export default function PuceDetail() {
         setSolutions(sRes.data.items || []);
         setTaxonomies(txRes.data.items || []);
       })
-      .catch(() => setLoadError('Impossible de charger ce spécimen.'))
+      .catch(() => setLoadError(t('specimenDetail.loadError')))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, t]);
 
   const startEdit = () => {
     const p = specimen;
@@ -118,9 +120,9 @@ export default function PuceDetail() {
       });
       setSpecimen(r.data.puce);
       setEditing(false);
-      toast.success('Puce mise à jour avec succès.');
+      toast.success(t('specimenDetail.puceUpdated'));
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la sauvegarde');
+      toast.error(err.response?.data?.error || t('specimenDetail.saveError'));
     } finally {
       setSaving(false);
     }
@@ -128,36 +130,36 @@ export default function PuceDetail() {
 
   const handleDelete = async () => {
     const ok = await dialog.confirm({
-      title: 'Supprimer cette puce ?',
-      message: `${specimen.idTerrain ? `« ${specimen.idTerrain} »` : `La puce #${id}`} sera définitivement supprimée. Cette action est irréversible.`,
+      title: t('specimenDetail.deletePuceTitle'),
+      message: `${specimen.idTerrain ? `« ${specimen.idTerrain} »` : interpolate(t('specimenDetail.specimenN'), { id })} ${t('specimenDetail.deleteConfirmSuffix')}`,
     });
     if (!ok) return;
     setDeleting(true);
     try {
       await api.delete(`/puces/${id}`);
-      toast.success('Puce supprimée.');
+      toast.success(t('specimenDetail.puceDeleted'));
       navigate('/specimens/puces');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la suppression');
+      toast.error(err.response?.data?.error || t('specimenDetail.deleteError'));
       setDeleting(false);
     }
   };
 
-  if (loading) return <Spinner.Block label="Chargement…" height="h-40" />;
+  if (loading) return <Spinner.Block label={t('specimenList.loading')} height="h-40" />;
 
   if (loadError || !specimen) return (
     <div className="text-center py-20 space-y-3">
-      <p className="text-fg-muted">{loadError || 'Spécimen introuvable.'}</p>
-      <Link to="/specimens/puces" className="text-primary text-sm hover:underline">← Retour aux puces</Link>
+      <p className="text-fg-muted">{loadError || t('specimenDetail.notFound')}</p>
+      <Link to="/specimens/puces" className="text-primary text-sm hover:underline">{t('specimenDetail.backToPuces')}</Link>
     </div>
   );
 
   const p = specimen;
 
   const taxoOptions     = taxonomies.map(tx => ({ value: String(tx.id), label: tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom }));
-  const solutionOptions = [{ value: '', label: '— Aucune —' }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
+  const solutionOptions = [{ value: '', label: t('specimenDetail.none') }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
   const stadeOptions    = [{ value: '', label: '—' }, ...STADE_OPTIONS_PUCE];
-  const sexeOptions     = [{ value: 'M', label: 'Mâle' }, { value: 'F', label: 'Femelle' }, { value: 'inconnu', label: 'Inconnu' }];
+  const sexeOptions     = [{ value: 'M', label: t('sexe.M') }, { value: 'F', label: t('sexe.F') }, { value: 'inconnu', label: t('sexe.inconnu') }];
 
   const loc                = p.methode?.localite;
   const geoLabel           = [loc?.region, loc?.district, loc?.commune].filter(Boolean).join(' · ');
@@ -168,7 +170,7 @@ export default function PuceDetail() {
   return (
     <div className="space-y-5">
       <Breadcrumb items={[
-        { label: 'Puces', to: '/specimens/puces' },
+        { label: t('dashboard.puces'), to: '/specimens/puces' },
         { label: p.idTerrain ?? `#${p.id}` },
       ]} />
 
@@ -176,7 +178,7 @@ export default function PuceDetail() {
         icon={() => <SpecimenIcon type="puce" size={18} />}
         iconTone="specimen-puce"
         title={<span className="italic">{taxoLabel(p.taxonomie)}</span>}
-        subtitle="Puce"
+        subtitle={t('specimenTypes.puce')}
         actions={null}
       />
 
@@ -189,26 +191,26 @@ export default function PuceDetail() {
           <Card>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
               <Microscope size={15} className="text-blue-500" />
-              <h2 className="text-sm font-semibold text-fg">Identification</h2>
+              <h2 className="text-sm font-semibold text-fg">{t('specimenDetail.identification')}</h2>
             </div>
 
             {editing ? (
               <div className="space-y-4">
-                <EditSelect label="Genre / Espèce" value={editForm.taxonomieId}
+                <EditSelect label={t('specimenDetail.genreEspece')} value={editForm.taxonomieId}
                   onChange={e => setEditForm(f => ({ ...f, taxonomieId: e.target.value }))}
                   options={taxoOptions} />
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-xs text-fg-subtle font-medium block mb-1">Nombre</label>
+                    <label className="text-xs text-fg-subtle font-medium block mb-1">{t('specimenDetail.nombre')}</label>
                     <input type="number" min="1" value={editForm.nombre}
                       onChange={e => setEditForm(f => ({ ...f, nombre: e.target.value }))}
                       className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg"
                     />
                   </div>
-                  <EditSelect label="Stade" value={editForm.stade}
+                  <EditSelect label={t('specimenDetail.stade')} value={editForm.stade}
                     onChange={e => setEditForm(f => ({ ...f, stade: e.target.value }))}
                     options={stadeOptions} />
-                  <EditSelect label="Sexe" value={editForm.sexe}
+                  <EditSelect label={t('specimenDetail.sexe')} value={editForm.sexe}
                     onChange={e => setEditForm(f => ({ ...f, sexe: e.target.value }))}
                     options={sexeOptions} />
                 </div>
@@ -216,13 +218,13 @@ export default function PuceDetail() {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="col-span-2 md:col-span-3">
-                  <Field label="Genre / Espèce">
+                  <Field label={t('specimenDetail.genreEspece')}>
                     <span className="italic font-semibold text-specimen-puce">{taxoLabel(p.taxonomie)}</span>
                   </Field>
                 </div>
-                <Field label="Sexe"><Badge tone={SEXE_TONE[p.sexe] ?? 'default'}>{SEXE_LABEL[p.sexe] ?? '—'}</Badge></Field>
-                <Field label="Nombre">{p.nombre}</Field>
-                {p.stade && <Field label="Stade">{formatStade(p.stade)}</Field>}
+                <Field label={t('specimenDetail.sexe')}><Badge tone={SEXE_TONE[p.sexe] ?? 'default'}>{SEXE_LABEL[p.sexe] ?? '—'}</Badge></Field>
+                <Field label={t('specimenDetail.nombre')}>{p.nombre}</Field>
+                {p.stade && <Field label={t('specimenDetail.stade')}>{formatStade(p.stade)}</Field>}
               </div>
             )}
           </Card>
@@ -232,11 +234,11 @@ export default function PuceDetail() {
             <Card>
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
                 <Bird size={15} className="text-amber-500" />
-                <h2 className="text-sm font-semibold text-fg">Hôte associé</h2>
+                <h2 className="text-sm font-semibold text-fg">{t('tiqueDetail.hoteAssocie')}</h2>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Espèce hôte">{p.hote.taxonomieHote?.nom || '—'}</Field>
-                {p.hote.nom && <Field label="Identifiant hôte">{p.hote.nom}</Field>}
+                <Field label={t('tiqueDetail.especeHote')}>{p.hote.taxonomieHote?.nom || '—'}</Field>
+                {p.hote.nom && <Field label={t('tiqueDetail.identifiantHote')}>{p.hote.nom}</Field>}
               </div>
             </Card>
           )}
@@ -246,14 +248,14 @@ export default function PuceDetail() {
             <Card>
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
                 <FlaskConical size={15} className="text-purple-500" />
-                <h2 className="text-sm font-semibold text-fg">Conservation</h2>
+                <h2 className="text-sm font-semibold text-fg">{t('specimenDetail.conservation')}</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <EditSelect label="Solution de conservation" value={editForm.solutionId}
+                <EditSelect label={t('specimenDetail.solutionConservation')} value={editForm.solutionId}
                   onChange={e => setEditForm(f => ({ ...f, solutionId: e.target.value }))}
                   options={solutionOptions} />
                 <div>
-                  <label className="text-xs text-fg-subtle font-medium block mb-1">Date de collecte</label>
+                  <label className="text-xs text-fg-subtle font-medium block mb-1">{t('specimenDetail.dateCollecte')}</label>
                   <DatePicker value={editForm.dateCollecte}
                     onChange={val => setEditForm(f => ({ ...f, dateCollecte: val }))}
                   />
@@ -267,12 +269,12 @@ export default function PuceDetail() {
             <Card>
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
                 <FileText size={15} className="text-gray-400" />
-                <h2 className="text-sm font-semibold text-fg">Notes et observations</h2>
+                <h2 className="text-sm font-semibold text-fg">{t('specimenDetail.notesObservations')}</h2>
               </div>
               {editing ? (
                 <textarea rows={4} value={editForm.notes}
                   onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="Observations particulières…"
+                  placeholder={t('specimenDetail.notesPlaceholder')}
                   className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg resize-none"
                 />
               ) : (
@@ -288,22 +290,22 @@ export default function PuceDetail() {
 
           {/* Actions */}
           <Card padding="sm">
-            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">Actions</p>
+            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('specimenDetail.actions')}</p>
             <div className="space-y-2">
               {editing ? (
                 <>
                   <Button variant="primary" className="w-full justify-center" icon={Save}
-                    loading={saving} onClick={handleSave}>Enregistrer</Button>
+                    loading={saving} onClick={handleSave}>{t('common.save')}</Button>
                   <Button variant="secondary" className="w-full justify-center" icon={X}
-                    onClick={() => setEditing(false)} disabled={saving}>Annuler</Button>
+                    onClick={() => setEditing(false)} disabled={saving}>{t('common.cancel')}</Button>
                 </>
               ) : (
                 <>
                   <Button variant="outline" className="w-full justify-center" icon={Pencil}
-                    onClick={startEdit}>Modifier</Button>
+                    onClick={startEdit}>{t('common.edit')}</Button>
                   {isAdmin && (
                     <Button variant="danger" className="w-full justify-center" icon={Trash2}
-                      loading={deleting} onClick={handleDelete}>Supprimer</Button>
+                      loading={deleting} onClick={handleDelete}>{t('common.delete')}</Button>
                   )}
                 </>
               )}
@@ -313,14 +315,14 @@ export default function PuceDetail() {
           {/* ID terrain */}
           {p.idTerrain && (
             <Card padding="sm" tone="primary">
-              <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-1">ID terrain</p>
+              <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-1">{t('specimenDetail.idTerrain')}</p>
               <p className="font-mono font-bold text-primary text-sm">{p.idTerrain}</p>
             </Card>
           )}
 
           {/* Localisation */}
           <Card padding="sm">
-            <SidebarSection icon={MapPin} iconClass="text-danger" label="Localisation">
+            <SidebarSection icon={MapPin} iconClass="text-danger" label={t('specimenDetail.localisation')}>
               <div className="flex flex-wrap items-center gap-1 text-[11px] text-fg-muted mb-2">
                 <span className="font-semibold text-fg">
                   {loc?.mission?.projet?.nom || loc?.mission?.projet?.code || '—'}
@@ -335,7 +337,7 @@ export default function PuceDetail() {
 
             <div className="border-t border-border my-2.5" />
 
-            <SidebarSection icon={Beaker} iconClass="text-info" label="Méthode de collecte">
+            <SidebarSection icon={Beaker} iconClass="text-info" label={t('specimenDetail.methodeCollecte')}>
               {p.methode?.typeMethode ? (
                 <div className="text-[11px] text-fg font-medium">
                   <span>{p.methode.typeMethode.nom}</span>
@@ -354,25 +356,25 @@ export default function PuceDetail() {
 
           {/* Conservation */}
           <Card padding="sm">
-            <SidebarSection icon={FlaskConical} iconClass="text-purple-500" label="Conservation">
-              <SidebarRow label="Solution">
+            <SidebarSection icon={FlaskConical} iconClass="text-purple-500" label={t('specimenDetail.conservation')}>
+              <SidebarRow label={t('specimenDetail.solution')}>
                 {p.solution?.nom || <span className="text-fg-subtle">—</span>}
               </SidebarRow>
-              <SidebarRow label="Container">
+              <SidebarRow label={t('specimenDetail.container')}>
                 {p.container ? (
                   <span>
                     <span className="font-mono">{p.container.code}</span>
                     {p.position && (
                       <>
                         <span className="text-fg-subtle mx-1">|</span>
-                        <span>Position : {p.position}</span>
+                        <span>{t('specimenDetail.position')} {p.position}</span>
                       </>
                     )}
                   </span>
                 ) : <span className="text-fg-subtle">—</span>}
               </SidebarRow>
-              <SidebarRow label="Date">
-                {p.dateCollecte ? new Date(p.dateCollecte).toLocaleDateString('fr-FR') : <span className="text-fg-subtle">—</span>}
+              <SidebarRow label={t('specimenDetail.date')}>
+                {p.dateCollecte ? new Date(p.dateCollecte).toLocaleDateString(t('common.locale')) : <span className="text-fg-subtle">—</span>}
               </SidebarRow>
             </SidebarSection>
           </Card>

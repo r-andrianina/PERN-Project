@@ -4,67 +4,69 @@ import { MapPin, Plus, ChevronRight, Calendar, User } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { Card, Badge, Button, EmptyState, PageHeader, Spinner, DataTable, Pagination } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
-
-const COLUMNS = [
-  {
-    key:          'ordreMission',
-    label:        'Ordre mission',
-    sortable:     true,
-    skeletonWidth: '70%',
-    render: (m) => (
-      <span className="font-semibold text-primary">{m.ordreMission}</span>
-    ),
-  },
-  {
-    key:          'projet',
-    label:        'Projet',
-    skeletonWidth: '60%',
-    render: (m) => <span className="text-fg-muted text-xs">{m.projet?.nom ?? '—'}</span>,
-  },
-  {
-    key:          'chefMission',
-    label:        'Chef mission',
-    skeletonWidth: '65%',
-    hidden:       'hidden lg:table-cell',
-    render: (m) => (
-      <span className="text-fg-muted text-xs">
-        {m.chefMission ? `${m.chefMission.prenom} ${m.chefMission.nom}` : null}
-      </span>
-    ),
-  },
-  {
-    key:          'dateDebut',
-    label:        'Période',
-    sortable:     true,
-    skeletonWidth: '75%',
-    hidden:       'hidden md:table-cell',
-    render: (m) => (
-      <span className="text-fg-subtle text-xs whitespace-nowrap">
-        {m.dateDebut ? new Date(m.dateDebut).toLocaleDateString('fr-FR') : '—'}
-        {m.dateFin && ` → ${new Date(m.dateFin).toLocaleDateString('fr-FR')}`}
-      </span>
-    ),
-  },
-  {
-    key:           'localites',
-    label:         'Localités',
-    sortable:      true,
-    skeletonWidth: '40%',
-    width:         '90px',
-    headerClassName: 'text-center',
-    className:     'text-center',
-    hidden:        'hidden sm:table-cell',
-    render: (m) => <Badge tone="info">{m._count?.localites ?? 0}</Badge>,
-  },
-  {
-    key:   '_nav',
-    label: '',
-    width: '40px',
-    render: () => <ChevronRight size={14} className="text-fg-subtle" />,
-  },
-];
+import { useT, interpolate } from '../../lib/i18n';
 
 export default function MissionsPage() {
+  const t = useT();
+  const COLUMNS = [
+    {
+      key:          'ordreMission',
+      label:        t('missionsPage.colMissionOrder'),
+      sortable:     true,
+      skeletonWidth: '70%',
+      render: (m) => (
+        <span className="font-semibold text-primary">{m.ordreMission}</span>
+      ),
+    },
+    {
+      key:          'projet',
+      label:        t('missionsPage.colProject'),
+      skeletonWidth: '60%',
+      render: (m) => <span className="text-fg-muted text-xs">{m.projet?.nom ?? '—'}</span>,
+    },
+    {
+      key:          'chefMission',
+      label:        t('missionsPage.colMissionLead'),
+      skeletonWidth: '65%',
+      hidden:       'hidden lg:table-cell',
+      render: (m) => (
+        <span className="text-fg-muted text-xs">
+          {m.chefMission ? `${m.chefMission.prenom} ${m.chefMission.nom}` : null}
+        </span>
+      ),
+    },
+    {
+      key:          'dateDebut',
+      label:        t('missionsPage.colPeriod'),
+      sortable:     true,
+      skeletonWidth: '75%',
+      hidden:       'hidden md:table-cell',
+      render: (m) => (
+        <span className="text-fg-subtle text-xs whitespace-nowrap">
+          {m.dateDebut ? new Date(m.dateDebut).toLocaleDateString(t('common.locale')) : '—'}
+          {m.dateFin && ` → ${new Date(m.dateFin).toLocaleDateString(t('common.locale'))}`}
+        </span>
+      ),
+    },
+    {
+      key:           'localites',
+      label:         t('missionsPage.colLocalities'),
+      sortable:      true,
+      skeletonWidth: '40%',
+      width:         '90px',
+      headerClassName: 'text-center',
+      className:     'text-center',
+      hidden:        'hidden sm:table-cell',
+      render: (m) => <Badge tone="info">{m._count?.localites ?? 0}</Badge>,
+    },
+    {
+      key:   '_nav',
+      label: '',
+      width: '40px',
+      render: () => <ChevronRight size={14} className="text-fg-subtle" />,
+    },
+  ];
+
   const { user } = useAuthStore();
   const navigate  = useNavigate();
   const canCreate = ['admin', 'chercheur'].includes(user?.role);
@@ -89,10 +91,10 @@ export default function MissionsPage() {
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
-      const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv), 'fr');
+      const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv), t('common.locale'));
       return sort.dir === 'asc' ? cmp : -cmp;
     });
-  }, [data, sort]);
+  }, [data, sort, t]);
 
   const missions  = data ?? [];
   const pageCount = Math.ceil(sorted.length / limit) || 1;
@@ -102,13 +104,13 @@ export default function MissionsPage() {
     <div className="space-y-6">
       <PageHeader
         icon={MapPin} iconTone="info"
-        title="Missions" subtitle={`${missions.length} mission(s) enregistrée(s)`}
-        actions={canCreate && <Button icon={Plus} onClick={() => navigate('/missions/nouvelle')}>Nouvelle mission</Button>}
+        title={t('missionsPage.title')} subtitle={interpolate(t('missionsPage.subtitle'), { n: missions.length })}
+        actions={canCreate && <Button icon={Plus} onClick={() => navigate('/missions/nouvelle')}>{t('missionsPage.newMission')}</Button>}
       />
 
       {isLoading ? <Spinner.Block /> : missions.length === 0 ? (
-        <EmptyState icon={MapPin} title="Aucune mission pour l'instant"
-          action={canCreate ? { label: 'Créer la première mission', icon: Plus, onClick: () => navigate('/missions/nouvelle') } : undefined} />
+        <EmptyState icon={MapPin} title={t('missionsPage.noMissionYet')}
+          action={canCreate ? { label: t('missionsPage.createFirst'), icon: Plus, onClick: () => navigate('/missions/nouvelle') } : undefined} />
       ) : (
         <>
           {/* Table desktop */}
@@ -147,10 +149,10 @@ export default function MissionsPage() {
                     )}
                     {m.dateDebut && (
                       <span className="flex items-center gap-1">
-                        <Calendar size={11} /> {new Date(m.dateDebut).toLocaleDateString('fr-FR')}
+                        <Calendar size={11} /> {new Date(m.dateDebut).toLocaleDateString(t('common.locale'))}
                       </span>
                     )}
-                    <span>{m._count?.localites ?? 0} loc.</span>
+                    <span>{m._count?.localites ?? 0} {t('missionsPage.localitiesShort')}</span>
                   </div>
                 </Card>
               </Link>

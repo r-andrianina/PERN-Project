@@ -561,7 +561,16 @@ http://ADRESSE_IP_DU_NAS:8080
 | Protocole | Port externe | IP interne (NAS) | Port interne |
 |---|---|---|---|
 | TCP | 80 | ADRESSE_IP_DU_NAS | 80 |
-| TCP | 443 | ADRESSE_IP_DU_NAS | 443 |
+| TCP | **8443** | ADRESSE_IP_DU_NAS | **8443** |
+
+> **Port 8443, pas 443** : le port 443 sur ce NAS est capté par DSM lui-même
+> (Portail des applications) pour le nom d'hôte `sm.ipmnas.synology.me` —
+> une requête sur `:443` tombe sur la page de connexion/404 de DSM, jamais
+> sur le Proxy Inversé. Constaté et diagnostiqué le 2026-08-03/04 ; plutôt
+> que de fouiller la priorité interne du Portail des applications, on a
+> déplacé la règle sur un port dédié. Le port 8443 était auparavant occupé
+> par une ancienne application (Symfony/PHP, projet "specimenmanager" dans
+> Container Manager) — ce conteneur a été arrêté pour le libérer.
 
 ### 8.3 Obtenir le certificat SSL Let's Encrypt
 
@@ -570,10 +579,15 @@ http://ADRESSE_IP_DU_NAS:8080
 3. **Nom de domaine** : `votre-choix.synology.me`
 4. **Appliquer** (le certificat se renouvelle automatiquement)
 
+> Si un certificat existe déjà pour ce nom d'hôte (cas de `sm.ipmnas.synology.me`),
+> inutile d'en émettre un nouveau — Let's Encrypt limite le nombre de demandes
+> par domaine. Réutiliser le certificat existant en l'assignant au bon service
+> dans **Sécurité → Certificat → Configurer**.
+
 ### 8.4 Configurer le Proxy Inversé DSM
 
-1. **Panneau de configuration** → **Portail de connexion** → **Avancé**
-   → **Proxy inversé** → **Créer**
+1. **Panneau de configuration** → **Portail des applications** → **Avancé**
+   → **Proxy inversé** → **Créer** (ou **Modifier** si la règle existe déjà)
 2. Remplir le formulaire :
 
 | Champ | Valeur |
@@ -581,37 +595,52 @@ http://ADRESSE_IP_DU_NAS:8080
 | Description | SpécimenManager (sm_pern) |
 | Protocole source | HTTPS |
 | Nom d'hôte source | `sm.ipmnas.synology.me` |
-| Port source | 443 |
+| Port source | **8443** |
 | Protocole destination | HTTP |
-| Nom d'hôte destination | `localhost` |
+| Nom d'hôte destination | `192.168.64.18` (IP locale du NAS) |
 | Port destination | **8080** |
 
 > Sous-domaine dédié `sm.` : le NAS héberge aussi une autre application sur
 > le domaine racine `ipmnas.synology.me` (autre règle de Proxy Inversé,
 > indépendante). Le sous-domaine `sm.` évite toute collision.
 
-3. **Enregistrer**
+3. **Enregistrer**, puis dans **Sécurité → Certificat → Configurer**, vérifier
+   que le certificat `sm.ipmnas.synology.me` est bien assigné à ce service
+   précis (l'assignation ne se fait pas automatiquement à la création de la règle).
 
 ### 8.5 Mettre à jour CLIENT_URL (CORS backend)
 
 Dans `backend/.env.production` :
 ```env
-CLIENT_URL=https://sm.ipmnas.synology.me
+CLIENT_URL=https://sm.ipmnas.synology.me:8443
 ```
 
-Redémarrer le backend :
+Recréer le backend (⚠️ **pas `restart`** — voir note) :
 ```bash
 cd /volume1/docker/specimenmanager
-docker compose -f docker-compose.prod.yml restart backend
+sudo /usr/local/bin/docker compose -f docker-compose.prod.yml up -d backend
 ```
+
+> **`restart` ne suffit pas.** `docker compose restart` relance le container
+> **existant** avec les variables d'environnement déjà figées au moment de sa
+> création — il ne relit jamais `.env.production` sur le disque. Seul `up -d`
+> détecte le changement et recrée le container avec les nouvelles variables.
+> Constaté le 2026-08-04 : après un `restart`, le header
+> `Access-Control-Allow-Origin` renvoyait encore l'ancienne URL malgré le
+> fichier `.env.production` à jour.
 
 ### 8.6 Test final HTTPS
 
 ```
-https://sm.ipmnas.synology.me
+https://sm.ipmnas.synology.me:8443
 ```
 
 La page de login doit s'afficher avec le cadenas HTTPS dans le navigateur.
+Vérification CORS (le port doit être reflété dans la réponse) :
+```bash
+curl -sI -H "Origin: https://sm.ipmnas.synology.me:8443" \
+  https://sm.ipmnas.synology.me:8443/api/health | grep -i access-control-allow-origin
+```
 
 ---
 
@@ -628,7 +657,7 @@ Deux besoins distincts, deux solutions distinctes.
 
 ┌─────────────────────────────────────────────────────────────────────┐
 │  Utilisateurs IPM : accéder à l'application                         │
-│  Navigateur ──[ HTTPS :443 ]──► Routeur ──► NAS :8080              │
+│  Navigateur ──[ HTTPS :8443 ]──► Routeur ──► NAS :8080             │
 │               DDNS + Let's Encrypt (section 8)                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -683,20 +712,20 @@ par l'IP Tailscale `100.x.x.x`.
 | Accès | URL | Usage |
 |---|---|---|
 | **Réseau local (LAN IPM)** | `http://192.168.64.18:8080` | Accès direct à `sm_nginx`, sans HTTPS — réseau de l'institut uniquement |
-| **Externe (HTTPS public)** | `https://sm.ipmnas.synology.me` | Accès production pour tout le personnel IPM, via DDNS + Let's Encrypt + Proxy Inversé (section 8) |
+| **Externe (HTTPS public)** | `https://sm.ipmnas.synology.me:8443` | Accès production pour tout le personnel IPM, via DDNS + Let's Encrypt + Proxy Inversé (section 8) |
 
-**Checklist accès externe (fait) :**
+**Checklist accès externe (fait — validé le 2026-08-04) :**
 
 - [x] DDNS Synology configuré (`ipmnas.synology.me`, sous-domaine `sm.`)
-- [x] Ports 80 et 443 redirigés sur le routeur vers l'IP du NAS
-- [x] Certificat Let's Encrypt obtenu dans DSM pour `sm.ipmnas.synology.me`
-- [x] Proxy Inversé DSM : `sm.ipmnas.synology.me:443` → `localhost:8080`
-- [x] `CLIENT_URL=https://sm.ipmnas.synology.me` dans `backend/.env.production`
-- [x] Backend redémarré : `docker compose -f docker-compose.prod.yml restart backend`
+- [x] Port 8443 redirigé sur le routeur vers l'IP du NAS (**pas 443** — occupé par DSM lui-même pour ce nom d'hôte, voir note § 8.2)
+- [x] Certificat Let's Encrypt existant pour `sm.ipmnas.synology.me` réassigné (pas de nouvelle émission)
+- [x] Proxy Inversé DSM : `sm.ipmnas.synology.me:8443` → `192.168.64.18:8080`
+- [x] `CLIENT_URL=https://sm.ipmnas.synology.me:8443` dans `backend/.env.production`
+- [x] Backend **recréé** (`docker compose up -d backend`, pas `restart` — voir note § 8.5)
 
 **Test final :**
 ```
-https://sm.ipmnas.synology.me  → page login SpécimenManager
+https://sm.ipmnas.synology.me:8443  → page login SpécimenManager
 ```
 
 ---
@@ -708,7 +737,7 @@ https://sm.ipmnas.synology.me  → page login SpécimenManager
 | Admin (vous) | Déployer, SSH, rsync | Tailscale | Compte gratuit + pkg NAS |
 | Admin (vous) | Voir l'app depuis l'extérieur | HTTPS public ou Tailscale | Section 8 ou Tailscale |
 | Personnel IPM (bureau) | Utiliser l'application | Réseau local — `http://192.168.64.18:8080` | Connecté au réseau IPM |
-| Personnel IPM (hors site) | Utiliser l'application | HTTPS public — `https://sm.ipmnas.synology.me` | Section 8 |
+| Personnel IPM (hors site) | Utiliser l'application | HTTPS public — `https://sm.ipmnas.synology.me:8443` | Section 8 |
 | Admin (urgence) | Prisma Studio distant | Tailscale + port 5555 | Tailscale actif |
 
 ---

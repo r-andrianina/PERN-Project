@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { MapPin, X, Search, Loader2 } from 'lucide-react';
+import { useT, interpolate } from '../lib/i18n';
 
 // Biais Madagascar (bounded=0 : priorise sans exclure) pour que la recherche
 // remonte les lieux malgaches avant les homonymes du reste du monde.
@@ -9,7 +10,9 @@ const MADAGASCAR_VIEWBOX = '43.0,-11.8,50.6,-25.7';
 // MapPicker (sélection de position) et CartePage (navigation sur la carte).
 // onSelect(lat, lng, label) est appelé à la sélection d'un résultat —
 // clic souris ou clavier (flèches + Entrée).
-export default function MapSearchBar({ onSelect, placeholder = 'Rechercher un lieu, ville, fokontany…' }) {
+export default function MapSearchBar({ onSelect, placeholder }) {
+  const t = useT();
+  placeholder ??= t('mapSearchBar.placeholder');
   const [query,       setQuery]       = useState('');
   const [results,     setResults]     = useState([]);
   const [searching,   setSearching]   = useState(false);
@@ -38,7 +41,7 @@ export default function MapSearchBar({ onSelect, placeholder = 'Rechercher un li
           viewbox: MADAGASCAR_VIEWBOX, bounded: '0',
         });
         const r = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
-          headers: { 'Accept-Language': 'fr' },
+          headers: { 'Accept-Language': t('mapSearchBar.acceptLanguage') },
         });
         const data = await r.json();
         if (!mountedRef.current) return;
@@ -47,7 +50,7 @@ export default function MapSearchBar({ onSelect, placeholder = 'Rechercher un li
       } catch { /* silently fail */ }
       finally { if (mountedRef.current) setSearching(false); }
     }, 400);
-  }, []);
+  }, [t]);
 
   const selectResult = (item) => {
     onSelect(parseFloat(item.lat), parseFloat(item.lon), item.display_name.split(',')[0]);
@@ -128,7 +131,7 @@ export default function MapSearchBar({ onSelect, placeholder = 'Rechercher un li
       )}
       {showResults && results.length === 0 && !searching && query.length > 2 && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-gray-200 px-3 py-3 z-50">
-          <p className="text-xs text-gray-400 text-center">Aucun résultat pour « {query} »</p>
+          <p className="text-xs text-gray-400 text-center">{interpolate(t('mapSearchBar.noResultsFor'), { query })}</p>
         </div>
       )}
     </div>

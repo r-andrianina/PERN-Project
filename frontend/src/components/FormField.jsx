@@ -1,5 +1,6 @@
 import { AlertCircle } from 'lucide-react';
 import { Select, DatePicker } from './ui';
+import { useT } from '../lib/i18n';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 const HOURS   = Array.from({ length: 24 }, (_, i) => ({ value: pad2(i), label: pad2(i) }));
@@ -10,6 +11,7 @@ const MINUTES = Array.from({ length: 12 }, (_, i) => ({ value: pad2(i * 5), labe
 // 00-55 (pas de 5 min) pour l'heure. Value/onChange gardent le même format
 // que l'input natif : "YYYY-MM-DDTHH:mm".
 function DateTimeField({ value, onChange, name, disabled, error }) {
+  const t = useT();
   const [datePart = '', timePart = ''] = (value || '').split('T');
   const [hh = '', mm = ''] = timePart.split(':');
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -32,12 +34,12 @@ function DateTimeField({ value, onChange, name, disabled, error }) {
       />
       <Select
         value={hh} onChange={(h) => emit(undefined, h, undefined)}
-        options={HOURS} placeholder="Hh" disabled={disabled} searchable={false}
+        options={HOURS} placeholder={t('formField.hourPlaceholder')} disabled={disabled} searchable={false}
         wrapperClassName="w-[4.5rem]"
       />
       <Select
         value={mm} onChange={(m) => emit(undefined, undefined, m)}
-        options={MINUTES} placeholder="Mm" disabled={disabled} searchable={false}
+        options={MINUTES} placeholder={t('formField.minutePlaceholder')} disabled={disabled} searchable={false}
         wrapperClassName="w-[4.5rem]"
       />
     </div>
@@ -48,6 +50,7 @@ export default function FormField({
   label, name, type = 'text', value, onChange, onBlur,
   placeholder, required, options, error, hint, disabled,
 }) {
+  const t = useT();
   const baseClass = `
     w-full px-3.5 py-2.5 text-sm rounded-xl border transition-colors
     focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
@@ -75,7 +78,7 @@ export default function FormField({
           onChange={(val) => onChange({ target: { name, value: val } })}
           disabled={disabled}
           error={error}
-          options={[{ value: '', label: '— Sélectionner —' }, ...(options ?? [])]}
+          options={[{ value: '', label: `— ${t('common.select')} —` }, ...(options ?? [])]}
         />
 
       ) : type === 'date' ? (

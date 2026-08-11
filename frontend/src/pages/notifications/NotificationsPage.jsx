@@ -13,6 +13,7 @@ import {
   formatRelativeDate,
   resolveEntityUrl,
 } from '../../utils/notifications';
+import { useT } from '../../lib/i18n';
 
 // ── Tokens visuels ─────────────────────────────────────────────
 const ACTION_TONE = {
@@ -24,14 +25,14 @@ const ACTION_TONE = {
   READ:       'default',
 };
 
-const ACTION_LABEL = {
-  CREATE:     'Créé',
-  UPDATE:     'Modifié',
-  DELETE:     'Supprimé',
-  ACTIVATE:   'Activé',
-  DEACTIVATE: 'Désactivé',
-  READ:       'Consulté',
-};
+const getActionLabel = (t) => ({
+  CREATE:     t('notificationsPage.actionCreated'),
+  UPDATE:     t('notificationsPage.actionUpdated'),
+  DELETE:     t('notificationsPage.actionDeleted'),
+  ACTIVATE:   t('notificationsPage.actionActivated'),
+  DEACTIVATE: t('notificationsPage.actionDeactivated'),
+  READ:       t('notificationsPage.actionRead'),
+});
 
 const ACTION_COLOR = {
   CREATE:     'rgb(var(--success))',
@@ -42,21 +43,21 @@ const ACTION_COLOR = {
   READ:       'rgb(var(--fg-subtle))',
 };
 
-const ENTITY_CFG = {
-  Moustique:            { label: 'Moustique',    tone: 'specimen-moustique' },
-  Tique:                { label: 'Tique',         tone: 'specimen-tique'    },
-  Puce:                 { label: 'Puce',          tone: 'specimen-puce'     },
-  Mission:              { label: 'Mission',       tone: 'primary'           },
-  Projet:               { label: 'Projet',        tone: 'info'              },
-  Localite:             { label: 'Localité',      tone: 'success'           },
-  MethodeCollecte:      { label: 'Méthode',       tone: 'warning'           },
-  Hote:                 { label: 'Hôte',          tone: 'default'           },
-  Container:            { label: 'Container',     tone: 'default'           },
-  User:                 { label: 'Utilisateur',   tone: 'role-admin'        },
-  TaxonomieSpecimen:    { label: 'Taxonomie',     tone: 'default'           },
-  TaxonomieHote:        { label: 'Taxo. hôte',   tone: 'default'           },
-  TypeMethodeCollecte:  { label: 'Type méthode',  tone: 'default'           },
-};
+const getEntityCfg = (t) => ({
+  Moustique:            { label: t('specimenTypes.moustique'),      tone: 'specimen-moustique' },
+  Tique:                { label: t('specimenTypes.tique'),          tone: 'specimen-tique'    },
+  Puce:                 { label: t('specimenTypes.puce'),           tone: 'specimen-puce'     },
+  Mission:              { label: t('notificationsPage.entityMission'), tone: 'primary'           },
+  Projet:               { label: t('notificationsPage.entityProjet'), tone: 'info'              },
+  Localite:             { label: t('notificationsPage.entityLocalite'), tone: 'success'           },
+  MethodeCollecte:      { label: t('notificationsPage.entityMethode'), tone: 'warning'           },
+  Hote:                 { label: t('notificationsPage.entityHote'), tone: 'default'           },
+  Container:            { label: t('notificationsPage.entityContainer'), tone: 'default'           },
+  User:                 { label: t('notificationsPage.entityUser'), tone: 'role-admin'        },
+  TaxonomieSpecimen:    { label: t('notificationsPage.entityTaxonomie'), tone: 'default'           },
+  TaxonomieHote:        { label: t('notificationsPage.entityTaxonomieHote'), tone: 'default'           },
+  TypeMethodeCollecte:  { label: t('notificationsPage.entityTypeMethode'), tone: 'default'           },
+});
 
 const AVATAR_COLORS = [
   'bg-primary/15 text-primary',
@@ -69,31 +70,31 @@ const AVATAR_COLORS = [
 
 const LIMIT = 25;
 
-const ACTION_OPTS = [
-  { value: '',           label: 'Toutes les actions' },
-  { value: 'CREATE',     label: 'Création'           },
-  { value: 'UPDATE',     label: 'Modification'       },
-  { value: 'DELETE',     label: 'Suppression'        },
-  { value: 'ACTIVATE',   label: 'Activation'         },
-  { value: 'DEACTIVATE', label: 'Désactivation'      },
+const getActionOpts = (t) => [
+  { value: '',           label: t('notificationsPage.allActionsOpt') },
+  { value: 'CREATE',     label: t('notificationsPage.creationOpt')   },
+  { value: 'UPDATE',     label: t('notificationsPage.modificationOpt') },
+  { value: 'DELETE',     label: t('notificationsPage.suppressionOpt') },
+  { value: 'ACTIVATE',   label: t('notificationsPage.activationOpt') },
+  { value: 'DEACTIVATE', label: t('notificationsPage.desactivationOpt') },
 ];
 
-const ENTITY_OPTS = [
-  { value: '',                  label: 'Toutes les entités'  },
-  { value: 'Moustique',         label: 'Moustique'           },
-  { value: 'Tique',             label: 'Tique'               },
-  { value: 'Puce',              label: 'Puce'                },
-  { value: 'Mission',           label: 'Mission'             },
-  { value: 'Projet',            label: 'Projet'              },
-  { value: 'Localite',          label: 'Localité'            },
-  { value: 'MethodeCollecte',   label: 'Méthode de collecte' },
-  { value: 'Hote',              label: 'Hôte'                },
-  { value: 'TaxonomieSpecimen', label: 'Taxonomie spécimen'  },
-  { value: 'User',              label: 'Utilisateur'         },
+const getEntityOpts = (t) => [
+  { value: '',                  label: t('notificationsPage.allEntitiesOpt') },
+  { value: 'Moustique',         label: t('specimenTypes.moustique')  },
+  { value: 'Tique',             label: t('specimenTypes.tique')      },
+  { value: 'Puce',              label: t('specimenTypes.puce')       },
+  { value: 'Mission',           label: t('notificationsPage.entityMission') },
+  { value: 'Projet',            label: t('notificationsPage.entityProjet')  },
+  { value: 'Localite',          label: t('notificationsPage.entityLocalite') },
+  { value: 'MethodeCollecte',   label: t('notificationsPage.entityMethodeFull') },
+  { value: 'Hote',              label: t('notificationsPage.entityHote') },
+  { value: 'TaxonomieSpecimen', label: t('notificationsPage.entityTaxonomieSpecimenFull') },
+  { value: 'User',              label: t('notificationsPage.entityUser') },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────
-function groupByDate(items) {
+function groupByDate(items, t) {
   const startOfToday     = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const startOfYesterday = new Date(startOfToday - 86400000);
   const startOfWeek      = new Date(startOfToday - 6 * 86400000);
@@ -107,10 +108,10 @@ function groupByDate(items) {
     else                            buckets.older.push(item);
   }
   return [
-    { label: "Aujourd'hui",   items: buckets.today     },
-    { label: 'Hier',          items: buckets.yesterday  },
-    { label: 'Cette semaine', items: buckets.week       },
-    { label: 'Plus ancien',   items: buckets.older      },
+    { label: t('notificationsPage.todayLabel'),     items: buckets.today     },
+    { label: t('notificationsPage.yesterdayLabel'), items: buckets.yesterday },
+    { label: t('notificationsPage.weekLabel'),      items: buckets.week      },
+    { label: t('notificationsPage.olderLabel'),     items: buckets.older     },
   ].filter(g => g.items.length > 0);
 }
 
@@ -148,12 +149,15 @@ function UserAvatar({ user, size = 'sm' }) {
 }
 
 function EntityBadge({ entity }) {
-  const cfg = ENTITY_CFG[entity];
+  const t = useT();
+  const cfg = getEntityCfg(t)[entity];
   if (!cfg) return null;
   return <Badge tone={cfg.tone} size="xs">{cfg.label}</Badge>;
 }
 
 function NotifItem({ item, onRead, onNavigate }) {
+  const t = useT();
+  const actionLabel = getActionLabel(t);
   const [justRead, setJustRead] = useState(false);
   const url      = resolveEntityUrl(item.entity, item.entityId, item.action);
   const isUnread = !item.isRead && !justRead;
@@ -188,7 +192,7 @@ function NotifItem({ item, onRead, onNavigate }) {
         <div className="flex items-center gap-1.5 mt-2 flex-wrap">
           <EntityBadge entity={item.entity} />
           <Badge tone={ACTION_TONE[item.action] ?? 'default'} size="xs">
-            {ACTION_LABEL[item.action] ?? item.action}
+            {actionLabel[item.action] ?? item.action}
           </Badge>
           <span className="flex items-center gap-1 text-[10px] text-fg-subtle">
             <Clock size={9} />
@@ -216,6 +220,8 @@ function DateDivider({ label }) {
 
 // ── Panneau stats (colonne droite) ────────────────────────────
 function StatsPanel({ items, loading }) {
+  const t = useT();
+  const actionLabel = getActionLabel(t);
   const actionStats = items.reduce((acc, item) => {
     acc[item.action] = (acc[item.action] || 0) + 1;
     return acc;
@@ -263,14 +269,14 @@ function StatsPanel({ items, loading }) {
         <div className="card p-4">
           <h3 className="flex items-center gap-2 text-[11px] font-semibold text-fg-subtle uppercase tracking-wider mb-4">
             <Layers size={12} />
-            Par action
+            {t('notificationsPage.byAction')}
           </h3>
           <div className="space-y-3">
             {topActions.map(([action, count]) => (
               <div key={action}>
                 <div className="flex items-center justify-between mb-1">
                   <Badge tone={ACTION_TONE[action] ?? 'default'} size="xs">
-                    {ACTION_LABEL[action] ?? action}
+                    {actionLabel[action] ?? action}
                   </Badge>
                   <span className="text-xs font-semibold text-fg-muted tabular-nums">{count}</span>
                 </div>
@@ -293,7 +299,7 @@ function StatsPanel({ items, loading }) {
         <div className="card p-4">
           <h3 className="flex items-center gap-2 text-[11px] font-semibold text-fg-subtle uppercase tracking-wider mb-4">
             <Inbox size={12} />
-            Entités concernées
+            {t('notificationsPage.concernedEntities')}
           </h3>
           <div className="space-y-2">
             {topEntities.map(([entity, count]) => (
@@ -310,7 +316,7 @@ function StatsPanel({ items, loading }) {
         <div className="card p-4">
           <h3 className="flex items-center gap-2 text-[11px] font-semibold text-fg-subtle uppercase tracking-wider mb-4">
             <Users size={12} />
-            Acteurs
+            {t('notificationsPage.actors')}
           </h3>
           <div className="space-y-3">
             {topActors.map(({ user, count }) => (
@@ -321,7 +327,7 @@ function StatsPanel({ items, loading }) {
                     {user.prenom} {user.nom}
                   </p>
                   <p className="text-[10px] text-fg-subtle">
-                    {count} action{count > 1 ? 's' : ''}
+                    {count} {t('notificationsPage.actionSuffix')}{count > 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
@@ -335,6 +341,7 @@ function StatsPanel({ items, loading }) {
 
 // ── Page principale ───────────────────────────────────────────
 export default function NotificationsPage() {
+  const t = useT();
   const navigate = useNavigate();
 
   const [items,        setItems]        = useState([]);
@@ -395,8 +402,10 @@ export default function NotificationsPage() {
   }, [navigate]);
 
   const pages      = Math.ceil(total / LIMIT);
-  const groups     = groupByDate(items);
+  const groups     = groupByDate(items, t);
   const hasFilters = readFilter !== 'all' || actionFilter || entityFilter;
+  const actionOpts = getActionOpts(t);
+  const entityOpts = getEntityOpts(t);
 
   return (
     <div className="flex flex-col gap-5">
@@ -408,8 +417,8 @@ export default function NotificationsPage() {
             <Bell size={20} className="text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-fg">Notifications</h1>
-            <p className="text-xs text-fg-subtle mt-0.5">Activité de l'équipe en temps réel</p>
+            <h1 className="text-xl font-bold text-fg">{t('notificationsPage.title')}</h1>
+            <p className="text-xs text-fg-subtle mt-0.5">{t('notificationsPage.subtitle')}</p>
           </div>
         </div>
 
@@ -420,15 +429,15 @@ export default function NotificationsPage() {
               : 'bg-success/10 text-success border-success/20'
           }`}>
             {unreadCount > 0 ? (
-              <><span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />{unreadCount} non lue{unreadCount > 1 ? 's' : ''}</>
+              <><span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />{unreadCount} {t('notificationsPage.unreadSuffix')}{unreadCount > 1 ? 's' : ''}</>
             ) : (
-              <><CheckCircle2 size={12} />Tout à jour</>
+              <><CheckCircle2 size={12} />{t('notificationsPage.allUpToDate')}</>
             )}
           </div>
 
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-fg-muted bg-surface-2 border border-border">
             <Inbox size={11} />
-            {total} au total
+            {total} {t('notificationsPage.totalSuffix')}
           </div>
 
           {unreadCount > 0 && (
@@ -437,7 +446,7 @@ export default function NotificationsPage() {
               className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 hover:underline transition-colors"
             >
               <CheckCheck size={14} />
-              Tout marquer comme lu
+              {t('notificationsPage.markAllRead')}
             </button>
           )}
         </div>
@@ -453,9 +462,9 @@ export default function NotificationsPage() {
           <div className="card p-3 flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1 bg-surface-2 p-1 rounded-xl flex-shrink-0">
               {[
-                { key: 'all',    label: 'Toutes'    },
-                { key: 'unread', label: 'Non lues', count: unreadCount },
-                { key: 'read',   label: 'Lues'      },
+                { key: 'all',    label: t('notificationsPage.tabAll')    },
+                { key: 'unread', label: t('notificationsPage.tabUnread'), count: unreadCount },
+                { key: 'read',   label: t('notificationsPage.tabRead')   },
               ].map(tab => (
                 <button
                   key={tab.key}
@@ -484,20 +493,20 @@ export default function NotificationsPage() {
                 value={actionFilter}
                 onChange={resetPage(setActionFilter)}
                 wrapperClassName="flex-1 min-w-[150px] max-w-[190px]"
-                options={ACTION_OPTS}
+                options={actionOpts}
               />
               <Select
                 value={entityFilter}
                 onChange={resetPage(setEntityFilter)}
                 wrapperClassName="flex-1 min-w-[170px] max-w-[210px]"
-                options={ENTITY_OPTS}
+                options={entityOpts}
               />
               {hasFilters && (
                 <button
                   onClick={() => { resetPage(setReadFilter)('all'); setActionFilter(''); setEntityFilter(''); }}
                   className="text-xs text-fg-subtle hover:text-danger transition-colors px-2 py-1 rounded-lg hover:bg-danger/10 flex-shrink-0"
                 >
-                  Réinitialiser
+                  {t('notificationsPage.reset')}
                 </button>
               )}
             </div>
@@ -515,12 +524,12 @@ export default function NotificationsPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-fg">
-                  {hasFilters ? 'Aucune notification' : 'Tout est à jour'}
+                  {hasFilters ? t('notificationsPage.noNotification') : t('notificationsPage.allUpToDateTitle')}
                 </p>
                 <p className="text-xs text-fg-subtle mt-1">
                   {hasFilters
-                    ? 'Aucune notification ne correspond aux filtres sélectionnés.'
-                    : "L'activité de l'équipe apparaîtra ici en temps réel."}
+                    ? t('notificationsPage.noNotificationFilterHint')
+                    : t('notificationsPage.teamActivityHint')}
                 </p>
               </div>
               {hasFilters && (
@@ -528,7 +537,7 @@ export default function NotificationsPage() {
                   onClick={() => { resetPage(setReadFilter)('all'); setActionFilter(''); setEntityFilter(''); }}
                   className="text-xs text-primary hover:underline mt-1"
                 >
-                  Supprimer les filtres
+                  {t('notificationsPage.clearFilters')}
                 </button>
               )}
             </div>

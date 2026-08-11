@@ -10,13 +10,13 @@ import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 import { taxoLabel as _taxoLabel } from '../../utils/taxoLabel';
+import { useT, interpolate } from '../../lib/i18n';
 
 const ROLES = { admin: 5, superviseur: 4, chercheur: 3, technicien: 2, lecteur: 1 };
 const isMin = (r, m) => (ROLES[r] || 0) >= (ROLES[m] || 0);
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
-const SEXE_LABEL = { M: 'Mâle', F: 'Femelle', inconnu: 'Inconnu' };
-const taxoLabel   = (t) => t ? _taxoLabel(t) : '—';
+const taxoLabel   = (tx) => tx ? _taxoLabel(tx) : '—';
 
 function Field({ label, children }) {
   return (
@@ -63,6 +63,8 @@ function EditSelect({ label, value, onChange, options, disabled }) {
 }
 
 export default function HoteDetail() {
+  const t = useT();
+  const SEXE_LABEL = { M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') };
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -87,9 +89,9 @@ export default function HoteDetail() {
         setHote(hRes.data.hote);
         setTaxonomies(tRes.data.items || []);
       })
-      .catch(() => setLoadError('Impossible de charger cet hôte.'))
+      .catch(() => setLoadError(t('hoteDetail.loadError')))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, t]);
 
   const startEdit = () => {
     const h = hote;
@@ -119,9 +121,9 @@ export default function HoteDetail() {
       });
       setHote(r.data.hote);
       setEditing(false);
-      toast.success('Hôte mis à jour avec succès.');
+      toast.success(t('hoteDetail.updateSuccess'));
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la sauvegarde');
+      toast.error(err.response?.data?.error || t('hoteDetail.updateError'));
     } finally {
       setSaving(false);
     }
@@ -129,38 +131,45 @@ export default function HoteDetail() {
 
   const handleDelete = async () => {
     const ok = await dialog.confirm({
-      title: 'Supprimer cet hôte ?',
-      message: `${hote.idTerrain ? `« ${hote.idTerrain} »` : `L'hôte #${id}`} sera définitivement supprimé. Cette action est irréversible.`,
+      title: t('hoteDetail.deleteTitle'),
+      message: hote.idTerrain
+        ? interpolate(t('hoteDetail.deleteMessageNamed'), { label: hote.idTerrain })
+        : interpolate(t('hoteDetail.deleteMessageId'), { id }),
     });
     if (!ok) return;
     setDeleting(true);
     try {
       await api.delete(`/hotes/${id}`);
-      toast.success('Hôte supprimé.');
+      toast.success(t('hoteDetail.deleteSuccess'));
       navigate('/hotes');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la suppression');
+      toast.error(err.response?.data?.error || t('hoteDetail.deleteError'));
       setDeleting(false);
     }
   };
 
-  if (loading) return <Spinner.Block label="Chargement…" height="h-40" />;
+  if (loading) return <Spinner.Block label={t('common.loading')} height="h-40" />;
 
   if (loadError || !hote) return (
     <div className="text-center py-20 space-y-3">
-      <p className="text-fg-muted">{loadError || 'Hôte introuvable.'}</p>
-      <Link to="/hotes" className="text-primary text-sm hover:underline">← Retour aux hôtes</Link>
+      <p className="text-fg-muted">{loadError || t('hoteDetail.notFound')}</p>
+      <Link to="/hotes" className="text-primary text-sm hover:underline">{t('hoteDetail.backToHotes')}</Link>
     </div>
   );
 
   const h = hote;
 
-  const taxoOptions = taxonomies.map(t => ({
-    value: String(t.id),
-    label: t.parent ? `${t.parent.nom} ${t.nom}` : t.nom,
+  const taxoOptions = taxonomies.map(tax => ({
+    value: String(tax.id),
+    label: tax.parent ? `${tax.parent.nom} ${tax.nom}` : tax.nom,
   }));
-  const sexeOptions = [{ value: 'M', label: 'Mâle' }, { value: 'F', label: 'Femelle' }, { value: 'inconnu', label: 'Inconnu' }];
-  const etatOptions = [{ value: '', label: '—' }, ...['Bon', 'Moyen', 'Mauvais', 'Mort'].map(v => ({ value: v, label: v }))];
+  const sexeOptions = [{ value: 'M', label: t('sexe.M') }, { value: 'F', label: t('sexe.F') }, { value: 'inconnu', label: t('sexe.inconnu') }];
+  const etatOptions = [{ value: '', label: '—' }, ...[
+    ['Bon', t('hoteDetail.etatBon')],
+    ['Moyen', t('hoteDetail.etatMoyen')],
+    ['Mauvais', t('hoteDetail.etatMauvais')],
+    ['Mort', t('hoteDetail.etatMort')],
+  ].map(([v, label]) => ({ value: v, label }))];
 
   // Données de localisation
   const loc      = h.methode?.localite;
@@ -173,7 +182,7 @@ export default function HoteDetail() {
   return (
     <div className="space-y-5">
       <Breadcrumb items={[
-        { label: 'Hôtes', to: '/hotes' },
+        { label: t('hoteDetail.breadcrumbLabel'), to: '/hotes' },
         { label: h.idTerrain ?? `#${h.id}` },
       ]} />
 
@@ -181,7 +190,7 @@ export default function HoteDetail() {
         icon={() => <PawPrint size={18} className="text-warning" />}
         iconTone="warning"
         title={<span className="italic">{taxoLabel(h.taxonomieHote)}</span>}
-        subtitle="Hôte"
+        subtitle={t('hoteDetail.subtitle')}
         actions={null}
       />
 
@@ -194,35 +203,35 @@ export default function HoteDetail() {
           <Card>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
               <PawPrint size={15} className="text-warning" />
-              <h2 className="text-sm font-semibold text-fg">Identification</h2>
+              <h2 className="text-sm font-semibold text-fg">{t('hoteDetail.identification')}</h2>
             </div>
 
             {editing ? (
               <div className="space-y-4">
-                <EditSelect label="Espèce hôte (référentiel)" value={editForm.taxonomieHoteId}
+                <EditSelect label={t('hoteDetail.especeHoteRef')} value={editForm.taxonomieHoteId}
                   onChange={e => setEditForm(f => ({ ...f, taxonomieHoteId: e.target.value }))}
                   options={taxoOptions} />
                 <div>
-                  <label className="text-xs text-fg-subtle font-medium block mb-1">Espèce locale (nom vernaculaire)</label>
+                  <label className="text-xs text-fg-subtle font-medium block mb-1">{t('hoteDetail.especeLocaleLabel')}</label>
                   <input type="text" value={editForm.especeLocale}
                     onChange={e => setEditForm(f => ({ ...f, especeLocale: e.target.value }))}
-                    placeholder="ex: Voalavo, Andriaka…"
+                    placeholder={t('hoteDetail.especeLocalePlaceholder')}
                     className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg"
                   />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <EditSelect label="Sexe" value={editForm.sexe}
+                  <EditSelect label={t('hoteDetail.sexe')} value={editForm.sexe}
                     onChange={e => setEditForm(f => ({ ...f, sexe: e.target.value }))}
                     options={sexeOptions} />
                   <div>
-                    <label className="text-xs text-fg-subtle font-medium block mb-1">Âge</label>
+                    <label className="text-xs text-fg-subtle font-medium block mb-1">{t('hoteDetail.age')}</label>
                     <input type="text" value={editForm.age}
                       onChange={e => setEditForm(f => ({ ...f, age: e.target.value }))}
-                      placeholder="ex: Adulte, Juvénile"
+                      placeholder={t('hoteDetail.agePlaceholder')}
                       className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg"
                     />
                   </div>
-                  <EditSelect label="État de santé" value={editForm.etatSante}
+                  <EditSelect label={t('hoteDetail.etatSante')} value={editForm.etatSante}
                     onChange={e => setEditForm(f => ({ ...f, etatSante: e.target.value }))}
                     options={etatOptions} />
                 </div>
@@ -230,19 +239,19 @@ export default function HoteDetail() {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="col-span-2 md:col-span-3">
-                  <Field label="Espèce hôte">
+                  <Field label={t('hoteDetail.especeHote')}>
                     <span className="italic font-semibold text-fg">{taxoLabel(h.taxonomieHote)}</span>
                     {h.taxonomieHote?.nomCommun && (
                       <span className="not-italic text-fg-subtle text-xs ml-1.5">({h.taxonomieHote.nomCommun})</span>
                     )}
                   </Field>
                 </div>
-                {h.especeLocale && <Field label="Espèce locale">{h.especeLocale}</Field>}
-                <Field label="Sexe">
+                {h.especeLocale && <Field label={t('hotesPage.colEspeceLocale')}>{h.especeLocale}</Field>}
+                <Field label={t('hoteDetail.sexe')}>
                   <Badge tone={SEXE_TONE[h.sexe] ?? 'default'}>{SEXE_LABEL[h.sexe] ?? '—'}</Badge>
                 </Field>
-                {h.age       && <Field label="Âge">{h.age}</Field>}
-                {h.etatSante && <Field label="État de santé">{h.etatSante}</Field>}
+                {h.age       && <Field label={t('hoteDetail.age')}>{h.age}</Field>}
+                {h.etatSante && <Field label={t('hoteDetail.etatSante')}>{h.etatSante}</Field>}
               </div>
             )}
           </Card>
@@ -252,12 +261,12 @@ export default function HoteDetail() {
             <Card>
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
                 <Stethoscope size={15} className="text-success" />
-                <h2 className="text-sm font-semibold text-fg">Vaccination</h2>
+                <h2 className="text-sm font-semibold text-fg">{t('hoteDetail.vaccination')}</h2>
               </div>
               {editing ? (
                 <textarea rows={3} value={editForm.vaccination}
                   onChange={e => setEditForm(f => ({ ...f, vaccination: e.target.value }))}
-                  placeholder="Vaccins reçus, date du dernier rappel, etc."
+                  placeholder={t('hoteDetail.vaccinationPlaceholder')}
                   className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg resize-none"
                 />
               ) : (
@@ -271,12 +280,12 @@ export default function HoteDetail() {
             <Card>
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
                 <FileText size={15} className="text-gray-400" />
-                <h2 className="text-sm font-semibold text-fg">Notes et observations</h2>
+                <h2 className="text-sm font-semibold text-fg">{t('hoteDetail.notes')}</h2>
               </div>
               {editing ? (
                 <textarea rows={4} value={editForm.notes}
                   onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="Conditions de capture, comportement, observations particulières…"
+                  placeholder={t('hoteDetail.notesPlaceholder')}
                   className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-surface text-fg resize-none"
                 />
               ) : (
@@ -293,22 +302,22 @@ export default function HoteDetail() {
           {/* Actions */}
           {canEdit && (
             <Card padding="sm">
-              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">Actions</p>
+              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('hoteDetail.actions')}</p>
               <div className="space-y-2">
                 {editing ? (
                   <>
                     <Button variant="primary" className="w-full justify-center" icon={Save}
-                      loading={saving} onClick={handleSave}>Enregistrer</Button>
+                      loading={saving} onClick={handleSave}>{t('hoteDetail.save')}</Button>
                     <Button variant="secondary" className="w-full justify-center" icon={X}
-                      onClick={() => setEditing(false)} disabled={saving}>Annuler</Button>
+                      onClick={() => setEditing(false)} disabled={saving}>{t('hoteDetail.cancel')}</Button>
                   </>
                 ) : (
                   <>
                     <Button variant="outline" className="w-full justify-center" icon={Pencil}
-                      onClick={startEdit}>Modifier</Button>
+                      onClick={startEdit}>{t('hoteDetail.edit')}</Button>
                     {canDelete && (
                       <Button variant="danger" className="w-full justify-center" icon={Trash2}
-                        loading={deleting} onClick={handleDelete}>Supprimer</Button>
+                        loading={deleting} onClick={handleDelete}>{t('hoteDetail.delete')}</Button>
                     )}
                   </>
                 )}
@@ -319,14 +328,14 @@ export default function HoteDetail() {
           {/* ID terrain */}
           {h.idTerrain && (
             <Card padding="sm" tone="primary">
-              <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-1">Identifiant hôte</p>
+              <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-1">{t('hoteDetail.identifiantHote')}</p>
               <p className="font-mono font-bold text-primary text-sm">{h.idTerrain}</p>
             </Card>
           )}
 
           {/* Localisation */}
           <Card padding="sm">
-            <SidebarSection icon={MapPin} iconClass="text-danger" label="Localisation">
+            <SidebarSection icon={MapPin} iconClass="text-danger" label={t('hoteDetail.localisation')}>
               <div className="flex flex-wrap items-center gap-1 text-[11px] text-fg-muted mb-2">
                 <span className="font-semibold text-fg">
                   {loc?.mission?.projet?.nom || loc?.mission?.projet?.code || '—'}
@@ -343,7 +352,7 @@ export default function HoteDetail() {
 
             <div className="border-t border-border my-2.5" />
 
-            <SidebarSection icon={Beaker} iconClass="text-info" label="Méthode de collecte">
+            <SidebarSection icon={Beaker} iconClass="text-info" label={t('hoteDetail.methodeCollecte')}>
               {h.methode?.typeMethode ? (
                 <div className="text-[11px] text-fg font-medium">
                   <span>{h.methode.typeMethode.nom}</span>
@@ -362,10 +371,10 @@ export default function HoteDetail() {
 
           {/* Spécimens liés */}
           <Card padding="sm">
-            <SidebarSection icon={Bug} iconClass="text-primary" label="Spécimens collectés">
-              <SidebarRow label="Tiques">{h._count?.tiques || 0}</SidebarRow>
-              <SidebarRow label="Puces">{h._count?.puces || 0}</SidebarRow>
-              <SidebarRow label="Total">
+            <SidebarSection icon={Bug} iconClass="text-primary" label={t('hoteDetail.specimensCollected')}>
+              <SidebarRow label={t('hoteDetail.tiques')}>{h._count?.tiques || 0}</SidebarRow>
+              <SidebarRow label={t('hoteDetail.puces')}>{h._count?.puces || 0}</SidebarRow>
+              <SidebarRow label={t('hoteDetail.total')}>
                 <Badge tone={totalSpecimens > 0 ? 'success' : 'default'}>{totalSpecimens}</Badge>
               </SidebarRow>
             </SidebarSection>
