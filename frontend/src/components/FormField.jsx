@@ -100,6 +100,16 @@ export default function FormField({
           error={error}
         />
 
+      ) : type === 'checkbox' ? (
+        <input
+          type="checkbox"
+          name={name}
+          checked={!!value}
+          onChange={(e) => onChange({ target: { name, value: e.target.checked } })}
+          disabled={disabled}
+          className="h-4 w-4 rounded border-border-strong text-primary-600 focus:ring-2 focus:ring-primary/30"
+        />
+
       ) : type === 'textarea' ? (
         <textarea name={name} value={value} onChange={onChange}
           placeholder={placeholder} required={required} disabled={disabled} rows={3}

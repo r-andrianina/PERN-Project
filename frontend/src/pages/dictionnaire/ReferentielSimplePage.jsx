@@ -44,7 +44,7 @@ export default function ReferentielSimplePage({ config }) {
 
   const openCreate = useCallback(() => {
     const blank = {};
-    fields.forEach((f) => { blank[f.name] = ''; });
+    fields.forEach((f) => { blank[f.name] = f.type === 'checkbox' ? false : ''; });
     setEditing(blank); setErr(null);
   }, [fields]);
 
@@ -116,14 +116,14 @@ export default function ReferentielSimplePage({ config }) {
               <button
                 onClick={() => toggleActif(item)}
                 title={item.actif ? t('referentielSimple.desactiver') : t('referentielSimple.activer')}
-                className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
               >
                 {item.actif ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
               </button>
               <button
                 onClick={() => openEdit(item)}
                 title={t('referentielSimple.modifier')}
-                className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
               >
                 <Edit2 size={14} />
               </button>
@@ -133,7 +133,7 @@ export default function ReferentielSimplePage({ config }) {
             <button
               onClick={() => remove(item)}
               title={t('referentielSimple.supprimer')}
-              className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+              className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
             >
               <Trash2 size={14} />
             </button>

@@ -4,7 +4,7 @@ const { createReferentielController } = require('./_referentielFactory');
 module.exports = createReferentielController({
   entity:   'TypeMethodeCollecte',
   delegate: 'typeMethodeCollecte',
-  fields:   ['code', 'nom', 'description'],
+  fields:   ['code', 'nom', 'description', 'requiresTrancheHoraire'],
   required: ['code', 'nom'],
   uniqueField: 'code',
   relationsCount: { methodes: true },

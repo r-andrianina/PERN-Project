@@ -61,6 +61,14 @@ export default function MethodeFieldsForm({ value, onChange, localiteCoords, exc
   const selectedType = typesMethode.find((t) => t.id === parseInt(value.typeMethodeId));
   const identifiant  = selectedType ? `${selectedType.code}_${value.numero || 1}` : null;
 
+  // Protocoles horodatés (ex: HLC) : une nuit = une méthode (datePose/dateReleve
+  // ne portent qu'une seule fenêtre), donc plusieurs nuits pour le même capteur
+  // veulent dire plusieurs méthodes réutilisant le même numéro.
+  const numeroHint = [
+    identifiant ? `${t('methodeForm.identifiantPrefix')} ${identifiant}` : null,
+    selectedType?.requiresTrancheHoraire ? t('methodeForm.numeroCapteurHint') : null,
+  ].filter(Boolean).join(' — ') || undefined;
+
   const set = (patch) => onChange(patch);
 
   // Même mécanisme que LocaliteFieldsForm : altitude déduite de la position
@@ -140,7 +148,7 @@ export default function MethodeFieldsForm({ value, onChange, localiteCoords, exc
           hint={t('methodeForm.typeMethodeHint')} />
         <FormField label={t('methodeForm.numero')} name="numero" type="number"
           value={value.numero} onChange={(e) => set({ numero: e.target.value })}
-          hint={identifiant ? `${t('methodeForm.identifiantPrefix')} ${identifiant}` : undefined} />
+          hint={numeroHint} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

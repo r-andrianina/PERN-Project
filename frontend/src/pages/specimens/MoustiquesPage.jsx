@@ -9,6 +9,7 @@ import useAuthStore from '../../store/authStore';
 import { dialog } from '../../lib/dialog';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import { formatGorgement } from '../../utils/gorgement';
+import { formatTrancheHoraire } from '../../utils/trancheHoraire';
 import { taxoLabel } from '../../utils/taxoLabel';
 import { useT, interpolate } from '../../lib/i18n';
 
@@ -38,8 +39,9 @@ function sortRows(rows, sort, locale) {
 
 export default function MoustiquesPage() {
   const t = useT();
-  const SEXE_LABEL = { M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') };
-  const BASE_COLUMNS = [
+  const BASE_COLUMNS = useMemo(() => {
+    const SEXE_LABEL = { M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') };
+    return [
     {
       key: 'idTerrain',
       label: t('specimenList.colIdTerrain'),
@@ -107,6 +109,15 @@ export default function MoustiquesPage() {
       ),
     },
     {
+      key: 'trancheHoraire',
+      label: t('specimenList.colTrancheHoraire'),
+      skeletonWidth: '50%',
+      hidden: 'hidden lg:table-cell',
+      render: (m) => m.trancheHoraire
+        ? <span className="text-fg-muted text-xs font-mono">{formatTrancheHoraire(m.trancheHoraire)}</span>
+        : null,
+    },
+    {
       key: 'container',
       label: t('specimenList.colEchantillon'),
       skeletonWidth: '55%',
@@ -167,6 +178,7 @@ export default function MoustiquesPage() {
       ),
     },
   ];
+  }, [t]);
 
   const navigate = useNavigate();
   const { user } = useAuthStore();
