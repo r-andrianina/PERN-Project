@@ -48,6 +48,17 @@ const getEventIcons = (t) => ({
 
 // ── Helpers ───────────────────────────────────────────────────
 
+function UploadBtn({ subtype, accept, hasFile, label, replaceLabel, uploading, uploadingLabel, disabled, onUpload }) {
+  return (
+    <label className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-surface hover:bg-surface-2 transition-colors cursor-pointer text-sm font-medium text-fg ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
+      <Upload size={14} />
+      {uploading ? uploadingLabel : hasFile ? replaceLabel : label}
+      <input type="file" accept={accept} onChange={(e) => onUpload(e, subtype)}
+        className="hidden" disabled={uploading || disabled} />
+    </label>
+  );
+}
+
 function InfoRow({ label, children }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-4 py-2.5 border-b border-border last:border-0">
@@ -437,15 +448,6 @@ export default function ManipulationDetail() {
     finally { setUploading(false); e.target.value = ''; }
   };
 
-  const UploadBtn = ({ subtype, accept, hasFile, label, replaceLabel }) => (
-    <label className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-surface hover:bg-surface-2 transition-colors cursor-pointer text-sm font-medium text-fg ${(isLocked && !isAdmin) ? 'opacity-40 pointer-events-none' : ''}`}>
-      <Upload size={14} />
-      {uploading ? t('manipDetail.uploadingLabel') : hasFile ? replaceLabel : label}
-      <input type="file" accept={accept} onChange={(e) => handleUpload(e, subtype)}
-        className="hidden" disabled={uploading || (isLocked && !isAdmin)} />
-    </label>
-  );
-
   return (
     <div className="max-w-screen-2xl space-y-4">
 
@@ -529,7 +531,9 @@ export default function ManipulationDetail() {
                   <>
                     <UploadBtn subtype="gel" accept=".jpg,.jpeg,.png,.tif,.tiff"
                       hasFile={!!gelPath}
-                      label={t('manipDetail.uploadGelLabel')} replaceLabel={t('manipDetail.replaceGelLabel')} />
+                      label={t('manipDetail.uploadGelLabel')} replaceLabel={t('manipDetail.replaceGelLabel')}
+                      uploading={uploading} uploadingLabel={t('manipDetail.uploadingLabel')}
+                      disabled={isLocked && !isAdmin} onUpload={handleUpload} />
                     {gelPath && <Badge tone="success" size="sm">{t('manipDetail.imagePresentBadge')}</Badge>}
                   </>
                 )}
@@ -537,7 +541,9 @@ export default function ManipulationDetail() {
                   <>
                     <UploadBtn subtype="fichier" accept=".ab1,.fastq,.fq,.gz,.fasta,.fa,.seq"
                       hasFile={!!manip.sequencage?.fichierRawPath}
-                      label={t('manipDetail.uploadFichierLabel')} replaceLabel={t('manipDetail.replaceFichierLabel')} />
+                      label={t('manipDetail.uploadFichierLabel')} replaceLabel={t('manipDetail.replaceFichierLabel')}
+                      uploading={uploading} uploadingLabel={t('manipDetail.uploadingLabel')}
+                      disabled={isLocked && !isAdmin} onUpload={handleUpload} />
                     {manip.sequencage?.fichierRawPath && <Badge tone="success" size="sm">{t('manipDetail.filePresentBadge')}</Badge>}
                   </>
                 )}
@@ -545,7 +551,9 @@ export default function ManipulationDetail() {
                   <>
                     <UploadBtn subtype="micro" accept=".jpg,.jpeg,.png,.tif,.tiff"
                       hasFile={!!manip.microscopie?.imageMicroPath}
-                      label={t('manipDetail.uploadPhotoLabel')} replaceLabel={t('manipDetail.replacePhotoLabel')} />
+                      label={t('manipDetail.uploadPhotoLabel')} replaceLabel={t('manipDetail.replacePhotoLabel')}
+                      uploading={uploading} uploadingLabel={t('manipDetail.uploadingLabel')}
+                      disabled={isLocked && !isAdmin} onUpload={handleUpload} />
                     {manip.microscopie?.imageMicroPath && <Badge tone="success" size="sm">{t('manipDetail.photoPresentBadge')}</Badge>}
                   </>
                 )}

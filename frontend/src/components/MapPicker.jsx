@@ -112,6 +112,13 @@ export default function MapPicker({
     }
 
     return () => { ro?.disconnect(); map.remove(); instanceRef.current = null; };
+    // Initialisation unique de la carte (guard instanceRef.current ci-dessus) —
+    // defaultLat/defaultLng/latitude/longitude ne servent qu'à positionner la
+    // vue initiale, le suivi réactif est géré par l'effet [latitude, longitude]
+    // plus bas ; onChangeRef est lu via .current exprès pour ne pas re-créer
+    // la carte à chaque render. Les inclure ferait sauter/réinitialiser la carte
+    // à chaque changement de coordonnées.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Suivi externe des coords ──────────────────────────────────
@@ -143,6 +150,9 @@ export default function MapPicker({
       });
       marker.addTo(layer);
     }
+    // onSelectExistingRef lu via .current exprès (pattern ref) pour ne pas
+    // reconstruire tous les marqueurs à chaque re-render du parent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingPoints, t]);
 
   const handleSearchSelect = (lat, lng) => {

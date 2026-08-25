@@ -19,7 +19,6 @@ const taxoLabel = (tx) =>
 
 export default function HotesPage() {
   const t = useT();
-  const SEXE_LABEL = { M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') };
   const navigate   = useNavigate();
   const { user }   = useAuthStore();
   const canDelete  = isMin(user?.role, 'chercheur');
@@ -85,7 +84,9 @@ export default function HotesPage() {
   const paged     = filtered.slice((page - 1) * limit, page * limit);
 
   // Colonnes — dépendent de canDelete et remove
-  const columns = useMemo(() => [
+  const columns = useMemo(() => {
+    const SEXE_LABEL = { M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') };
+    return [
     {
       key: 'id',
       label: t('hotesPage.colIdentifiant'),
@@ -180,13 +181,14 @@ export default function HotesPage() {
         <button
           onClick={(e) => { e.stopPropagation(); remove(h); }}
           title={t('hotesPage.delete')}
-          className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+          className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
         >
           <Trash2 size={13} />
         </button>
       ) : null,
     },
-  ], [canDelete, remove, t, SEXE_LABEL]);
+  ];
+  }, [canDelete, remove, t]);
 
   return (
     <div className="space-y-5">
