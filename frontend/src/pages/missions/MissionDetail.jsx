@@ -1,10 +1,11 @@
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import {
   MapPin, Loader2, Navigation, Hash, Plus, Edit2, X, Check, Tag,
   Clock, Layers, Bug, Users, Beaker,
 } from 'lucide-react';
 import api from '../../api/axios';
+import { toast } from '../../lib/toast';
 import { Card, Breadcrumb } from '../../components/ui';
 import FormField from '../../components/FormField';
 import LocaliteFieldsForm from '../../components/LocaliteFieldsForm';
@@ -354,12 +355,22 @@ export default function MissionDetail() {
   const canEdit = isMin(user?.role, 'chercheur');
 
   const [mission,       setMission]       = useState(null);
+  const [loadError,     setLoadError]     = useState(null);
   const [modal,         setModal]         = useState(null);
   const [methodeModal,  setMethodeModal]  = useState(null);
   const [bulkModal,     setBulkModal]     = useState(null);
 
   const refresh = () => {
-    api.get(`/missions/${id}`).then((r) => setMission(r.data.mission));
+    api.get(`/missions/${id}`)
+      .then((r) => { setMission(r.data.mission); setLoadError(null); })
+      .catch((err) => {
+        const message = err.response?.data?.error || t('missionDetail.loadError');
+        // Un premier chargement en échec bloque la page (pas de données du
+        // tout) ; un rafraîchissement post-mutation en échec laisse les
+        // données précédentes affichées et se contente d'un toast.
+        if (mission) toast.error(t('missionDetail.refreshError'));
+        else setLoadError(message);
+      });
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { refresh(); }, [id]);
@@ -394,6 +405,15 @@ export default function MissionDetail() {
     () => mission?.agents?.map(a => a.user).filter(Boolean) ?? [],
     [mission]
   );
+
+  if (loadError) {
+    return (
+      <div className="text-center py-20 space-y-3">
+        <p className="text-fg-muted">{loadError}</p>
+        <Link to="/missions" className="text-primary text-sm hover:underline">{t('missionDetail.backToMissions')}</Link>
+      </div>
+    );
+  }
 
   if (!mission) {
     return (

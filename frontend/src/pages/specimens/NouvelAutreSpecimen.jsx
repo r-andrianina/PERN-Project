@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Bug, FlaskConical, FileText, Plus, Minus, Microscope, Tag } from 'lucide-react';
 import api from '../../api/axios';
+import { toast } from '../../lib/toast';
 import FormField from '../../components/FormField';
 import MethodeCascade from '../../components/MethodeCascade';
 import IdTerrainField from '../../components/IdTerrainField';
@@ -75,7 +76,8 @@ export default function NouvelAutreSpecimen() {
       setTypesSpec(tRes.data.items   || []);
       setTaxonomies(taxRes.data.items || []);
       setSolutions(sRes.data.items   || []);
-    }).catch(console.error);
+    }).catch(() => toast.error(t('nouveauSpecimen.loadRefsError')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChange = (e) => {

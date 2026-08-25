@@ -6,9 +6,10 @@ import { useEffect, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import api from '../api/axios';
 import { Select } from './ui';
+import { toast } from '../lib/toast';
 import { useT } from '../lib/i18n';
 
-export default function MethodeCascade({ methodeId, onChange, onMissionChange, error }) {
+export default function MethodeCascade({ methodeId, onChange, onMissionChange, onMethodeObjectChange, error }) {
   const t = useT();
   const [missions,  setMissions]  = useState([]);
   const [localites, setLocalites] = useState([]);
@@ -25,7 +26,10 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
 
   // Charger toutes les missions au montage
   useEffect(() => {
-    api.get('/missions').then((r) => setMissions(r.data.missions || []));
+    api.get('/missions')
+      .then((r) => setMissions(r.data.missions || []))
+      .catch(() => toast.error(t('methodeCascade.loadMissionsError')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Quand la mission change → charger ses localités, réinitialiser la suite
@@ -34,24 +38,39 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, e
     setLocaliteId('');
     setMethodes([]);
     onChange('');
+    if (onMethodeObjectChange) onMethodeObjectChange(null);
 
     if (!id) { setLocalites([]); return; }
-    const r = await api.get('/localites', { params: { missionId: id } });
-    setLocalites(r.data.localites || []);
+    try {
+      const r = await api.get('/localites', { params: { missionId: id } });
+      setLocalites(r.data.localites || []);
+    } catch {
+      setLocalites([]);
+      toast.error(t('methodeCascade.loadLocalitesError'));
+    }
   };
 
   // Quand la localité change → charger ses méthodes, réinitialiser la méthode
   const handleLocaliteChange = async (id) => {
     setLocaliteId(id);
     onChange('');
+    if (onMethodeObjectChange) onMethodeObjectChange(null);
 
     if (!id) { setMethodes([]); return; }
-    const r = await api.get('/methodes', { params: { localiteId: id } });
-    setMethodes(r.data.methodes || []);
+    try {
+      const r = await api.get('/methodes', { params: { localiteId: id } });
+      setMethodes(r.data.methodes || []);
+    } catch {
+      setMethodes([]);
+      toast.error(t('methodeCascade.loadMethodesError'));
+    }
   };
 
   const handleMethodeChange = (id) => {
     onChange(id);
+    if (onMethodeObjectChange) {
+      onMethodeObjectChange(methodes.find((m) => String(m.id) === String(id)) || null);
+    }
   };
 
   return (

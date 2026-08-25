@@ -5,6 +5,7 @@ import {
   Navigation, UserCheck, UserX, Beaker, X, Edit2, Layers,
 } from 'lucide-react';
 import api from '../../api/axios';
+import { toast } from '../../lib/toast';
 import FormField from '../../components/FormField';
 import LocaliteFieldsForm from '../../components/LocaliteFieldsForm';
 import MethodeFieldsForm from '../../components/MethodeFieldsForm';
@@ -199,7 +200,8 @@ export default function NouvelleMission() {
       .then(([pRes, uRes]) => {
         setProjets(pRes.data.projets);
         setUsers(uRes.data.actifs);
-      }).catch(console.error);
+      }).catch(() => toast.error(t('nouvelleMission.loadRefsError')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { data: typesMethode } = useApiQuery('/dictionnaire/types-methode', {

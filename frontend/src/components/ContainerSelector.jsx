@@ -13,9 +13,10 @@
 //  - Au choix d'un container, affiche la grille avec positions occupées en gris
 //  - Pour BOITE + nombre>1 : choix mode "single" (1 enreg. N indiv.) / "split" (N enreg. 1/tube)
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Loader2, Layers, Box, X, AlertTriangle, Check } from 'lucide-react';
 import api from '../api/axios';
+import { toast } from '../lib/toast';
 import { Select } from './ui';
 import { useT, interpolate } from '../lib/i18n';
 
@@ -267,26 +268,32 @@ export default function ContainerSelector({ missionId, value, onChange, nombre =
   const [showModal, setShowModal] = useState(false);
 
   // Charge les containers de la mission filtrés par type
-  const refreshList = async () => {
+  const refreshList = useCallback(async () => {
     if (!missionId) { setContainers([]); return; }
     setLoading(true);
     try {
       const r = await api.get('/containers', { params: { missionId, type } });
       setContainers(r.data.containers || []);
+    } catch {
+      setContainers([]);
+      toast.error(t('containerSelector.loadListError'));
     } finally { setLoading(false); }
-  };
+  }, [missionId, type, t]);
 
   // Charge le détail (positions occupées) quand un container est choisi
-  const refreshDetail = async (cId) => {
+  const refreshDetail = useCallback(async (cId) => {
     if (!cId) { setContainerData(null); return; }
     try {
       const r = await api.get(`/containers/${cId}`);
       setContainerData(r.data);
-    } catch { setContainerData(null); }
-  };
+    } catch {
+      setContainerData(null);
+      toast.error(t('containerSelector.loadDetailError'));
+    }
+  }, [t]);
 
-  useEffect(() => { refreshList(); /* eslint-disable-next-line */ }, [missionId, type]);
-  useEffect(() => { refreshDetail(containerId); /* eslint-disable-next-line */ }, [containerId]);
+  useEffect(() => { refreshList(); }, [refreshList]);
+  useEffect(() => { refreshDetail(containerId); }, [containerId, refreshDetail]);
 
   const occupiedMap = useMemo(() => {
     const m = new Map();

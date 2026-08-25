@@ -145,6 +145,7 @@ export default function ProjetDetail() {
   const { user: me } = useAuthStore();
 
   const [projet,        setProjet]        = useState(null);
+  const [loadError,     setLoadError]     = useState(null);
   const [specimenStats, setSpecimenStats] = useState(null);
   const [loadingStats,  setLoadingStats]  = useState(true);
   const [membres,       setMembres]       = useState([]);
@@ -160,12 +161,17 @@ export default function ProjetDetail() {
   const isAdmin            = me?.role === 'admin';             // aligné sur DELETE /projets/:id
 
   useEffect(() => {
-    api.get(`/projets/${id}`).then(r => setProjet(r.data.projet));
-  }, [id]);
+    setLoadError(null);
+    api.get(`/projets/${id}`)
+      .then(r => setProjet(r.data.projet))
+      .catch((err) => setLoadError(err.response?.data?.error || t('projetDetail.loadError')));
+  }, [id, t]);
 
   useEffect(() => {
-    api.get('/auth/users').then(r => setUsers(r.data.actifs || [])).catch(() => {});
-  }, []);
+    api.get('/auth/users')
+      .then(r => setUsers(r.data.actifs || []))
+      .catch(() => toast.error(t('projetDetail.loadUsersError')));
+  }, [t]);
 
   const startEdit = () => {
     setEditForm({
@@ -241,7 +247,9 @@ export default function ProjetDetail() {
     try {
       await api.delete(`/projets/${id}/membres/${userId}`);
       setMembres(prev => prev.filter(m => m.userId !== userId));
-    } catch { /* silencieux */ }
+    } catch (err) {
+      toast.error(err.response?.data?.error || t('projetDetail.removeMembreError'));
+    }
   };
 
   // ── Calculs dérivés ────────────────────────────────────────────
@@ -265,6 +273,12 @@ export default function ProjetDetail() {
     ? Object.values(specimenStats.parType).reduce((a, b) => a + b, 0)
     : 0;
 
+  if (loadError) return (
+    <div className="text-center py-20 space-y-3">
+      <p className="text-fg-muted">{loadError}</p>
+      <Link to="/projets" className="text-primary text-sm hover:underline">{t('projetDetail.backToProjects')}</Link>
+    </div>
+  );
   if (!projet) return <Spinner.Block label={t('common.loading')} height="h-40" />;
 
   // ── Couleur de la progression ────────────────────────────────
@@ -586,7 +600,7 @@ export default function ProjetDetail() {
                     <button
                       type="button"
                       onClick={() => removeMembre(m.userId)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-all"
+                      className="sm:opacity-0 sm:group-hover:opacity-100 p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-all"
                       title={t('projetDetail.removeFromProject')}
                     >
                       <Trash2 size={12} />
