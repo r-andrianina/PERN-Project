@@ -123,7 +123,13 @@ const remove = async (id) => {
   await prisma.projet.delete({ where: { id } });
 };
 
-const getStats = async (id) => {
+const getStats = async (id, user) => {
+  if (user && !canBypass(user.role)) {
+    const isMembre = await prisma.membreProjet.findUnique({
+      where: { projetId_userId: { projetId: id, userId: user.id } },
+    });
+    if (!isMembre) throw AppError.forbidden('Accès refusé — vous n\'êtes pas membre de ce projet');
+  }
   const where = { methode: { localite: { mission: { projetId: id } } } };
   const [moustiques, tiques, puces] = await Promise.all([
     prisma.moustique.count({ where }),

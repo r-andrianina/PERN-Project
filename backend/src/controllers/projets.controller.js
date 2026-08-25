@@ -43,7 +43,7 @@ const deleteProjet = async (req, res) => {
 };
 
 const getProjetStats = async (req, res) => {
-  const stats = await service.getStats(parseInt(req.params.id));
+  const stats = await service.getStats(parseInt(req.params.id), req.user);
   res.json(stats);
 };
 

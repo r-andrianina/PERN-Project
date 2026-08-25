@@ -1,7 +1,7 @@
 // backend/src/middlewares/rateLimiter.js
 // Protection contre les attaques par force brute sur les routes d'authentification.
 
-const { rateLimit } = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
 // 5 tentatives max par IP toutes les 15 minutes sur /auth/login
 const loginLimiter = rateLimit({
@@ -30,4 +30,34 @@ const publicLimiter = rateLimit({
   message: { error: 'Trop de requêtes — réessayez dans une minute.' },
 });
 
-module.exports = { loginLimiter, publicLimiter };
+// /recherche/specimens : requête non paginée côté DB (charge puis tranche en
+// mémoire), sans throttling jusqu'ici — un compte peut la spammer sans coût.
+// Clé par utilisateur (pas par IP) car ces routes sont toujours authentifiées
+// et plusieurs comptes peuvent partager une IP (institut derrière un NAT).
+const searchLimiter = rateLimit({
+  windowMs:        60 * 1000, // 1 minute
+  max:             60,
+  standardHeaders: 'draft-7',
+  legacyHeaders:   false,
+  // ipKeyGenerator() normalise l'IPv6 (évite le contournement par variation
+  // de suffixe) — requis par express-rate-limit dès qu'un keyGenerator
+  // personnalisé peut retomber sur l'IP brute.
+  keyGenerator:    (req) => (req.user?.id ? String(req.user.id) : ipKeyGenerator(req.ip)),
+  message: { error: 'Trop de requêtes de recherche — réessayez dans une minute.' },
+});
+
+// /recherche/specimens/export : génère un classeur Excel complet à partir de
+// l'intégralité des résultats filtrés — plus coûteux, quota plus serré.
+const exportLimiter = rateLimit({
+  windowMs:        5 * 60 * 1000, // 5 minutes
+  max:             10,
+  standardHeaders: 'draft-7',
+  legacyHeaders:   false,
+  // ipKeyGenerator() normalise l'IPv6 (évite le contournement par variation
+  // de suffixe) — requis par express-rate-limit dès qu'un keyGenerator
+  // personnalisé peut retomber sur l'IP brute.
+  keyGenerator:    (req) => (req.user?.id ? String(req.user.id) : ipKeyGenerator(req.ip)),
+  message: { error: 'Trop d\'exports — réessayez dans quelques minutes.' },
+});
+
+module.exports = { loginLimiter, publicLimiter, searchLimiter, exportLimiter };

@@ -6,6 +6,7 @@ const fs     = require('fs');
 const prisma = require('../config/prisma');
 const { logAudit, ACTIONS } = require('../utils/audit');
 const { UPLOADS_ROOT }      = require('../middlewares/upload.middleware');
+const { getAccessibleProjetIds, canBypass, projetScopeWhere, assertProjetAccessible } = require('../utils/access');
 
 const SPECIMEN_MODELS = {
   moustique: 'moustique',
@@ -42,6 +43,48 @@ async function specimenExists(specimenType, specimenId) {
   const model = SPECIMEN_MODELS[specimenType];
   if (!model) return false;
   return !!(await prisma[model].findUnique({ where: { id: specimenId }, select: { id: true } }));
+}
+
+// Résout le projetId d'un spécimen (référence polymorphe specimenType+specimenId,
+// pas une vraie relation Prisma) via sa chaîne methode→localite→mission.
+async function getSpecimenProjetId(specimenType, specimenId) {
+  const model = SPECIMEN_MODELS[specimenType];
+  if (!model) return null;
+  const specimen = await prisma[model].findUnique({
+    where: { id: specimenId },
+    select: { methode: { select: { localite: { select: { mission: { select: { projetId: true } } } } } } },
+  });
+  return specimen?.methode?.localite?.mission?.projetId ?? null;
+}
+
+// projetIds de tous les membres d'un pool (un pool peut en théorie mélanger
+// des spécimens de missions/projets différents).
+async function getPoolProjetIds(poolId) {
+  const pool = await prisma.pool.findUnique({ where: { id: poolId }, select: { membres: true } });
+  if (!pool) return [];
+  const projetIds = await Promise.all(
+    pool.membres.map((m) => getSpecimenProjetId(m.specimenType, m.specimenId))
+  );
+  return projetIds.filter((p) => p !== null);
+}
+
+// Vérifie l'accès à une manipulation (spécimen direct ou pool) pour un
+// utilisateur non-bypass — fail-closed pour les pools : TOUS les spécimens
+// membres doivent appartenir à des projets accessibles, sinon accès refusé
+// (un pool peut en théorie regrouper des spécimens de plusieurs projets ;
+// aucune règle métier n'empêche ce mélange aujourd'hui — voir memory).
+async function assertManipAccessible({ specimenType, specimenId, poolId }, user) {
+  if (!user || canBypass(user.role)) return;
+  const ids = await getAccessibleProjetIds(user.id, user.role);
+  if (specimenId) {
+    const projetId = await getSpecimenProjetId(specimenType, specimenId);
+    assertProjetAccessible(projetId, ids);
+    return;
+  }
+  if (poolId) {
+    const projetIds = await getPoolProjetIds(poolId);
+    for (const projetId of projetIds) assertProjetAccessible(projetId, ids);
+  }
 }
 
 async function logEvent(manipulationId, typeEvent, req, payload = null) {
@@ -233,6 +276,30 @@ const listManipulations = async (req, res) => {
   if (typeManipulation) where.typeManipulation = typeManipulation;
   if (operateurId)      where.operateurId      = parseInt(operateurId);
 
+  if (req.user && !canBypass(req.user.role)) {
+    // specimenId n'est pas une vraie relation Prisma (référence polymorphe
+    // specimenType+specimenId) — impossible d'exprimer le filtre projet en un
+    // seul where imbriqué comme pour les autres ressources. On résout donc
+    // d'abord, par type de spécimen, les ids accessibles, puis on limite aux
+    // pools dont TOUS les membres sont dans des projets accessibles.
+    const ids = await getAccessibleProjetIds(req.user.id, req.user.role);
+    const scope = projetScopeWhere(['methode', 'localite', 'mission'], ids);
+    const orClauses = [];
+    for (const [type, model] of Object.entries(SPECIMEN_MODELS)) {
+      const scoped = await prisma[model].findMany({ where: scope, select: { id: true } });
+      if (scoped.length) orClauses.push({ specimenType: type, specimenId: { in: scoped.map((s) => s.id) } });
+    }
+    const pools = await prisma.pool.findMany({ select: { id: true, membres: true } });
+    const accessiblePoolIds = [];
+    for (const pool of pools) {
+      const projetIds = await Promise.all(pool.membres.map((m) => getSpecimenProjetId(m.specimenType, m.specimenId)));
+      if (projetIds.length && projetIds.every((p) => p !== null && ids.includes(p))) accessiblePoolIds.push(pool.id);
+    }
+    if (accessiblePoolIds.length) orClauses.push({ poolId: { in: accessiblePoolIds } });
+    // Aucune correspondance possible → liste vide (id: -1) plutôt que "pas de filtre".
+    where.AND = [...(where.AND || []), { OR: orClauses.length ? orClauses : [{ id: -1 }] }];
+  }
+
   const [total, manipulations] = await prisma.$transaction([
     prisma.manipulationLabo.count({ where }),
     prisma.manipulationLabo.findMany({
@@ -267,6 +334,7 @@ const getManipulation = async (req, res) => {
     include: includeManip,
   });
   if (!manip) return res.status(404).json({ error: 'Manipulation introuvable' });
+  await assertManipAccessible(manip, req.user);
   return res.json({ manipulation: manip });
 };
 
@@ -289,6 +357,7 @@ const createManipulation = async (req, res) => {
     const pool = await prisma.pool.findUnique({ where: { id: parseInt(poolId) }, select: { id: true } });
     if (!pool) return res.status(404).json({ error: `Pool #${poolId} introuvable` });
   }
+  await assertManipAccessible({ specimenType, specimenId: specimenId ? parseInt(specimenId) : null, poolId: poolId ? parseInt(poolId) : null }, req.user);
 
   const rel     = MODULE_RELATION[typeManipulation];
   const modData = rel ? buildModuleData(typeManipulation, req.body) : null;
@@ -321,9 +390,10 @@ const updateManipulation = async (req, res) => {
   const id    = parseInt(req.params.id);
   const manip = await prisma.manipulationLabo.findUnique({
     where: { id },
-    select: { id: true, statut: true, typeManipulation: true },
+    select: { id: true, statut: true, typeManipulation: true, specimenType: true, specimenId: true, poolId: true },
   });
   if (!manip) return res.status(404).json({ error: 'Manipulation introuvable' });
+  await assertManipAccessible(manip, req.user);
   if (manip.statut === 'valide' && req.user.role !== 'admin')
     return res.status(403).json({ error: 'Résultat validé — modification interdite. Contactez un administrateur.' });
 
@@ -397,8 +467,12 @@ const invaliderManipulation = async (req, res) => {
 
 const deleteManipulation = async (req, res) => {
   const id = parseInt(req.params.id);
-  if (!(await prisma.manipulationLabo.findUnique({ where: { id }, select: { id: true } })))
-    return res.status(404).json({ error: 'Manipulation introuvable' });
+  const manip = await prisma.manipulationLabo.findUnique({
+    where: { id },
+    select: { id: true, specimenType: true, specimenId: true, poolId: true },
+  });
+  if (!manip) return res.status(404).json({ error: 'Manipulation introuvable' });
+  await assertManipAccessible(manip, req.user);
 
   // Supprimer fichiers images/raw
   const [pcr, seq, nested, micro] = await Promise.all([
@@ -432,9 +506,10 @@ const uploadImage = async (req, res) => {
 
   const manip = await prisma.manipulationLabo.findUnique({
     where: { id },
-    select: { id: true, statut: true, typeManipulation: true },
+    select: { id: true, statut: true, typeManipulation: true, specimenType: true, specimenId: true, poolId: true },
   });
   if (!manip) return res.status(404).json({ error: 'Manipulation introuvable' });
+  await assertManipAccessible(manip, req.user);
   if (manip.statut === 'valide' && req.user.role !== 'admin')
     return res.status(403).json({ error: 'Résultat validé — modification interdite' });
 
@@ -479,9 +554,11 @@ const uploadFichierRaw = async (req, res) => {
   if (!file) return res.status(400).json({ error: 'Aucun fichier reçu' });
 
   const manip = await prisma.manipulationLabo.findUnique({
-    where: { id }, select: { id: true, statut: true, typeManipulation: true },
+    where: { id },
+    select: { id: true, statut: true, typeManipulation: true, specimenType: true, specimenId: true, poolId: true },
   });
   if (!manip) return res.status(404).json({ error: 'Manipulation introuvable' });
+  await assertManipAccessible(manip, req.user);
   if (manip.typeManipulation !== 'sequencage')
     return res.status(400).json({ error: 'Upload raw réservé au module Séquençage' });
   if (manip.statut === 'valide' && req.user.role !== 'admin')

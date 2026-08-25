@@ -1,6 +1,7 @@
 const prisma   = require('../config/prisma');
 const AppError = require('../utils/AppError');
 const { generateIdTerrain, getLocaliteByMethode, generateHoteId } = require('../utils/idTerrain');
+const { getAccessibleProjetIds, canBypass, projetScopeWhere, assertProjetAccessible } = require('../utils/access');
 
 const INCLUDE_REFS = {
   localite: {
@@ -9,12 +10,12 @@ const INCLUDE_REFS = {
       mission: { select: { id: true, ordreMission: true } },
     },
   },
-  typeMethode:       { select: { id: true, code: true, nom: true } },
+  typeMethode:       { select: { id: true, code: true, nom: true, requiresTrancheHoraire: true } },
   typeHabitat:       { select: { id: true, nom: true } },
   typeEnvironnement: { select: { id: true, nom: true } },
 };
 
-const list = async ({ localiteId, typeMethodeId, search } = {}) => {
+const list = async ({ localiteId, typeMethodeId, search } = {}, user) => {
   const where = {};
   if (localiteId)    where.localiteId    = parseInt(localiteId);
   if (typeMethodeId) where.typeMethodeId = parseInt(typeMethodeId);
@@ -25,6 +26,10 @@ const list = async ({ localiteId, typeMethodeId, search } = {}) => {
       { notes:       { contains: search, mode: 'insensitive' } },
     ];
   }
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    Object.assign(where, projetScopeWhere(['localite', 'mission'], ids));
+  }
   return prisma.methodeCollecte.findMany({
     where,
     include: { ...INCLUDE_REFS, _count: { select: { moustiques: true, tiques: true, puces: true } } },
@@ -32,7 +37,7 @@ const list = async ({ localiteId, typeMethodeId, search } = {}) => {
   });
 };
 
-const getById = async (id) => {
+const getById = async (id, user) => {
   const methode = await prisma.methodeCollecte.findUnique({
     where: { id },
     include: {
@@ -49,6 +54,10 @@ const getById = async (id) => {
     },
   });
   if (!methode) throw AppError.notFound('Méthode introuvable');
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    assertProjetAccessible(methode.localite.mission.projetId, ids);
+  }
   return methode;
 };
 
@@ -82,7 +91,13 @@ const create = async (data) => {
   });
 };
 
-const update = async (id, data) => {
+const update = async (id, data, user) => {
+  if (user && !canBypass(user.role)) {
+    const current = await prisma.methodeCollecte.findUnique({ where: { id }, select: { localite: { select: { mission: { select: { projetId: true } } } } } });
+    if (!current) throw AppError.notFound('Méthode introuvable');
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    assertProjetAccessible(current.localite.mission.projetId, ids);
+  }
   const { typeMethodeId, numero, typeHabitatId, typeEnvironnementId, interieurExterieur, latitude, longitude, altitudeM, datePose, dateReleve, notes } = data;
   const patch = {};
   if (typeMethodeId       !== undefined) patch.typeMethodeId       = typeMethodeId       ? parseInt(typeMethodeId)       : null;
@@ -103,11 +118,19 @@ const update = async (id, data) => {
   });
 };
 
-const remove = async (id) => {
+const remove = async (id, user) => {
   const methode = await prisma.methodeCollecte.findUnique({
-    where: { id }, include: { _count: { select: { moustiques: true, tiques: true, puces: true } } },
+    where: { id },
+    include: {
+      _count: { select: { moustiques: true, tiques: true, puces: true } },
+      localite: { select: { mission: { select: { projetId: true } } } },
+    },
   });
   if (!methode) throw AppError.notFound('Méthode introuvable');
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    assertProjetAccessible(methode.localite.mission.projetId, ids);
+  }
   const total = methode._count.moustiques + methode._count.tiques + methode._count.puces;
   if (total > 0) throw AppError.conflict(`Impossible — ${total} spécimen(s) liés à cette méthode.`);
   await prisma.methodeCollecte.delete({ where: { id } });

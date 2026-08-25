@@ -26,6 +26,11 @@ const TYPE_PCR_Q         = ['qPCR', 'RT-qPCR'];
 
 // ── Manipulation de base ───────────────────────────────────────
 
+// .passthrough() : POST/PUT envoient aussi les champs du module scientifique
+// (PCR, qPCR, extraction...) dans le même corps de requête — buildModuleData()
+// (labo.controller.js) les lit directement sur req.body. Sans passthrough,
+// validate() (qui remplace req.body par le résultat parsé) les supprimerait
+// silencieusement et casserait l'enregistrement des données de module.
 const createManipulation = z.object({
   specimenType:     z.enum(SPECIMEN_TYPES).optional(),
   specimenId:       intId.optional(),
@@ -35,15 +40,17 @@ const createManipulation = z.object({
   dateDebut:        z.string().datetime({ offset: true }).optional(),
   dateFin:          optDate,
   notes:            optStr(5000),
-}).refine((d) => d.specimenId || d.poolId, { message: 'Un spécimen ou un pool est requis' });
+}).passthrough().refine((d) => d.specimenId || d.poolId, { message: 'Un spécimen ou un pool est requis' });
 
 const updateManipulation = z.object({
   protocole: optStr(200),
   dateDebut: z.string().datetime({ offset: true }).optional(),
   dateFin:   optDate,
   notes:     optStr(5000),
-}).refine((d) => Object.keys(d).some((k) => d[k] !== undefined), { message: 'Aucune modification fournie' });
+}).passthrough().refine((d) => Object.keys(d).some((k) => d[k] !== undefined), { message: 'Aucune modification fournie' });
 
+// Nommé "validerManipulation" mais son champ (motifInvalidation) est utilisé
+// par la route POST /:id/invalider — /:id/valider n'a pas de corps à valider.
 const validerManipulation = z.object({
   motifInvalidation: optStr(1000),
 });

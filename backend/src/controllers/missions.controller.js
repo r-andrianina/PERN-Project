@@ -9,7 +9,7 @@ const listMissions = async (req, res) => {
   res.json({ total: missions.length, missions });
 };
 
-const getMission = async (req, res) => res.json({ mission: await service.getById(parseInt(req.params.id)) });
+const getMission = async (req, res) => res.json({ mission: await service.getById(parseInt(req.params.id), req.user) });
 
 const createMission = async (req, res) => {
   const mission = await service.create(req.body);
@@ -20,7 +20,7 @@ const createMission = async (req, res) => {
 const updateMission = async (req, res) => {
   const id     = parseInt(req.params.id);
   const before = await prisma.mission.findUnique({ where: { id }, select: AUDIT_FIELDS });
-  const mission = await service.update(id, req.body);
+  const mission = await service.update(id, req.body, req.user);
   await logAudit({ req, action: ACTIONS.UPDATE, entity: 'Mission', entityId: id, oldValues: before, newValues: { nom: mission.ordreMission, dateDebut: mission.dateDebut, dateFin: mission.dateFin } });
   res.json({ message: 'Mission mise à jour avec succès', mission });
 };
@@ -28,7 +28,7 @@ const updateMission = async (req, res) => {
 const deleteMission = async (req, res) => {
   const id     = parseInt(req.params.id);
   const before = await prisma.mission.findUnique({ where: { id }, select: AUDIT_FIELDS });
-  await service.remove(id);
+  await service.remove(id, req.user);
   await logAudit({ req, action: ACTIONS.DELETE, entity: 'Mission', entityId: id, oldValues: before });
   res.json({ message: 'Mission supprimée avec succès' });
 };

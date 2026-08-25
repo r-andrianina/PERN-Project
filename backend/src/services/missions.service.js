@@ -50,9 +50,13 @@ const list = async ({ projetId, search } = {}, user) => {
   return prisma.mission.findMany({ where, include: INCLUDE_LIST, orderBy: { dateDebut: 'desc' } });
 };
 
-const getById = async (id) => {
+const getById = async (id, user) => {
   const mission = await prisma.mission.findUnique({ where: { id }, include: INCLUDE_DETAIL });
   if (!mission) throw AppError.notFound('Mission introuvable');
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    if (!ids.includes(mission.projetId)) throw AppError.forbidden('Accès refusé — vous n\'êtes pas membre de ce projet');
+  }
   return mission;
 };
 
@@ -84,11 +88,18 @@ const create = async (data) => {
   });
 };
 
-const update = async (id, data) => {
+const update = async (id, data, user) => {
   const { chefMissionId, chefMissionNom, dateDebut, dateFin, objet, observations, agentIds } = data;
 
   if (Array.isArray(agentIds) && agentIds.length > 20)
     throw AppError.badRequest('Maximum 20 agents de terrain par mission');
+
+  if (user && !canBypass(user.role)) {
+    const current = await prisma.mission.findUnique({ where: { id }, select: { projetId: true } });
+    if (!current) throw AppError.notFound('Mission introuvable');
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    if (!ids.includes(current.projetId)) throw AppError.forbidden('Accès refusé — vous n\'êtes pas membre de ce projet');
+  }
 
   const patch = {};
   if (chefMissionId  !== undefined) patch.chefMissionId  = chefMissionId ? parseInt(chefMissionId) : null;
@@ -109,11 +120,15 @@ const update = async (id, data) => {
   });
 };
 
-const remove = async (id) => {
+const remove = async (id, user) => {
   const mission = await prisma.mission.findUnique({
     where: { id }, include: { _count: { select: { localites: true } } },
   });
   if (!mission) throw AppError.notFound('Mission introuvable');
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    if (!ids.includes(mission.projetId)) throw AppError.forbidden('Accès refusé — vous n\'êtes pas membre de ce projet');
+  }
   if (mission._count.localites > 0)
     throw AppError.conflict(`Impossible — cette mission contient ${mission._count.localites} localité(s). Supprimez d'abord les localités.`);
   await prisma.mission.delete({ where: { id } });

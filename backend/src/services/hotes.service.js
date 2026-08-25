@@ -1,30 +1,39 @@
 const prisma   = require('../config/prisma');
 const AppError = require('../utils/AppError');
 const { generateHoteId } = require('../utils/idTerrain');
+const { getAccessibleProjetIds, canBypass, projetScopeWhere, assertProjetAccessible } = require('../utils/access');
 
 const INCLUDE_BASE = {
   methode: {
     select: {
       id: true,
       typeMethode: { select: { nom: true } },
-      localite:    { select: { nom: true, region: true } },
+      localite:    { select: { nom: true, region: true, mission: { select: { projetId: true } } } },
     },
   },
   taxonomieHote: { include: { parent: { include: { parent: true } } } },
   _count: { select: { tiques: true, puces: true } },
 };
 
-const list = async ({ methodeId, taxonomieHoteId, sexe } = {}) => {
+const list = async ({ methodeId, taxonomieHoteId, sexe } = {}, user) => {
   const where = {};
   if (methodeId)       where.methodeId       = parseInt(methodeId);
   if (taxonomieHoteId) where.taxonomieHoteId = parseInt(taxonomieHoteId);
   if (sexe)            where.sexe            = sexe;
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    Object.assign(where, projetScopeWhere(['methode', 'localite', 'mission'], ids));
+  }
   return prisma.hote.findMany({ where, include: INCLUDE_BASE, orderBy: { createdAt: 'desc' } });
 };
 
-const getById = async (id) => {
+const getById = async (id, user) => {
   const hote = await prisma.hote.findUnique({ where: { id }, include: INCLUDE_BASE });
   if (!hote) throw AppError.notFound('Hôte introuvable');
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    assertProjetAccessible(hote.methode.localite.mission.projetId, ids);
+  }
   return hote;
 };
 
@@ -55,7 +64,13 @@ const create = async (data) => {
   });
 };
 
-const update = async (id, data) => {
+const update = async (id, data, user) => {
+  if (user && !canBypass(user.role)) {
+    const current = await prisma.hote.findUnique({ where: { id }, select: { methode: { select: { localite: { select: { mission: { select: { projetId: true } } } } } } } });
+    if (!current) throw AppError.notFound('Hôte introuvable');
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    assertProjetAccessible(current.methode.localite.mission.projetId, ids);
+  }
   const { taxonomieHoteId, idTerrain, especeLocale, age, sexe, etatSante, vaccination, notes } = data;
   const patch = {};
   if (taxonomieHoteId !== undefined) patch.taxonomieHoteId = parseInt(taxonomieHoteId);
@@ -69,11 +84,19 @@ const update = async (id, data) => {
   return prisma.hote.update({ where: { id }, data: patch, include: INCLUDE_BASE });
 };
 
-const remove = async (id) => {
+const remove = async (id, user) => {
   const hote = await prisma.hote.findUnique({
-    where: { id }, include: { _count: { select: { tiques: true, puces: true } } },
+    where: { id },
+    include: {
+      _count: { select: { tiques: true, puces: true } },
+      methode: { select: { localite: { select: { mission: { select: { projetId: true } } } } } },
+    },
   });
   if (!hote) throw AppError.notFound('Hôte introuvable');
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    assertProjetAccessible(hote.methode.localite.mission.projetId, ids);
+  }
   const total = hote._count.tiques + hote._count.puces;
   if (total > 0) throw AppError.conflict(`Impossible — ${total} spécimen(s) lié(s) à cet hôte.`);
   await prisma.hote.delete({ where: { id } });

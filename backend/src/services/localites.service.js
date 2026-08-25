@@ -1,5 +1,6 @@
 const prisma   = require('../config/prisma');
 const AppError = require('../utils/AppError');
+const { getAccessibleProjetIds, canBypass, projetScopeWhere, assertProjetAccessible } = require('../utils/access');
 
 const CODE_REGEX = /^[A-Z]{3}$/;
 
@@ -56,7 +57,7 @@ const syncContacts = async (tx, localiteId, contacts) => {
   }
 };
 
-const list = async ({ missionId, region, search } = {}) => {
+const list = async ({ missionId, region, search } = {}, user) => {
   const where = {};
   if (missionId) where.missionId = parseInt(missionId);
   if (region)    where.region    = { contains: region, mode: 'insensitive' };
@@ -68,18 +69,31 @@ const list = async ({ missionId, region, search } = {}) => {
       { commune:  { contains: search, mode: 'insensitive' } },
     ];
   }
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    Object.assign(where, projetScopeWhere(['mission'], ids));
+  }
   return prisma.localite.findMany({ where, include: INCLUDE_LIST, orderBy: { createdAt: 'desc' } });
 };
 
-const getById = async (id) => {
+const getById = async (id, user) => {
   const localite = await prisma.localite.findUnique({ where: { id }, include: INCLUDE_DETAIL });
   if (!localite) throw AppError.notFound('Localité introuvable');
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    assertProjetAccessible(localite.mission.projetId, ids);
+  }
   return localite;
 };
 
-const getCarte = async () => {
+const getCarte = async (user) => {
+  const where = { latitude: { not: null }, longitude: { not: null } };
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    Object.assign(where, projetScopeWhere(['mission'], ids));
+  }
   const localites = await prisma.localite.findMany({
-    where: { latitude: { not: null }, longitude: { not: null } },
+    where,
     include: {
       mission:  { select: { ordreMission: true, projet: { select: { code: true, nom: true } } } },
       contacts: { orderBy: { id: 'asc' } },
@@ -143,7 +157,13 @@ const create = async (data) => {
   });
 };
 
-const update = async (id, data) => {
+const update = async (id, data, user) => {
+  if (user && !canBypass(user.role)) {
+    const current = await prisma.localite.findUnique({ where: { id }, select: { missionId: true, mission: { select: { projetId: true } } } });
+    if (!current) throw AppError.notFound('Localité introuvable');
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    assertProjetAccessible(current.mission.projetId, ids);
+  }
   const { code, nom, pays, region, district, commune, fokontany, contacts, latitude, longitude, altitudeM } = data;
   const patch = {};
   if (nom !== undefined) {
@@ -181,11 +201,15 @@ const update = async (id, data) => {
   });
 };
 
-const remove = async (id) => {
+const remove = async (id, user) => {
   const localite = await prisma.localite.findUnique({
-    where: { id }, include: { _count: { select: { methodes: true } } },
+    where: { id }, include: { _count: { select: { methodes: true } }, mission: { select: { projetId: true } } },
   });
   if (!localite) throw AppError.notFound('Localité introuvable');
+  if (user && !canBypass(user.role)) {
+    const ids = await getAccessibleProjetIds(user.id, user.role);
+    assertProjetAccessible(localite.mission.projetId, ids);
+  }
   if (localite._count.methodes > 0)
     throw AppError.conflict(`Impossible — cette localité contient ${localite._count.methodes} méthode(s) de collecte.`);
   await prisma.localite.delete({ where: { id } });

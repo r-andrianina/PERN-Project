@@ -11,11 +11,11 @@ const AUDIT_FIELDS = {
 };
 
 const listLocalites = async (req, res) => {
-  const localites = await service.list(req.query);
+  const localites = await service.list(req.query, req.user);
   res.json({ total: localites.length, localites });
 };
-const getLocalite       = async (req, res) => res.json({ localite: await service.getById(parseInt(req.params.id)) });
-const getCarteLocalites = async (req, res) => res.json(await service.getCarte());
+const getLocalite       = async (req, res) => res.json({ localite: await service.getById(parseInt(req.params.id), req.user) });
+const getCarteLocalites = async (req, res) => res.json(await service.getCarte(req.user));
 
 const createLocalite = async (req, res) => {
   const localite = await service.create(req.body);
@@ -26,7 +26,7 @@ const createLocalite = async (req, res) => {
 const updateLocalite = async (req, res) => {
   const id = parseInt(req.params.id);
   const before = await prisma.localite.findUnique({ where: { id }, select: AUDIT_FIELDS });
-  const localite = await service.update(id, req.body);
+  const localite = await service.update(id, req.body, req.user);
   await logAudit({
     req, action: ACTIONS.UPDATE, entity: 'Localite', entityId: id, oldValues: before,
     newValues: {
@@ -42,7 +42,7 @@ const updateLocalite = async (req, res) => {
 const deleteLocalite = async (req, res) => {
   const id = parseInt(req.params.id);
   const before = await prisma.localite.findUnique({ where: { id }, select: AUDIT_FIELDS });
-  await service.remove(id);
+  await service.remove(id, req.user);
   await logAudit({ req, action: ACTIONS.DELETE, entity: 'Localite', entityId: id, oldValues: before });
   res.json({ message: 'Localité supprimée avec succès' });
 };
