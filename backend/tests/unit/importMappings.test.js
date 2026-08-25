@@ -70,9 +70,19 @@ describe('importMappings/parseScientificName', () => {
     expect(parseScientificName(input)).toEqual({ genus: 'Anopheles', species: 'gambiae' });
   });
 
-  it('retire le suffixe "sp." (espèce non déterminée) — genre seul, pas de species', () => {
-    expect(parseScientificName('Anopheles sp.')).toEqual({ genus: 'Anopheles', species: null });
+  it.each([
+    'Anopheles sp', 'Anopheles sp.', 'Anopheles spp', 'Anopheles spp.', 'Anopheles SP',
+  ])('retire "sp"/"sp."/"spp"/"spp." (espèce non déterminée sur le terrain) — genre seul : "%s"', (input) => {
+    expect(parseScientificName(input)).toEqual({ genus: 'Anopheles', species: null });
+  });
+
+  it('retire "sp." même après une vraie espèce déjà donnée', () => {
     expect(parseScientificName('Anopheles gambiae sp.')).toEqual({ genus: 'Anopheles', species: 'gambiae' });
+  });
+
+  it('ne retire PAS un morphotype numéroté/lettré ("sp1", "spA") — ce n\'est pas une espèce non déterminée', () => {
+    expect(parseScientificName('Anopheles sp1')).toEqual({ genus: 'Anopheles', species: 'sp1' });
+    expect(parseScientificName('Anopheles spA')).toEqual({ genus: 'Anopheles', species: 'spA' });
   });
 
   it('trim les espaces superflus', () => {
@@ -83,7 +93,6 @@ describe('importMappings/parseScientificName', () => {
 describe('importMappings/toParietéSOP', () => {
   it('mappe la parité granulaire vers le binaire SOP (Pare/Nullipare)', () => {
     expect(toParietéSOP('Nulle')).toBe('NP');
-    expect(toParietéSOP('Paucie')).toBe('P');
     expect(toParietéSOP('Multi')).toBe('P');
   });
 
@@ -176,8 +185,13 @@ describe('importMappings/tables de correspondance', () => {
   });
 
   it('COLLECTION_METHOD normalise les acronymes SOP Institut Pasteur Madagascar', () => {
-    expect(COLLECTION_METHOD.CDC_LIGHT_TRAP).toBe('CDC-LT');
-    expect(COLLECTION_METHOD.BG_SENTINEL).toBe('BG-SENT');
+    // Route vers les codes historiques ("CDC", "BG", "LC") qui portent déjà
+    // des méthodes réelles, pas vers les entrées "canoniques SOP" ajoutées le
+    // 2026-08-12 ("CDC-LT", "BG-SENT") qui n'ont jamais été utilisées.
+    expect(COLLECTION_METHOD.CDC_LIGHT_TRAP).toBe('CDC');
+    expect(COLLECTION_METHOD.BG_SENTINEL).toBe('BG');
+    expect(COLLECTION_METHOD.BIOGENTS_TRAP).toBe('BG');
+    expect(COLLECTION_METHOD.LC).toBe('LC');
     expect(COLLECTION_METHOD.HLC).toBe('HLC');
     expect(COLLECTION_METHOD.HOTE).toBe('PRISE-HOTE');
     expect(COLLECTION_METHOD['HÔTE']).toBe('PRISE-HOTE');

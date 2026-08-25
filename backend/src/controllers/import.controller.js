@@ -69,16 +69,22 @@ function parseLocationNom(raw) {
   return parts[parts.length - 1]?.slice(0, 200) ?? null;
 }
 
-async function resolveSolution(rawValue) {
+// cache : un projet compte typiquement 2-5 solutions de conservation
+// distinctes pour des centaines de lignes — sans cache, chaque ligne
+// relance la même requête `findFirst`.
+async function resolveSolution(rawValue, cache) {
   if (!rawValue) return null;
   const key = normalizeKey(rawValue);
-  const nom  = PRESERVATIVE[key];
-  if (!nom) return null;
+  if (cache.has(key)) return cache.get(key);
+  const nom = PRESERVATIVE[key];
+  if (!nom) { cache.set(key, null); return null; }
   const sol = await prisma.solutionConservation.findFirst({
     where: { nom: { contains: nom, mode: 'insensitive' }, actif: true },
     select: { id: true },
   });
-  return sol?.id ?? null;
+  const id = sol?.id ?? null;
+  cache.set(key, id);
+  return id;
 }
 
 async function resolveContainer(boxId, missionId, createdById) {
@@ -226,7 +232,7 @@ async function findOrCreateLocalite({ missionId, code3w, lat, lon, nomCandidat, 
  * La MethodeCollecte (instance localité+date) est créée si absente.
  *
  * Ordre de résolution :
- *   1. Par (localiteId, typeMethodeId, dateCollecte exacte)
+ *   1. Par (localiteId, typeMethodeId, datePose exacte)
  *   2. Par (localiteId, typeMethodeId) — la plus récente
  *   3. Création
  */
@@ -267,17 +273,20 @@ async function findOrCreateMethode({ localiteId, methodCode, rawMethod, dateCol,
   }
 
   // Cherche une méthode existante
+  // NB : la colonne "dateCollecte" a été remplacée par "datePose"/"dateReleve"
+  // (migration 20260723000000_methode_pose_releve) — on ne connaît que la date
+  // de collecte du fichier IPM, mappée sur datePose (dateReleve reste vide).
   let methode = null;
   if (dateCol) {
     methode = await prisma.methodeCollecte.findFirst({
-      where: { localiteId, typeMethodeId: typeMethode.id, dateCollecte: dateCol },
+      where: { localiteId, typeMethodeId: typeMethode.id, datePose: dateCol },
       select: { id: true },
     });
   }
   if (!methode) {
     methode = await prisma.methodeCollecte.findFirst({
       where: { localiteId, typeMethodeId: typeMethode.id },
-      orderBy: { dateCollecte: 'desc' },
+      orderBy: { datePose: 'desc' },
       select: { id: true },
     });
   }
@@ -285,7 +294,7 @@ async function findOrCreateMethode({ localiteId, methodCode, rawMethod, dateCol,
 
   // Créer la méthode de collecte
   methode = await prisma.methodeCollecte.create({
-    data: { localiteId, typeMethodeId: typeMethode.id, dateCollecte: dateCol, latitude: lat, longitude: lon },
+    data: { localiteId, typeMethodeId: typeMethode.id, datePose: dateCol, latitude: lat, longitude: lon },
     select: { id: true },
   });
   const dateLabel = dateCol ? dateCol.toISOString().split('T')[0] : 'sans date';
@@ -340,12 +349,34 @@ const importMoustiques = async (req, res) => {
   const methodeCache   = new Map();
   const taxoCache      = new Map();
   const containerCache = new Map();
+  const solutionCache  = new Map();
+  // positions occupées par container, partagé entre le chemin split-plaque
+  // et le chemin normal — sans ça, un container référencé par N lignes
+  // relance N fois la même requête `findMany` des positions occupées.
+  const positionsCache = new Map();
 
   const counts = { total: 0, imported: 0, skipped: 0 };
   const userId = req.user?.id ?? null;
 
   const rows = [];
   ws.eachRow((row, rn) => { if (rn > 1) rows.push({ row, rn }); });
+
+  // Pré-charge en une seule requête les idTerrain déjà présents en base parmi
+  // ceux du fichier — remplace jusqu'à N requêtes `findUnique` (une par ligne)
+  // par 1 seule. Les doublons INTRA-fichier restent détectés normalement par
+  // la contrainte unique au moment du `create()` (le Set est mis à jour après
+  // chaque insertion réussie, donc capturé sans aller-retour DB superflu).
+  const fileIdTerrains = rows
+    .map(({ row }) => toString(cellValue(row, hMap, 'SERIES', 'COLLECTOR_SAMPLE_ID')))
+    .filter(Boolean);
+  const existingIdTerrains = new Set(
+    fileIdTerrains.length
+      ? (await prisma.moustique.findMany({
+          where: { idTerrain: { in: fileIdTerrains } },
+          select: { idTerrain: true },
+        })).map((r) => r.idTerrain)
+      : []
+  );
 
   for (const { row, rn } of rows) {
     counts.total++;
@@ -439,8 +470,15 @@ const importMoustiques = async (req, res) => {
           where: {
             niveau: 'espece',
             nom: { equals: species, mode: 'insensitive' },
-            parent: { nom: { equals: genus, mode: 'insensitive' }, niveau: 'genre' },
             actif: true,
+            // Le parent direct d'une espèce est soit le genre, soit un
+            // sous-genre intermédiaire (ex: Anopheles (Cellia) coustani) —
+            // il faut vérifier les deux, sinon toute espèce rattachée via un
+            // sous-genre retombe à tort au niveau genre.
+            OR: [
+              { parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } },
+              { parent: { niveau: 'sous_genre', parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } } },
+            ],
           },
           select: { id: true, niveau: true },
         });
@@ -452,13 +490,25 @@ const importMoustiques = async (req, res) => {
         });
       }
       taxoCache.set(taxoKey, t);
-      // Avertissement unique par nom scientifique quand on tombe au niveau genre
+      // Avertissement unique par nom scientifique quand on tombe au niveau genre —
+      // mais seulement si une espèce a réellement été saisie et non trouvée
+      // (mérite attention). "sp"/"sp." (déjà retiré de `species` par
+      // parseScientificName) veut dire "non déterminée sur le terrain" — un
+      // résultat normal, pas une erreur : simple ligne info, pas d'avertissement.
       if (t?.niveau === 'genre') {
-        logs.push({
-          ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'avertissement',
-          code: 'TAXO_NIVEAU_GENRE',
-          raison: `"${sciName}" résolu au genre uniquement — espèce "${species ?? '(absente)'}" introuvable dans le dictionnaire`,
-        });
+        if (species) {
+          logs.push({
+            ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'avertissement',
+            code: 'TAXO_NIVEAU_GENRE',
+            raison: `"${sciName}" résolu au genre uniquement — espèce "${species}" introuvable dans le dictionnaire`,
+          });
+        } else {
+          logs.push({
+            ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
+            code: 'TAXO_ESPECE_NON_DETERMINEE',
+            raison: `"${sciName}" — espèce non déterminée sur le terrain, rattaché au genre`,
+          });
+        }
       }
     }
     const taxo = taxoCache.get(taxoKey);
@@ -478,7 +528,7 @@ const importMoustiques = async (req, res) => {
     const sexe          = SEX[rawSexe]             ?? 'inconnu';
     const repasSang     = BLOOD_MEAL[rawBlood]     ?? 'NC';
     const organePreleve = ORGANISM_PART[rawOrgane] ?? null;
-    const solutionId    = await resolveSolution(rawPres);
+    const solutionId    = await resolveSolution(rawPres, solutionCache);
 
     // NUMBER ≤ 0 ou non numérique → 1 : jamais de compte négatif/zéro stocké.
     const rawNombre    = cellValue(row, hMap, 'NUMBER');
@@ -507,13 +557,18 @@ const importMoustiques = async (req, res) => {
 
     // ── 6a. PLAQUE + nombre > 1 → split automatique ──────────────
     if (containerId && containerType === 'PLAQUE' && nombre > 1) {
-      // Récupérer les positions déjà occupées pour ce container
-      const occupiedRows = await prisma.moustique.findMany({
-        where: { containerId, position: { not: null } },
-        select: { position: true },
-      });
-      const occupiedSet   = new Set(occupiedRows.map(r => r.position));
-      const freePositions = freePlaquePositions(occupiedSet);
+      // positionsCache partagé avec le chemin 6b — un container référencé par
+      // plusieurs lignes (split ou non) ne relance qu'une seule fois la
+      // requête des positions occupées.
+      if (!positionsCache.has(containerId)) {
+        const occupiedRows = await prisma.moustique.findMany({
+          where: { containerId, position: { not: null } },
+          select: { position: true, idTerrain: true },
+        });
+        positionsCache.set(containerId, new Map(occupiedRows.map((r) => [r.position, r.idTerrain])));
+      }
+      const occupiedMap   = positionsCache.get(containerId);
+      const freePositions = freePlaquePositions(occupiedMap);
 
       if (freePositions.length < nombre) {
         addLog('erreur', 'POSITION_INSUFFISANTE',
@@ -553,7 +608,7 @@ const importMoustiques = async (req, res) => {
           });
           splitOk++;
           // Marquer la position comme occupée pour les lignes suivantes du même fichier
-          occupiedSet.add(pos);
+          occupiedMap.set(pos, splitId);
         } catch (err) {
           logs.push({ ligne: rn, idTerrain: splitId || `ligne_${rn}-${pos}`, niveau: 'erreur',
             code: 'ERREUR_BDD', raison: `Erreur création individu ${pos} : ${err.message}` });
@@ -580,22 +635,28 @@ const importMoustiques = async (req, res) => {
       }
 
       if (position) {
-        const occupied = await prisma.moustique.findFirst({
-          where: { containerId, position },
-          select: { id: true, idTerrain: true },
-        });
-        if (occupied) {
+        if (!positionsCache.has(containerId)) {
+          const occupiedRows = await prisma.moustique.findMany({
+            where: { containerId, position: { not: null } },
+            select: { position: true, idTerrain: true },
+          });
+          positionsCache.set(containerId, new Map(occupiedRows.map((r) => [r.position, r.idTerrain])));
+        }
+        const occupiedMap = positionsCache.get(containerId);
+        if (occupiedMap.has(position)) {
           addLog('erreur', 'POSITION_OCCUPEE',
-            `Position "${position}" déjà occupée dans "${boxId}" par ${occupied.idTerrain}`);
+            `Position "${position}" déjà occupée dans "${boxId}" par ${occupiedMap.get(position) ?? '(sans idTerrain)'}`);
           continue;
         }
       }
     }
 
     // ── 7. Unicité idTerrain ──
+    // Vérifié contre le pré-chargement (existingIdTerrains) + les idTerrain
+    // déjà insérés plus tôt dans CE fichier (Set mis à jour après chaque
+    // création réussie, cf. section 8) — plus de requête ici.
     if (idTerrain) {
-      const dupl = await prisma.moustique.findUnique({ where: { idTerrain }, select: { id: true } });
-      if (dupl) {
+      if (existingIdTerrains.has(idTerrain)) {
         addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" déjà présent en base — ligne ignorée`);
         continue;
       }
@@ -621,6 +682,10 @@ const importMoustiques = async (req, res) => {
         },
       });
       counts.imported++;
+      // Tient à jour les caches en mémoire pour les lignes suivantes du même
+      // fichier (doublon idTerrain / position occupée détectés sans requête).
+      if (idTerrain) existingIdTerrains.add(idTerrain);
+      if (containerId && position) positionsCache.get(containerId)?.set(position, idTerrain);
     } catch (err) {
       if (err.code === 'P2002') {
         addLog('erreur', 'DOUBLON', `Doublon de contrainte unique (idTerrain ou position déjà prise)`);
@@ -798,8 +863,13 @@ const validateMoustiques = async (req, res) => {
             where: {
               niveau: 'espece',
               nom: { equals: species, mode: 'insensitive' },
-              parent: { nom: { equals: genus, mode: 'insensitive' }, niveau: 'genre' },
               actif: true,
+              // cf. importMoustiques — même correctif : le parent direct peut
+              // être un sous-genre intermédiaire, pas seulement le genre.
+              OR: [
+                { parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } },
+                { parent: { niveau: 'sous_genre', parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } } },
+              ],
             },
             select: { id: true, niveau: true },
           });
@@ -816,7 +886,14 @@ const validateMoustiques = async (req, res) => {
       if (!taxo) {
         addLog('erreur', 'TAXONOMIE_INTROUVABLE', `"${sciName}" introuvable dans le dictionnaire (genre: ${parseScientificName(sciName).genus}, espèce: ${parseScientificName(sciName).species ?? '—'})`);
       } else if (taxo.niveau === 'genre') {
-        addLog('avertissement', 'TAXO_NIVEAU_GENRE', `"${sciName}" résolu au genre uniquement — espèce "${parseScientificName(sciName).species ?? '(absente)'}" introuvable`);
+        // cf. importMoustiques — même distinction : "sp"/"sp." (déjà retiré de
+        // `species`) veut dire non déterminée sur le terrain (normal, info),
+        // pas une vraie espèce introuvable (mérite un avertissement).
+        if (species) {
+          addLog('avertissement', 'TAXO_NIVEAU_GENRE', `"${sciName}" résolu au genre uniquement — espèce "${species}" introuvable`);
+        } else {
+          addLog('info', 'TAXO_ESPECE_NON_DETERMINEE', `"${sciName}" — espèce non déterminée sur le terrain, rattaché au genre`);
+        }
       }
     }
 

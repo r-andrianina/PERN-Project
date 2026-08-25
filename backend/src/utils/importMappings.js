@@ -14,8 +14,14 @@ const SEX = {
 };
 
 const COLLECTION_METHOD = {
-  CDC_LIGHT_TRAP: 'CDC-LT', CDC_LT: 'CDC-LT', CDC: 'CDC-LT',
-  BG_SENTINEL: 'BG-SENT', BG_SENTINEL_TRAP: 'BG-SENT',
+  // NB: on route vers les codes historiques ("CDC", "BG") qui portent déjà
+  // des méthodes réelles, pas vers les entrées "canoniques SOP" ajoutées le
+  // 2026-08-12 ("CDC-LT", "BG-SENT") — celles-ci n'ont jamais été utilisées.
+  // Router vers un code vide aurait fragmenté silencieusement les données
+  // (nouvelles méthodes importées séparées des méthodes historiques pour le
+  // même piège) au lieu de les rattacher à l'existant.
+  CDC_LIGHT_TRAP: 'CDC', CDC_LT: 'CDC', CDC: 'CDC',
+  BG_SENTINEL: 'BG', BG_SENTINEL_TRAP: 'BG', BIOGENTS_TRAP: 'BG',
   HUMAN_LANDING_CATCH: 'HLC', HLC: 'HLC', HUMAN_LANDING: 'HLC',
   DRAGGING: 'DRAGGING', DRAG: 'DRAGGING', FLAGGING: 'DRAGGING',
   CO2_TRAP: 'PIEGE-CO2', CO2: 'PIEGE-CO2',
@@ -23,8 +29,8 @@ const COLLECTION_METHOD = {
   ON_HOST: 'PRISE-HOTE', HOST_COLLECTION: 'PRISE-HOTE',
   LARVAL_SURVEY: 'GITES',
   // Acronymes Trap_ID du SOP (Institut Pasteur Madagascar)
-  LC: 'GITES',
-  BG: 'BG-SENT',
+  LC: 'LC',
+  BG: 'BG',
   ZP: 'ZP-DP', DP: 'ZP-DP', 'ZP/DP': 'ZP-DP', ZEBU_PARK: 'ZP-DP', DOG_PERK: 'ZP-DP', DOG_PARK: 'ZP-DP',
   DN: 'DN', DOUBLE_NET: 'DN',
   NC: 'NC', NET_CATCH: 'NC',
@@ -65,7 +71,7 @@ const BLOOD_MEAL = {
 };
 
 // Mapping export SOP : parité interne (granulaire) -> binaire Pare/Nullipare
-const PARITE_SOP = { Nulle: 'NP', Paucie: 'P', Multi: 'P' };
+const PARITE_SOP = { Nulle: 'NP', Multi: 'P' };
 function toParietéSOP(parite) { return PARITE_SOP[parite] ?? ''; }
 
 /**
@@ -79,13 +85,19 @@ function normalizeKey(val) {
 
 /**
  * Extrait genre + espèce depuis un nom scientifique.
- * Ignore les suffixes courants : sl, s.l., s.s., ss, complex, group, gp.
+ * Ignore les suffixes courants : sl, s.l., s.s., ss, complex, group, gp.,
+ * ainsi que sp/sp./spp/spp. — convention entomologique standard pour
+ * "espèce non déterminée sur le terrain" (le genre est identifié, pas
+ * l'espèce) : ce n'est PAS une espèce à chercher dans le dictionnaire.
+ * Le point final est optionnel ("sp" seul, sans point, est très courant en
+ * saisie terrain). Ne matche jamais un morphotype numéroté comme "sp1"/"spA"
+ * (l'ancre de fin de chaîne exige "sp"/"spp" seul, chiffre/lettre exclus).
  */
 function parseScientificName(name) {
   if (!name) return { genus: null, species: null };
   const clean = String(name)
     .trim()
-    .replace(/\s+(sl|s\.l\.|s\.s\.|ss|complex|group|gp\.|grp\.|sensu\s+lato|sensu\s+stricto|sp\.)$/i, '')
+    .replace(/\s+(sl|s\.l\.|s\.s\.|ss|complex|group|gp\.|grp\.|sensu\s+lato|sensu\s+stricto|spp?\.?)$/i, '')
     .trim();
   const parts = clean.split(/\s+/);
   return {

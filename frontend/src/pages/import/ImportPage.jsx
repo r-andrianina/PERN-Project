@@ -52,6 +52,7 @@ const getCodeLabels = (t) => ({
   TYPE_METHODE_INTROUVABLE: t('importPage.codeTypeMethodeIntrouvable'),
   TEMOIN_H12:               t('importPage.codeTemoinH12'),
   TAXO_NIVEAU_GENRE:        t('importPage.codeTaxoNiveauGenre'),
+  TAXO_ESPECE_NON_DETERMINEE: t('importPage.codeTaxoEspeceNonDeterminee'),
   SPLIT_PLAQUE:             t('importPage.codeSplitPlaque'),
   POSITION_INSUFFISANTE:    t('importPage.codePositionInsuffisante'),
 });
