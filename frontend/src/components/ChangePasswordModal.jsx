@@ -75,7 +75,7 @@ export default function ChangePasswordModal({ onClose }) {
                 <label className="text-xs font-semibold text-fg-muted">{t('changePasswordModal.newPassword')} <span className="text-danger">*</span></label>
                 <div className="relative">
                   <input type={showNew ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-                    required minLength={8} autoComplete="new-password"
+                    required minLength={10} autoComplete="new-password"
                     className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary pr-10"
                     placeholder={t('changePasswordModal.newPasswordHint')} />
                   <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle">

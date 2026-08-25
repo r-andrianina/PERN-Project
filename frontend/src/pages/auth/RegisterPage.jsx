@@ -74,7 +74,7 @@ export default function RegisterPage() {
         <div><label className={labelCls}>{t('registerPage.email')}</label>
           <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="vous@pasteur.mg" required className={inputCls} /></div>
         <div><label className={labelCls}>{t('registerPage.password')}</label>
-          <input type="password" name="password" value={form.password} onChange={handleChange} placeholder={t('registerPage.passwordPlaceholder')} required className={inputCls} /></div>
+          <input type="password" name="password" value={form.password} onChange={handleChange} placeholder={t('registerPage.passwordPlaceholder')} required minLength={10} className={inputCls} /></div>
         <button type="submit" disabled={isLoading} className="btn-primary w-full justify-center mt-2">
           {isLoading ? <><Spinner size={15} /> {t('registerPage.submitting')}</> : t('registerPage.submit')}
         </button>

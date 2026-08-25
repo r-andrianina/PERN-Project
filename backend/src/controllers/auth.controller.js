@@ -205,6 +205,7 @@ const updateSpecimenAccess = async (req, res) => {
   // specimensAutorises validé par Zod (tableau d'enum de types valides)
   const { specimensAutorises } = req.body;
 
+  const before = await prisma.user.findUnique({ where: { id }, select: { specimensAutorises: true } });
   const user = await prisma.user.update({
     where: { id },
     data:  { specimensAutorises },
@@ -222,6 +223,8 @@ const updateSpecimenAccess = async (req, res) => {
     specimensAutorises: user.specimensAutorises,
     message: 'Vos permissions d\'accès aux spécimens ont été mises à jour.',
   });
+
+  await logAudit({ req, action: ACTIONS.UPDATE, entity: 'User', entityId: id, oldValues: before, newValues: { specimensAutorises: user.specimensAutorises } });
 
   return res.json({ message: 'Permissions spécimens mises à jour', user });
 };
@@ -287,6 +290,9 @@ const changePassword = async (req, res) => {
 
   const ok = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+
+  const sameAsOld = await bcrypt.compare(newPassword, user.passwordHash);
+  if (sameAsOld) return res.status(400).json({ error: 'Le nouveau mot de passe doit être différent de l\'ancien' });
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
   const changedAt = new Date();

@@ -2,7 +2,13 @@ const { z } = require('zod');
 const { ROLE_ORDER, SPECIMEN_TYPES, DEFAULT_SPECIMEN_ACCESS } = require('../config/rbac'); // source unique (F2)
 
 const emailStr    = z.string().email('Format email invalide').toLowerCase();
-const passwordStr = z.string().min(8, 'Le mot de passe doit contenir au moins 8 caracteres');
+// Politique renforcée (2026-08-17) : 8 → 10 caractères + au moins une lettre
+// et un chiffre — complexité minimale sans exiger de symbole (friction/valeur
+// marginale plus faible qu'un gain de longueur, cf. recommandations NIST).
+const passwordStr = z.string()
+  .min(10, 'Le mot de passe doit contenir au moins 10 caractères')
+  .regex(/[a-zA-Z]/, 'Le mot de passe doit contenir au moins une lettre')
+  .regex(/[0-9]/,     'Le mot de passe doit contenir au moins un chiffre');
 const roleEnum    = z.enum(ROLE_ORDER);
 const specimensEnum = z.array(z.enum(SPECIMEN_TYPES));
 

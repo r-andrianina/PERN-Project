@@ -193,7 +193,7 @@ function UserModal({ user, onClose, onSaved }) {
                 <label className="text-xs font-semibold text-gray-600">{t('utilisateursPage.passwordLabel')} <span className="text-red-400">*</span></label>
                 <div className="relative">
                   <input type={showPwd ? 'text' : 'password'} value={form.password} onChange={(e) => set('password', e.target.value)}
-                    required minLength={8} className={`${inputCls} pr-10`} placeholder={t('utilisateursPage.passwordPlaceholder')} />
+                    required minLength={10} className={`${inputCls} pr-10`} placeholder={t('utilisateursPage.passwordPlaceholder')} />
                   <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle">
                     {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -274,7 +274,7 @@ function ResetPasswordModal({ user, onClose }) {
                 <label className="text-xs font-semibold text-gray-600">{t('utilisateursPage.newPasswordLabel')} <span className="text-red-400">*</span></label>
                 <div className="relative">
                   <input type={showPwd ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
-                    required minLength={8}
+                    required minLength={10}
                     className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border-strong bg-surface focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 pr-10"
                     placeholder={t('utilisateursPage.passwordPlaceholder')} />
                   <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle">
@@ -469,27 +469,27 @@ export default function UtilisateursPage() {
           <div className="flex items-center justify-end gap-1">
             {!isMe && (
               <button onClick={() => toggleActif(u)} title={u.actif ? t('utilisateursPage.desactiver') : t('utilisateursPage.activer')}
-                className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
                 {u.actif ? <ToggleRight size={16} className="text-success" /> : <ToggleLeft size={16} />}
               </button>
             )}
             <button onClick={() => setModal({ type: 'edit', user: u })} title={t('utilisateursPage.modifier')}
-              className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+              className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
               <Edit2 size={14} />
             </button>
             {u.role !== 'admin' && u.role !== 'superviseur' && (
               <button onClick={() => setModal({ type: 'specimens', user: u })} title={t('utilisateursPage.gererAccesSpecimens')}
-                className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-specimen-moustique hover:bg-specimen-moustique/10 rounded-lg transition-colors">
+                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-specimen-moustique hover:bg-specimen-moustique/10 rounded-lg transition-colors">
                 <ShieldCheck size={14} />
               </button>
             )}
             <button onClick={() => setModal({ type: 'reset', user: u })} title={t('utilisateursPage.reinitialiserMdp')}
-              className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-amber-600 hover:bg-warning/10 rounded-lg transition-colors">
+              className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-amber-600 hover:bg-warning/10 rounded-lg transition-colors">
               <KeyRound size={14} />
             </button>
             {!isMe && (
               <button onClick={() => remove(u)} title={t('utilisateursPage.supprimer')}
-                className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors">
+                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors">
                 <Trash2 size={14} />
               </button>
             )}
@@ -567,7 +567,7 @@ export default function UtilisateursPage() {
                     <Check size={12} /> {t('utilisateursPage.activate')}
                   </button>
                   <button onClick={() => remove(u)}
-                    className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors">
+                    className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors">
                     <Trash2 size={14} />
                   </button>
                 </div>
