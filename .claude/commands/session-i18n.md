@@ -50,7 +50,7 @@ en français — seul le texte statique frontend (labels, boutons, titres, place
 9. **Piège n°4 — locale des dates** : remplacer `toLocaleDateString('fr-FR')` par
    `toLocaleDateString(t('common.locale'))` (idem `toLocaleString`).
 10. **Ce qu'on NE traduit PAS** : jargon entomologique spécialisé sans traduction évidente
-    (ex. parité "Nulle"/"Paucie"/"Multi"), noms de colonnes Excel littérales (SERIES, WHAT_3_WORDS…),
+    (ex. parité "Nulle"/"Multi"), noms de colonnes Excel littérales (SERIES, WHAT_3_WORDS…),
     noms de modèles/enums bruts venant du backend affichés tels quels, exemples scientifiques
     en latin (`Anopheles gambiae`).
 

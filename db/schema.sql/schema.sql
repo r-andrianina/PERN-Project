@@ -182,7 +182,7 @@ CREATE TABLE moustiques (
     nombre               INTEGER      NOT NULL DEFAULT 1,
     sexe                 sexe_type    DEFAULT 'inconnu',
     stade                VARCHAR(50),            -- ex: Adulte, Larve, Nymphe
-    parite               VARCHAR(50),            -- ex: Nulle, Paucie, Multi
+    parite               VARCHAR(50),            -- ex: Nulle, Multi
     repas_sang           BOOLEAN      DEFAULT FALSE,
     organe_preleve       VARCHAR(100),           -- ex: Tête, Thorax, Abdomen
     solution_id          INTEGER      REFERENCES solutions_conservation(id) ON DELETE SET NULL,

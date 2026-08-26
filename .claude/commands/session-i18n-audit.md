@@ -50,7 +50,7 @@ npm run i18n:audit
   identiques** (mêmes namespaces, mêmes clés, dans le même ordre si possible, pour que les
   diffs de revue soient lisibles côte à côte).
 - Ce qu'on ne traduit **jamais** : messages venant du backend (Zod, réponses API), jargon
-  entomologique spécialisé sans traduction évidente (parité "Nulle"/"Paucie"/"Multi"), noms de
+  entomologique spécialisé sans traduction évidente (parité "Nulle"/"Multi"), noms de
   colonnes Excel littérales (SERIES, WHAT_3_WORDS…), enums bruts backend affichés tels quels,
   noms scientifiques latins.
 

@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { ChevronLeft, Microscope, FlaskConical, FileText, Check, Loader2, Info, Tag } from 'lucide-react';
 import api from '../../api/axios';
+import { toast } from '../../lib/toast';
 import FormField from '../../components/FormField';
 import MethodeCascade from '../../components/MethodeCascade';
 import IdTerrainField from '../../components/IdTerrainField';
@@ -11,6 +12,7 @@ import { Card } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
+import { TRANCHE_HORAIRE_OPTIONS, formatTrancheHoraire } from '../../utils/trancheHoraire';
 import { useT, interpolate } from '../../lib/i18n';
 
 export default function NouveauMoustique() {
@@ -28,6 +30,7 @@ export default function NouveauMoustique() {
     parite:         '',
     repasSang:      'N',
     organePreleve:  '',
+    trancheHoraire: '',
     solutionId:     '',
     containerId:    '',
     position:       '',
@@ -36,6 +39,8 @@ export default function NouveauMoustique() {
     notes:          '',
   });
   const [missionId, setMissionId] = useState(null);
+  const [selectedMethode, setSelectedMethode] = useState(null);
+  const requiresTrancheHoraire = !!selectedMethode?.typeMethode?.requiresTrancheHoraire;
   const [taxonomies, setTaxonomies] = useState([]);
   const [solutions,  setSolutions]  = useState([]);
   const [isLoading,  setIsLoading]  = useState(false);
@@ -51,7 +56,8 @@ export default function NouveauMoustique() {
     ]).then(([tRes, sRes]) => {
       setTaxonomies(tRes.data.items || []);
       setSolutions(sRes.data.items  || []);
-    }).catch(console.error);
+    }).catch(() => toast.error(t('nouveauSpecimen.loadRefsError')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChange = (e) => {
@@ -83,6 +89,12 @@ export default function NouveauMoustique() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.stade, form.sexe]);
 
+  // La tranche horaire ne concerne que les méthodes horodatées (ex: HLC) —
+  // on l'efface si la méthode sélectionnée change pour un type qui n'en a pas besoin.
+  useEffect(() => {
+    if (!requiresTrancheHoraire) setForm((f) => (f.trancheHoraire ? { ...f, trancheHoraire: '' } : f));
+  }, [requiresTrancheHoraire]);
+
 
   const validate = () => {
     const errs = {};
@@ -110,7 +122,9 @@ export default function NouveauMoustique() {
         containerId:  form.containerId ? parseInt(form.containerId) : null,
         position:     form.position    || null,
         nombre:       parseInt(form.nombre),
+        parite:       form.parite || null,
         repasSang:    form.repasSang,
+        trancheHoraire: form.trancheHoraire || null,
         dateCollecte: form.dateCollecte || null,
       };
       await api.post('/moustiques', payload);
@@ -130,7 +144,7 @@ export default function NouveauMoustique() {
   const solutionOptions  = solutions.map(s => ({ value: s.id, label: `${s.nom}${s.temperature ? ' (' + s.temperature + ')' : ''}` }));
   const sexeOptions    = [{ value:'M', label: t('sexe.M') }, { value:'F', label: t('sexe.F') }, { value:'inconnu', label: t('sexe.inconnu') }];
   const stadeOptions   = STADE_OPTIONS_MOUSTIQUE;
-  const pariteOptions  = [{ value:'Nulle', label:'Nulle' }, { value:'Paucie', label:'Paucie' }, { value:'Multi', label:'Multi' }];
+  const pariteOptions  = [{ value:'Nulle', label:'Nulle' }, { value:'Multi', label:'Multi' }];
   const organeOptions  = [
     { value: 'Tête',    label: t('specimenDetail.organeTete') },
     { value: 'Thorax',  label: t('specimenDetail.organeThorax') },
@@ -168,8 +182,17 @@ export default function NouveauMoustique() {
               methodeId={form.methodeId}
               onChange={(id) => { setErrors((e) => ({ ...e, methodeId: null })); setForm((f) => ({ ...f, methodeId: id, containerId: '', position: '' })); }}
               onMissionChange={setMissionId}
+              onMethodeObjectChange={setSelectedMethode}
               error={errors.methodeId}
             />
+            {requiresTrancheHoraire && (
+              <FormField
+                label={t('nouveauSpecimen.trancheHoraire')} name="trancheHoraire" type="select"
+                value={form.trancheHoraire} onChange={handleChange}
+                options={TRANCHE_HORAIRE_OPTIONS}
+                hint={t('nouveauSpecimen.trancheHoraireHint')}
+              />
+            )}
             <IdTerrainField
               methodeId={form.methodeId}
               value={form.idTerrain}
@@ -333,6 +356,9 @@ export default function NouveauMoustique() {
                 </div>
                 {form.repasSang !== 'N' && (
                   <p className="text-xs text-danger font-medium">{t('nouveauSpecimen.statutSanguin')} : {formatGorgement(form.repasSang)}</p>
+                )}
+                {requiresTrancheHoraire && form.trancheHoraire && (
+                  <p className="text-xs text-fg-muted">{t('nouveauSpecimen.trancheHoraire')} : <span className="font-semibold text-fg">{formatTrancheHoraire(form.trancheHoraire)}</span></p>
                 )}
               </div>
             </Card>

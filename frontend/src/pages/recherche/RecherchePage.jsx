@@ -21,7 +21,7 @@ const getTypeLabel = (t) => ({ moustique: t('specimenTypes.moustique'), tique: t
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const getSexeLabel = (t) => ({ M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') });
 
-const PARITE_OPTIONS = ['Nulle', 'Paucie', 'Multi'];
+const PARITE_OPTIONS = ['Nulle', 'Multi'];
 const STADE_SUGGEST  = STADE_OPTIONS_MOUSTIQUE;
 
 const taxoLabel = (tx) => {

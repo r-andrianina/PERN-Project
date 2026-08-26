@@ -332,7 +332,7 @@ function addFooter(slide, num) {
   const fields = [
     { label: 'Statut sanguin', value: 'G / Gr / SGr / N / NC', highlight: true },
     { label: 'Stade', value: 'E / L / N / A (adulte)' },
-    { label: 'Parité', value: 'Nulle → NP · Paucie/Multi → P' },
+    { label: 'Parité', value: 'Nulle → NP · Multi → P' },
     { label: 'Trap_ID', value: 'HLC, ZP-DP, DN, MHT, OVITRAP…' },
     { label: 'GPS', value: '📍 Clic sur carte = coordonnées', highlight: true },
     { label: 'Position plaque', value: 'Sélecteur visuel (H12 bloqué)', highlight: true },

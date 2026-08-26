@@ -12,6 +12,7 @@ import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
+import { TRANCHE_HORAIRE_OPTIONS, formatTrancheHoraire } from '../../utils/trancheHoraire';
 import { taxoLabel as _taxoLabel } from '../../utils/taxoLabel';
 import { useT, interpolate } from '../../lib/i18n';
 
@@ -105,6 +106,7 @@ export default function MoustiqueDetail() {
       parite:        m.parite || '',
       repasSang:     m.repasSang,
       organePreleve: m.organePreleve || '',
+      trancheHoraire: m.trancheHoraire || '',
       solutionId:    m.solutionId ? String(m.solutionId) : '',
       dateCollecte:  m.dateCollecte ? m.dateCollecte.split('T')[0] : '',
       notes:         m.notes || '',
@@ -143,6 +145,7 @@ export default function MoustiqueDetail() {
         stade:         editForm.stade || null,
         parite:        editForm.parite || null,
         organePreleve: editForm.organePreleve || null,
+        trancheHoraire: editForm.trancheHoraire || null,
       });
       setSpecimen(r.data.moustique);
       setEditing(false);
@@ -190,7 +193,9 @@ export default function MoustiqueDetail() {
   const solutionOptions = [{ value: '', label: t('specimenDetail.none') }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
   const stadeOptions    = [{ value: '', label: '—' }, ...STADE_OPTIONS_MOUSTIQUE];
   const sexeOptions     = [{ value: 'M', label: t('sexe.M') }, { value: 'F', label: t('sexe.F') }, { value: 'inconnu', label: t('sexe.inconnu') }];
-  const pariteOptions   = [{ value: '', label: '—' }, ...['Nulle', 'Paucie', 'Multi'].map(v => ({ value: v, label: v }))];
+  const pariteOptions   = [{ value: '', label: '—' }, ...['Nulle', 'Multi'].map(v => ({ value: v, label: v }))];
+  const trancheHoraireOptions = [{ value: '', label: '—' }, ...TRANCHE_HORAIRE_OPTIONS];
+  const requiresTrancheHoraire = !!m.methode?.typeMethode?.requiresTrancheHoraire;
   const organeOptions   = [
     { value: '', label: '—' },
     { value: 'Tête',    label: t('specimenDetail.organeTete') },
@@ -263,6 +268,11 @@ export default function MoustiqueDetail() {
                     onChange={e => setEditForm(f => ({ ...f, repasSang: e.target.value }))}
                     options={GORGEMENT_OPTIONS} disabled={repasSangOff} />
                 </div>
+                {requiresTrancheHoraire && (
+                  <EditSelect label={t('specimenDetail.trancheHoraire')} value={editForm.trancheHoraire}
+                    onChange={e => setEditForm(f => ({ ...f, trancheHoraire: e.target.value }))}
+                    options={trancheHoraireOptions} />
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -278,6 +288,7 @@ export default function MoustiqueDetail() {
                 {m.stade         && <Field label={t('specimenDetail.stade')}>{formatStade(m.stade)}</Field>}
                 {m.parite        && <Field label={t('specimenDetail.parite')}>{m.parite}</Field>}
                 {m.organePreleve && <Field label={t('specimenDetail.organePreleve')}>{m.organePreleve}</Field>}
+                {m.trancheHoraire && <Field label={t('specimenDetail.trancheHoraire')}>{formatTrancheHoraire(m.trancheHoraire)}</Field>}
                 <Field label={t('specimenDetail.statutSanguin')}>
                   <Badge tone={['G', 'Gr'].includes(m.repasSang) ? 'danger' : 'default'}>{formatGorgement(m.repasSang)}</Badge>
                 </Field>

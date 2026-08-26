@@ -3,6 +3,12 @@ const { z } = require('zod');
 const sexeEnum   = z.enum(['M', 'F', 'inconnu']).default('inconnu');
 // Statut sanguin SOP : N (Non gorgé) / G (Gorgé) / Gr (Gravide) / SGr (Semi-gravide) / NC (Not collected)
 const STATUT_SANGUIN = ['N', 'G', 'Gr', 'SGr', 'NC'];
+// Tranche horaire de capture (protocoles horodatés type HLC) — miroir de
+// l'enum Prisma TrancheHoraire, une nuit 18h→6h tranchée heure par heure.
+const TRANCHE_HORAIRE = [
+  'h18_19', 'h19_20', 'h20_21', 'h21_22', 'h22_23', 'h23_00',
+  'h00_01', 'h01_02', 'h02_03', 'h03_04', 'h04_05', 'h05_06',
+];
 const stadeStr   = z.string().max(50).optional().nullable();
 const intId      = z.coerce.number().int().positive();
 const optIntId   = intId.optional().nullable();
@@ -24,9 +30,10 @@ const createMoustique = z.object({
   nombre:         z.coerce.number().int().positive().default(1),
   sexe:           sexeEnum,
   stade:          stadeStr,
-  parite:         z.enum(['Nulle', 'Paucie', 'Multi']).optional().nullable(),
+  parite:         z.enum(['Nulle', 'Multi']).optional().nullable(),
   repasSang:      z.enum(STATUT_SANGUIN).default('N'),
   organePreleve:  z.string().max(100).optional().nullable(),
+  trancheHoraire: z.enum(TRANCHE_HORAIRE).optional().nullable(),
   solutionId:     optIntId,
   containerId:    optIntId,
   position:       z.string().max(10).optional().nullable(),
@@ -91,5 +98,5 @@ const updatePuce = createPuce
 
 module.exports = {
   createMoustique, updateMoustique, createTique, updateTique, createPuce, updatePuce,
-  STATUT_SANGUIN,
+  STATUT_SANGUIN, TRANCHE_HORAIRE,
 };

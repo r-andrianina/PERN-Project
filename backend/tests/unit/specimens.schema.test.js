@@ -24,12 +24,14 @@ describe('schemas/specimens — Moustique', () => {
       expect(schema.createMoustique.safeParse({ methodeId: 1 }).success).toBe(false);
     });
 
-    it('rejette parite hors énumération (jargon entomologique — Nulle/Paucie/Multi uniquement)', () => {
+    it('rejette parite hors énumération (jargon entomologique — Nulle/Multi uniquement)', () => {
       expect(schema.createMoustique.safeParse({ methodeId: 1, taxonomieId: 2, parite: 'Semi' }).success).toBe(false);
+      // "Paucie" retiré du jargon — ne doit plus être accepté
+      expect(schema.createMoustique.safeParse({ methodeId: 1, taxonomieId: 2, parite: 'Paucie' }).success).toBe(false);
     });
 
-    it('accepte les 3 valeurs de parité', () => {
-      for (const parite of ['Nulle', 'Paucie', 'Multi']) {
+    it('accepte les 2 valeurs de parité', () => {
+      for (const parite of ['Nulle', 'Multi']) {
         expect(schema.createMoustique.safeParse({ methodeId: 1, taxonomieId: 2, parite }).success).toBe(true);
       }
     });
