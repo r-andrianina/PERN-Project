@@ -41,7 +41,7 @@ Projet → Mission → Localité → Méthode de collecte → Spécimen (Moustiq
 | API | Express 4.19 + Node.js 22 |
 | Validation | Zod 4.4 |
 | Authentification | JWT (jsonwebtoken 9) + bcryptjs |
-| Frontend | React 19 + Vite 8 |
+| Frontend | React 19 + Vite 5 |
 | Routing | React Router 7 |
 | Style | Tailwind CSS 3.4 + dark mode |
 | État global | Zustand 5 |
@@ -323,9 +323,9 @@ Crée la table `fokontany_geo` avec 17 416 polygones. Utilisée par l'endpoint `
 
 ### Backend
 
-- **Controllers** : 3-5 lignes par action — lit `req`, délègue au **service**, sérialise `res`
+- **Controllers** : cible = 3-5 lignes par action (lit `req`, délègue au **service**, sérialise `res`) — migration en cours, seuls 6/25 contrôleurs ont aujourd'hui un service dédié (`containers`, `hotes`, `localites`, `methodes`, `missions`, `projets`) ; les autres ont encore leur logique métier inline
 - **Services** : logique métier pure — lancent `AppError`, jamais de `res`/`req`
-- **asyncHandler** : wrapping des controllers — plus de `try/catch` dans les routes
+- **asyncHandler** : appliqué au niveau des routes (`router.get('/', asyncHandler(ctrl.list))`) — plus de `try/catch` répété ; 22/29 fichiers de routes l'utilisent
 - **Zod** : validation via middleware `validate(schema.xxx)` avant chaque controller
 - **AppError** : `AppError.notFound()`, `.conflict()`, `.badRequest()` — capturé par `errorHandler`
 

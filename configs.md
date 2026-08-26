@@ -86,12 +86,29 @@ Nginx container (:80)
 
 ## 3. Fichiers de configuration à créer
 
+> ⚠️ **Section obsolète (constaté 2026-08-12)** — ce chapitre a été écrit avant
+> `entrypoint.sh`, `frontend/Dockerfile.dist`, le renommage du projet Compose
+> (`name: sm_pern`) et le tunnel Postgres en loopback. Les fichiers réels du
+> dépôt ont depuis divergé de ce qui est montré ci-dessous (voir les notes
+> ⚠️ à chaque sous-section). Pour un déploiement/mise à jour aujourd'hui,
+> **suivez `.claude/commands/deploy-nas.md`** (procédure vérifiée contre
+> l'infra réelle) plutôt que cette section — elle reste utile comme
+> explication pédagogique du *pourquoi*, pas comme source de vérité du
+> *contenu exact* des fichiers.
+
 Créez les fichiers suivants **à la racine du projet** sur votre poste de
 développement avant de transférer sur le NAS.
 
 ---
 
 ### 3.1 `backend/Dockerfile`
+
+> ⚠️ Le vrai `backend/Dockerfile` copie et exécute `entrypoint.sh` au
+> lieu d'un `CMD ["node", "server.js"]` direct — `entrypoint.sh` lance
+> `npx prisma migrate deploy` **automatiquement** à chaque démarrage du
+> conteneur avant de lancer `server.js` (donc l'étape manuelle §7.3
+> ci-dessous est aujourd'hui redondante en usage normal). Il ajoute aussi
+> un `HEALTHCHECK` sur `/api/health`. Voir le fichier réel pour le détail.
 
 ```dockerfile
 # backend/Dockerfile
@@ -118,6 +135,14 @@ CMD ["node", "server.js"]
 ---
 
 ### 3.2 `frontend/Dockerfile`
+
+> ⚠️ En prod, ce n'est **pas** ce fichier qui est utilisé mais
+> `frontend/Dockerfile.dist` — il n'y a aucun build React à l'intérieur de
+> Docker : le frontend est compilé en local (`npm run build`), et
+> `Dockerfile.dist` copie simplement le `frontend/dist/` déjà prêt dans
+> l'image nginx. Le build multi-étapes ci-dessous existe toujours dans le
+> dépôt (`frontend/Dockerfile`) mais n'est pas celui référencé par
+> `docker-compose.prod.yml` (voir §3.4).
 
 ```dockerfile
 # frontend/Dockerfile
@@ -195,6 +220,18 @@ server {
 ---
 
 ### 3.4 `docker-compose.prod.yml`
+
+> ⚠️ Le vrai fichier à la racine du dépôt diffère de ce template sur
+> plusieurs points : `name: sm_pern` explicite (évite une collision de nom
+> avec un ancien projet Compose "specimenmanager") ; le port Postgres est
+> publié en loopback (`127.0.0.1:5433:5432`, pour un tunnel SSH DBeaver —
+> jamais exposé au LAN) au lieu de ne pas être publié du tout ; `nginx`
+> pointe vers `frontend/Dockerfile.dist` (§3.2) et non `frontend/Dockerfile` ;
+> les volumes `pgdata`/`uploads` sont déclarés `external: true` avec les
+> noms `specimenmanager_pgdata16`/`specimenmanager_uploads` (hérités d'un
+> déploiement antérieur, à ne pas régénérer) plutôt que des volumes
+> anonymes ; le service `backend` monte aussi `./fokontany:/app/fokontany:ro`.
+> Se fier au fichier réel, pas à ce template.
 
 ```yaml
 # docker-compose.prod.yml
@@ -415,6 +452,12 @@ df -h /volume1   # Espace disque
 
 ## 6. Transfert des fichiers vers le NAS
 
+> ⚠️ **Ne pas utiliser `rsync`/WinSCP/`scp -r` sur Windows** — cela crée des
+> fichiers avec des chemins Windows comme noms sur le NAS. La méthode
+> vérifiée et actuellement utilisée est un **tar pipe SSH** avec la clé
+> dédiée `~/.ssh/nas_deploy` et l'utilisateur `Henintsoa_DEV` (pas `admin`)
+> — voir `.claude/commands/transfer-nas.md` pour la commande exacte.
+
 ### 6.1 Créer le répertoire de l'application (sur le NAS)
 
 ```bash
@@ -495,6 +538,11 @@ docker compose -f docker-compose.prod.yml logs backend
 ```
 
 ### 7.3 Appliquer les migrations Prisma (schéma base de données)
+
+> ⚠️ Depuis l'ajout d'`entrypoint.sh` (§3.1), cette étape est **automatique**
+> à chaque démarrage/redémarrage du conteneur `sm_backend` — `entrypoint.sh`
+> lance `npx prisma migrate deploy` avant `server.js`. La commande manuelle
+> reste utile pour vérifier/forcer l'application sans redémarrer le conteneur.
 
 ```bash
 docker exec sm_backend npx prisma migrate deploy
