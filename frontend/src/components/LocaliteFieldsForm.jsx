@@ -250,7 +250,7 @@ export default function LocaliteFieldsForm({ value, onChange, errors = {}, exclu
                 />
                 <button
                   type="button" onClick={() => removeContact(i)}
-                  className="mt-1 p-2.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                  className="mt-1 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                   aria-label={t('localiteForm.removeContact')}
                 >
                   <Trash2 size={14} />

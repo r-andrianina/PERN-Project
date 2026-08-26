@@ -190,11 +190,11 @@ export default function MainLayout() {
               <Badge tone={ROLE_TONE[user?.role] ?? 'default'} size="xs" className="mt-0.5">{user?.role}</Badge>
             </div>
             <button onClick={() => setShowPasswordModal(true)} title={t('nav.changePassword')}
-              className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
+              className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
               <KeyRound size={16} />
             </button>
             <button onClick={handleLogout} title={t('common.logout')}
-              className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors">
+              className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors">
               <LogOut size={16} />
             </button>
           </div>

@@ -78,22 +78,22 @@ function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, can
 
         <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
           {canEdit && enfantsAutorises.length > 0 && (
-            <button onClick={() => onAddChild(node)} title={t('taxonomieHotesPage.addChild')} className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
+            <button onClick={() => onAddChild(node)} title={t('taxonomieHotesPage.addChild')} className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
               <Plus size={13} />
             </button>
           )}
           {canEdit && (
             <>
-              <button onClick={() => onToggle(node)} title={node.actif ? t('taxonomieHotesPage.desactiver') : t('taxonomieHotesPage.activer')} className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
+              <button onClick={() => onToggle(node)} title={node.actif ? t('taxonomieHotesPage.desactiver') : t('taxonomieHotesPage.activer')} className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
                 {node.actif ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
               </button>
-              <button onClick={() => onEdit(node)} title={t('taxonomieHotesPage.modifier')} className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
+              <button onClick={() => onEdit(node)} title={t('taxonomieHotesPage.modifier')} className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
                 <Edit2 size={12} />
               </button>
             </>
           )}
           {canDelete && (
-            <button onClick={() => onDelete(node)} title={t('taxonomieHotesPage.supprimer')} className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg">
+            <button onClick={() => onDelete(node)} title={t('taxonomieHotesPage.supprimer')} className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg">
               <Trash2 size={12} />
             </button>
           )}
@@ -260,25 +260,25 @@ export default function TaxonomieHotesPage() {
         <div className="flex items-center justify-end gap-1">
           {canEdit && (NIVEAU_ENFANT[row.niveau] || []).length > 0 && (
             <button onClick={() => openCreateChild(row)} title={t('taxonomieHotesPage.addChild')}
-              className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
+              className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
               <Plus size={13} />
             </button>
           )}
           {canEdit && (
             <>
               <button onClick={() => toggleActif(row)} title={row.actif ? t('taxonomieHotesPage.desactiver') : t('taxonomieHotesPage.activer')}
-                className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
+                className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
                 {row.actif ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
               </button>
               <button onClick={() => openEdit(row)} title={t('taxonomieHotesPage.modifier')}
-                className="p-1.5 text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
+                className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-primary hover:bg-primary/10 rounded-lg">
                 <Edit2 size={12} />
               </button>
             </>
           )}
           {canDelete && (
             <button onClick={() => remove(row)} title={t('taxonomieHotesPage.supprimer')}
-              className="p-1.5 text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg">
+              className="p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-fg-subtle hover:text-danger hover:bg-danger/10 rounded-lg">
               <Trash2 size={12} />
             </button>
           )}
