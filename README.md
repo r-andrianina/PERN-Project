@@ -88,10 +88,15 @@ L'application est prête. Voir [Commandes disponibles](#commandes-disponibles) p
 
 ```env
 PORT=3000
-DATABASE_URL="postgresql://postgres:<mdp>@localhost:5435/specimenmanager?schema=public"
+DATABASE_URL="postgresql://postgres:<mdp>@127.0.0.1:5435/specimenmanager?schema=public"
 JWT_SECRET=<secret-fort-en-production>
 CLIENT_URL=http://localhost:5173
 ```
+
+> Utiliser `127.0.0.1` et non `localhost` dans `DATABASE_URL` : sous Windows,
+> `localhost` est résolu en `::1` en premier, et le proxy IPv6 de Docker Desktop
+> accepte le handshake TCP sans relayer la connexion. Prisma échoue alors avec
+> `P1001 — Can't reach database server`, alors que le conteneur tourne normalement.
 
 ### Frontend — `frontend/.env`
 
