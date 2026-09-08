@@ -38,7 +38,7 @@ const getCodeLabels = (t) => ({
   DOUBLON:                  t('importPage.codeDoublon'),
   TAXONOMIE_INTROUVABLE:    t('importPage.codeTaxoIntrouvable'),
   LOCALITE_INTROUVABLE:     t('importPage.codeLocaliteIntrouvable'),
-  METHODE_INTROUVABLE:      t('importPage.codeMethodeIntrouvable'),
+  NOMBRE_INVALIDE:          t('importPage.codeNombreInvalide'),
   POSITION_OCCUPEE:         t('importPage.codePositionOccupee'),
   MISSION_MANQUANTE:        t('importPage.codeMissionManquante'),
   ERREUR_BDD:               t('importPage.codeErreurBdd'),
@@ -50,9 +50,23 @@ const getCodeLabels = (t) => ({
   METHODE_CREEE:            t('importPage.codeMethodeCreee'),
   METHODE_MATCHEE_FUZZY:    t('importPage.codeMethodeMatcheeFuzzy'),
   TYPE_METHODE_INTROUVABLE: t('importPage.codeTypeMethodeIntrouvable'),
+  ACCES_REFUSE:             t('importPage.codeAccesRefuse'),
+  PARITE_INVALIDE:          t('importPage.codePariteInvalide'),
+  DATE_MANQUANTE:           t('importPage.codeDateManquante'),
+  FICHIER_DEJA_IMPORTE:     t('importPage.codeFichierDejaImporte'),
+  TUBE_HORS_PROTOCOLE:      t('importPage.codeTubeHorsProtocole'),
+  REPERES_PIEGES:           t('importPage.codeReperesPieges'),
+  PIEGE_POSITION_DIVERGENTE:    t('importPage.codePiegePositionDivergente'),
+  PIEGE_POSITION_DANS_CATCH_ID: t('importPage.codePiegePositionDansCatchId'),
+  PIEGE_TYPE_DIVERGENT:         t('importPage.codePiegeTypeDivergent'),
+  TRANCHE_HORAIRE_INVALIDE: t('importPage.codeTrancheHoraireInvalide'),
+  POSITION_PIEGE_INVALIDE:  t('importPage.codePositionPiegeInvalide'),
+  PARITE_HORS_FEMELLE:      t('importPage.codePariteHorsFemelle'),
+  ERREUR_LIGNE:             t('importPage.codeErreurLigne'),
   TEMOIN_H12:               t('importPage.codeTemoinH12'),
   TAXO_NIVEAU_GENRE:        t('importPage.codeTaxoNiveauGenre'),
   TAXO_ESPECE_NON_DETERMINEE: t('importPage.codeTaxoEspeceNonDeterminee'),
+  TAXO_SOURCES_DIVERGENTES: t('importPage.codeTaxoSourcesDivergentes'),
   SPLIT_PLAQUE:             t('importPage.codeSplitPlaque'),
   POSITION_INSUFFISANTE:    t('importPage.codePositionInsuffisante'),
 });
@@ -241,6 +255,79 @@ function PhaseSelect({ file, setFile, onAnalyse, loading, error, type, reset }) 
   );
 }
 
+// ── Mapping des colonnes ────────────────────────────────────────
+// Affiché en tête du rapport : montre ce que l'import a compris de la ligne
+// d'en-tête AVANT de parcourir les lignes. Sans ça, une colonne mal nommée ne
+// se manifeste que par une avalanche d'avertissements ligne par ligne, sans
+// que la cause (l'en-tête) soit jamais visible.
+function ColumnMapping({ colonnes }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  if (!colonnes) return null;
+
+  const { reconnues = [], ignorees = [] } = colonnes;
+  if (reconnues.length === 0 && ignorees.length === 0) return null;
+
+  return (
+    <div className="mb-4 border border-border rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-surface-2 hover:bg-surface-3 transition-colors text-left"
+      >
+        <span className="text-xs font-semibold text-fg-muted">
+          {t('importPage.columnMappingTitle')}
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-semibold">
+            {interpolate(t('importPage.columnsRecognized'), { n: reconnues.length })}
+          </span>
+          {ignorees.length > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-semibold">
+              {interpolate(t('importPage.columnsIgnored'), { n: ignorees.length })}
+            </span>
+          )}
+          <ChevronDown size={14} className={`text-fg-subtle transition-transform ${open ? 'rotate-180' : ''}`} />
+        </span>
+      </button>
+
+      {open && (
+        <div className="p-3 space-y-3 bg-surface">
+          {reconnues.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wide mb-1.5">
+                {t('importPage.columnsRecognizedLabel')}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {reconnues.map(({ source, cible }) => (
+                  <span key={source} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-success/8 text-success">
+                    {source}{source !== cible && <span className="text-fg-subtle"> → {cible}</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {ignorees.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wide mb-1.5">
+                {t('importPage.columnsIgnoredLabel')}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {ignorees.map((c, i) => (
+                  <span key={`${c}-${i}`} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-3 text-fg-subtle">
+                    {c}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[10px] text-fg-subtle mt-1.5 italic">{t('importPage.columnsIgnoredHint')}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Phase 2 — Rapport de validation ─────────────────────────────
 
 function PhaseReport({ report, file, onBack, onConfirm, loading, error }) {
@@ -306,6 +393,8 @@ function PhaseReport({ report, file, onBack, onConfirm, loading, error }) {
           )}
         </div>
       </div>
+
+      <ColumnMapping colonnes={report.colonnes} />
 
       {/* Bannière avertissement si erreurs */}
       {hasErrors && !allInvalid && (
@@ -427,6 +516,8 @@ function PhaseResult({ result, reset }) {
         </div>
       </div>
 
+      <ColumnMapping colonnes={result.colonnes} />
+
       <LogTable logs={allLogs} />
 
       <div className="flex gap-2 mt-4 pt-4 border-t border-border">
@@ -439,21 +530,43 @@ function PhaseResult({ result, reset }) {
 
 // ── Sidebar guide ────────────────────────────────────────────────
 
+// Ordre et contenu alignés sur TEMPLATE_COLUMNS (import.controller.js).
+// `req` reflète checkRequiredHeaders et RIEN D'AUTRE : WHAT_3_WORDS et
+// COLLECTION_METHOD étaient annoncées obligatoires alors que le backend ne les
+// exige pas, et 7 colonnes lisibles par l'import manquaient à cette liste.
 const getCols = (t) => [
-  { col: 'SERIES',               champ: t('importPage.colIdTerrain'),    req: true  },
-  { col: 'MISSION_ORDER_NUMBER',  champ: t('importPage.colMission'),       req: true  },
-  { col: 'WHAT_3_WORDS',          champ: t('importPage.colCodeLocalite'), req: true  },
-  { col: 'SCIENTIFIC_NAME',        champ: t('importPage.colTaxonomie'),     req: true  },
-  { col: 'COLLECTION_METHOD',     champ: t('importPage.colMethode'),       req: true  },
-  { col: 'PROJET',               champ: t('importPage.colProjet'),        req: false },
-  { col: 'BOX_PLATE_ID',          champ: t('importPage.colContainer'),     req: false },
-  { col: 'TUBE_OR_WELL_ID',       champ: t('importPage.colPosition'),      req: false },
-  { col: 'SEX',                   champ: t('importPage.colSexe'),          req: false },
-  { col: 'LIFESTAGE',             champ: t('importPage.colStade'),         req: false },
-  { col: 'BLOOD_MEAL',            champ: t('importPage.colRepasSang'),    req: false },
-  { col: 'PRESERVATIVE_SOLUTION', champ: t('importPage.colSolution'),      req: false },
+  { col: 'SERIES',                champ: t('importPage.colIdTerrain'),    req: true  },
+  { col: 'MISSION_ORDER_NUMBER',  champ: t('importPage.colMission'),      req: true  },
+  { col: 'SCIENTIFIC_NAME',       champ: t('importPage.colTaxonomie'),    req: true  },
+  { col: 'GENUS',                 champ: t('importPage.colGenre'),        req: false },
+  { col: 'SPECIES',               champ: t('importPage.colEspece'),       req: false },
+  { col: 'PROJET',                champ: t('importPage.colProjet'),       req: false },
+  { col: 'COLLECTION_LOCATION',   champ: t('importPage.colLieu'),         req: false },
+  { col: 'WHAT_3_WORDS',          champ: t('importPage.colCodeLocalite'), req: false },
+  { col: 'DECIMAL_LATITUDE',      champ: t('importPage.colLatitude'),     req: false },
+  { col: 'DECIMAL_LONGITUDE',     champ: t('importPage.colLongitude'),    req: false },
+  { col: 'ELEVATION',             champ: t('importPage.colAltitude'),     req: false },
   { col: 'DATE_OF_COLLECTION',    champ: t('importPage.colDateCollecte'), req: false },
+  { col: 'COLLECTION_METHOD',     champ: t('importPage.colMethode'),      req: false },
+  { col: 'CATCH_ID',              champ: t('importPage.colCatchId'),      req: false },
+  { col: 'OUTDOORS_INDOORS',      champ: t('importPage.colIntExt'),       req: false },
+  { col: 'TIME_OF_COLLECTION',    champ: t('importPage.colHeure'),        req: false },
+  { col: 'NUMBER',                champ: t('importPage.colNombre'),       req: false },
+  { col: 'SEX',                   champ: t('importPage.colSexe'),         req: false },
+  { col: 'LIFESTAGE',             champ: t('importPage.colStade'),        req: false },
+  { col: 'BLOOD_MEAL',            champ: t('importPage.colRepasSang'),    req: false },
+  { col: 'PARITY',                champ: t('importPage.colParite'),       req: false },
+  { col: 'ORGANISM_PART',         champ: t('importPage.colOrgane'),       req: false },
+  { col: 'PRESERVATIVE_SOLUTION', champ: t('importPage.colSolution'),     req: false },
+  { col: 'BOX_PLATE_ID',          champ: t('importPage.colContainer'),    req: false },
+  { col: 'TUBE_OR_WELL_ID',       champ: t('importPage.colPosition'),     req: false },
+  { col: 'REMARKS',               champ: t('importPage.colNotes'),        req: false },
 ];
+
+// Colonnes lues mais volontairement absentes de la liste : ce sont des REPLIS
+// d'autres colonnes (COLLECTOR_SAMPLE_ID pour SERIES, OTHER_INFORMATIONS et
+// MISC_METADATA pour REMARKS). Les afficher laisserait croire à des champs
+// distincts. Un test verrouille cette liste d'exceptions.
 
 function ColRow({ col, champ, req }) {
   return (

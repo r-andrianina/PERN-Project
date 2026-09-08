@@ -142,20 +142,35 @@ async function main() {
   // ============================================================
   //  TYPES DE MÉTHODE DE COLLECTE
   // ============================================================
+  // Codes alignés sur le référentiel réellement exploité (2026-09-04).
+  //
+  // Le seed proposait CDC-LT, BG-SENT et GITES — la famille « canonique SOP »
+  // ajoutée le 2026-08-12, qui n'a jamais porté la moindre donnée et avait été
+  // supprimée de la base. Les données utilisent CDC, BG et LC. Une installation
+  // neuve n'aurait donc eu AUCUN des codes que les fichiers d'import emploient,
+  // et aurait ressuscité les trois écartés.
+  //
+  // Les libellés reprennent ceux de la base existante, y compris quand ils sont
+  // en majuscules anglaises : un seed doit reproduire l'installation de
+  // référence, pas en inventer une variante. Leur harmonisation est une
+  // décision à part, à appliquer des deux côtés en même temps.
   const typesMethode = [
-    { code: 'CDC-LT',   nom: 'CDC Light Trap',           description: 'Piège lumineux CDC pour moustiques adultes' },
-    { code: 'BG-SENT',  nom: 'BG-Sentinel',              description: 'Piège à appât olfactif pour Aedes' },
-    { code: 'HLC',      nom: 'Capture sur appât humain', description: 'Human Landing Catch — protocole HLC' },
+    { code: 'CDC',      nom: 'CDC_LIGHT_TRAP',           description: 'Piège lumineux CDC pour moustiques adultes' },
+    { code: 'BG',       nom: 'BIOGENTS_TRAP',            description: 'Piège à appât olfactif pour Aedes (BG-Sentinel)' },
+    { code: 'HLC',      nom: 'HUMAN_LANDING_CATCH',      description: 'Capture sur appât humain — protocole HLC' },
     { code: 'RES-IND',  nom: 'Capture au repos intérieur', description: 'Aspiration de moustiques au repos en intérieur' },
-    { code: 'GITES',    nom: 'Prospection gîtes larvaires', description: 'Recherche de larves dans collections d\'eau' },
+    { code: 'LC',       nom: 'LARVAL_COLLECTION',        description: 'Prospection de gîtes larvaires — recherche de larves dans les collections d\'eau' },
     { code: 'DRAGGING', nom: 'Drag/Flagging',            description: 'Collecte de tiques au tissu (drapeau)' },
     { code: 'PIEGE-CO2',nom: 'Piège CO2',                description: 'Piège à CO2 pour tiques et moustiques' },
     { code: 'PRISE-HOTE', nom: 'Collecte sur hôte',      description: 'Collecte directe d\'ectoparasites sur l\'animal' },
     { code: 'PIEGE-RG', nom: 'Piège à rongeurs',         description: 'Capture-vivant de rongeurs hôtes (Sherman, BTS)' },
     { code: 'ZP-DP',    nom: 'Zebu Park / Dog Perk',     description: 'Collecte dans un enclos à zébus (Zebu Park) ou à chiens (Dog Perk)' },
-    { code: 'DN',       nom: 'Double Net',               description: 'Capture sans contact direct à l\'aide de deux moustiquaires' },
-    { code: 'NC',       nom: 'Net Catch',                description: 'Capture sur moustiquaires après une période de repos' },
-    { code: 'MHT',      nom: 'Puits Muirhead-Thomson',   description: 'Puits aménagé pour capture avec hôte protégé' },
+    { code: 'DN',       nom: 'DOUBLE_NET',               description: 'Capture sans contact direct à l\'aide de deux moustiquaires' },
+    { code: 'NC',       nom: 'NET_CATCH',                description: 'Capture sur moustiquaires après une période de repos' },
+    // PMT et non MHT : les deux codes désignaient le même piège, MHT a été
+    // supprimé le 2026-09-02 au profit de PMT, le seul que les données
+    // utilisent. Sans ce changement, le prochain seed recréerait MHT.
+    { code: 'PMT',      nom: 'MUIRHEAD THOMPSON WELL',   description: 'Puits aménagé pour capture avec hôte protégé' },
     { code: 'OVITRAP',  nom: 'Ovitrap',                  description: 'Piège-pondoir pour la collecte d\'œufs de moustiques (Aedes)' },
     { code: 'ET',       nom: 'Lieu d\'élevage',          description: 'Site d\'élevage utilisé comme lieu de capture d\'insectes' },
     { code: 'PYR',      nom: 'Pyrethrum Spray Catch',    description: 'Méthode chimique de capture des insectes à l\'intérieur des habitations' },
