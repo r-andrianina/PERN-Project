@@ -109,3 +109,35 @@ describe('utils/notifications — formatRelativeDate', () => {
     expect(formatRelativeDate('2026-07-20T10:00:00')).toBe('20/07/2026 à 10h00');
   });
 });
+
+// Import Excel (2026-08-27) : une entrée d'audit = un lot importé dans une
+// mission. entityId est l'id de la MISSION, pas d'un spécimen — le rendu
+// générique aurait affiché "a créé ImportMoustiques [ID: 43]".
+describe('utils/notifications — import Excel', () => {
+  const base = {
+    user: { prenom: 'Rindra', nom: 'R.' }, action: 'CREATE',
+    entity: 'ImportMoustiques', entityId: 43, oldValues: {},
+  };
+
+  it('décrit le lot importé, la mission et le fichier', () => {
+    expect(formatNotificationText({
+      ...base,
+      newValues: { importes: 2, ordreMission: 'OM-2024-001', fichier: 'collecte.xlsx' },
+    })).toBe('Rindra R. a importé 2 moustiques dans la mission « OM-2024-001 » — fichier collecte.xlsx');
+  });
+
+  it('accorde le singulier et tolère un fichier absent', () => {
+    expect(formatNotificationText({
+      ...base, newValues: { importes: 1, ordreMission: 'OM-2024-001' },
+    })).toBe('Rindra R. a importé 1 moustique dans la mission « OM-2024-001 »');
+  });
+
+  it('retombe sur l\'ID de mission si ordreMission manque', () => {
+    expect(formatNotificationText({ ...base, newValues: { importes: 0 } }))
+      .toBe('Rindra R. a importé 0 moustique dans la mission [ID: 43]');
+  });
+
+  it('pointe vers la mission concernée', () => {
+    expect(resolveEntityUrl('ImportMoustiques', 43, 'CREATE')).toBe('/missions/43');
+  });
+});

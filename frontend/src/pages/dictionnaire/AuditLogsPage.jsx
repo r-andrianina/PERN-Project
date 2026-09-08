@@ -16,6 +16,7 @@ const ACTION_TONE = {
 
 const ENTITIES = [
   '', 'Moustique', 'Tique', 'Puce', 'Localite', 'MethodeCollecte',
+  'ImportMoustiques',
   'TaxonomieSpecimen', 'TaxonomieHote',
   'TypeMethodeCollecte', 'SolutionConservation', 'TypeEnvironnement', 'TypeHabitat',
 ];

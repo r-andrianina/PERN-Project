@@ -68,6 +68,16 @@ export function formatNotificationText(item) {
   const old = item.oldValues || {};
   const neu = item.newValues || {};
 
+  // Import Excel : une entrée = un lot importé dans une mission, pas un objet
+  // unique. Le rendu générique ("a créé ImportMoustiques [ID: 43]") serait
+  // trompeur — l'ID est celui de la mission, pas d'un spécimen.
+  if (item.entity === 'ImportMoustiques') {
+    const n       = neu.importes ?? 0;
+    const cible   = neu.ordreMission ? `la mission « ${neu.ordreMission} »` : `la mission [ID: ${item.entityId}]`;
+    const fichier = neu.fichier ? ` — fichier ${neu.fichier}` : '';
+    return `${author} a importé ${n} moustique${n > 1 ? 's' : ''} dans ${cible}${fichier}`;
+  }
+
   if (GPS_ENTITIES.has(item.entity) && item.action === 'UPDATE') {
     const gpsDetail = describeGpsChange(old, neu);
     if (gpsDetail) return `${author} ${verb} le point GPS [ID: ${item.entityId}] (${gpsDetail})`;
@@ -97,6 +107,7 @@ export function resolveEntityUrl(entity, entityId, action) {
     Projet:               isDelete ? '/projets'               : `/projets/${entityId}`,
     Hote:                 isDelete ? '/hotes'                   : `/hotes/${entityId}`,
     Container:            '/missions',
+    ImportMoustiques:     `/missions/${entityId}`, // entityId = la mission importée
     MethodeCollecte:      '/missions',
     Localite:             '/missions',
     TaxonomieSpecimen:    '/dictionnaire/taxonomie-specimens',

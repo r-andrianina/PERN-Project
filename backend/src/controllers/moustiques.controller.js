@@ -7,11 +7,13 @@
 const prisma  = require('../config/prisma');
 const ExcelJS = require('exceljs');
 const fs      = require('fs');
-const { resolveSpecimenTaxonomyIdCached, libelleTaxonomie } = require('../utils/taxonomyResolve');
+const { resolveSpecimenTaxonomyIdCached, decomposeTaxon } = require('../utils/taxonomyResolve');
+const { chargerEquipes } = require('../utils/missionEquipe');
+const { formatTrancheHoraire } = require('../utils/trancheHoraire');
 const { generateMany } = require('../utils/idTerrain');
 const { countSpecimenRefs, refsReason, findReferencedSpecimenIds } = require('../utils/specimenRefs');
 const { logAudit, ACTIONS } = require('../utils/audit');
-const { toParietéSOP, BLOOD_MEAL, normalizeKey } = require('../utils/importMappings');
+const { BLOOD_MEAL, normalizeKey } = require('../utils/importMappings');
 const { getAccessibleProjetIds, canBypass, projetScopeWhere, assertProjetAccessible } = require('../utils/access');
 const { createSpecimenService }    = require('../services/specimenFactory');
 const { createSpecimenController } = require('./specimenControllerFactory');
@@ -176,17 +178,30 @@ const exportExcel = async (req, res) => {
     include: {
       methode: {
         select: {
+          // `numero` : nécessaire au code d'instance (BG_1), aligné sur l'export
+          // de recherche. Sans lui, la colonne "Méthode" affichait le nom du
+          // type et non l'instance de piège.
+          numero: true,
+          // cf. specimenSearch.js : coordonnées du piège, source primaire des
+          // colonnes GPS ; celles de la localité ne servent que de repli.
+          latitude: true,
+          longitude: true,
           typeMethode: { select: { nom: true, code: true } },
           localite: {
             select: {
-              nom: true, region: true, district: true,
+              nom: true, region: true, district: true, commune: true, fokontany: true,
               latitude: true, longitude: true,
-              mission: { select: { ordreMission: true } },
+              mission: {
+                select: {
+                  id: true, ordreMission: true,
+                  projet: { select: { code: true, nom: true } },
+                },
+              },
             },
           },
         },
       },
-      taxonomie: { include: { parent: { include: { parent: true } } } },
+      taxonomie:    { include: { parent: { include: { parent: { include: { parent: true } } } } } },
       solution:  { select: { nom: true } },
       container: { select: { code: true } },
     },
@@ -195,55 +210,86 @@ const exportExcel = async (req, res) => {
 
   const workbook  = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Moustiques');
+  // Colonnes alignées sur l'export de recherche (recherche.controller.js) :
+  // même ordre, mêmes en-têtes, mêmes conventions. Deux exports des mêmes
+  // données avec des schémas différents forçaient l'utilisateur à retraiter
+  // selon la provenance du fichier.
+  // Différences assumées : pas de colonne "Type" (export mono-type) ni "Hôte"
+  // (les moustiques ne sont pas rattachés à un hôte) ; "Organe prélevé" en plus,
+  // spécifique aux moustiques.
   worksheet.columns = [
     { header: 'ID',              key: 'id',             width: 8  },
     { header: 'ID terrain',      key: 'idTerrain',      width: 14 },
-    { header: 'Mission',         key: 'mission',        width: 15 },
-    { header: 'Localité',        key: 'localite',       width: 20 },
-    { header: 'Région',          key: 'region',         width: 15 },
-    { header: 'Latitude',        key: 'latitude',       width: 12 },
-    { header: 'Longitude',       key: 'longitude',      width: 12 },
-    { header: 'Méthode',         key: 'methode',        width: 20 },
-    { header: 'Taxonomie',       key: 'taxonomie',      width: 25 },
+    { header: 'Genre',           key: 'genre',          width: 20 },
+    { header: 'Espèce',          key: 'espece',         width: 20 },
     { header: 'Nombre',          key: 'nombre',         width: 8  },
     { header: 'Sexe',            key: 'sexe',           width: 10 },
     { header: 'Stade',           key: 'stade',          width: 10 },
     { header: 'Parité',          key: 'parite',         width: 10 },
-    { header: 'Parité (SOP)',    key: 'pariteSOP',      width: 12 },
-    { header: 'Repas sang',      key: 'repasSang',      width: 12 },
+    { header: 'Statut sanguin',  key: 'statutSanguin',  width: 14 },
     { header: 'Organe prélevé',  key: 'organePreleve',  width: 15 },
+    { header: 'Date collecte',   key: 'dateCollecte',   width: 15 },
+    { header: 'Tranche horaire', key: 'trancheHoraire', width: 14 },
+    { header: 'Projet',          key: 'projet',         width: 22 },
+    { header: 'Mission',         key: 'mission',        width: 15 },
+    { header: 'Chef de mission', key: 'chefMission',    width: 22 },
+    { header: 'Agents',          key: 'agents',         width: 30 },
+    { header: 'Localité',        key: 'localite',       width: 20 },
+    { header: 'Région',          key: 'region',         width: 15 },
+    { header: 'District',        key: 'district',       width: 15 },
+    { header: 'Commune',         key: 'commune',        width: 15 },
+    { header: 'Fokontany',       key: 'fokontany',      width: 18 },
+    { header: 'Latitude',        key: 'latitude',       width: 12 },
+    { header: 'Longitude',       key: 'longitude',      width: 12 },
+    { header: 'Méthode',         key: 'methode',        width: 14 },
+    { header: 'Type de méthode', key: 'typeMethode',    width: 22 },
     { header: 'Solution',        key: 'solution',       width: 15 },
     { header: 'Container',       key: 'container',      width: 18 },
     { header: 'Position',        key: 'position',       width: 12 },
-    { header: 'Date collecte',   key: 'dateCollecte',   width: 15 },
     { header: 'Notes',           key: 'notes',          width: 30 },
   ];
   worksheet.getRow(1).font      = { bold: true, color: { argb: 'FFFFFFFF' } };
   worksheet.getRow(1).fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D9E75' } };
   worksheet.getRow(1).alignment = { horizontal: 'center' };
 
+  const equipes = await chargerEquipes(moustiques.map((m) => m.methode?.localite?.mission?.id));
+
   moustiques.forEach((m) => {
+    const { genre, espece } = decomposeTaxon(m.taxonomie);
+    const equipe = equipes.get(m.methode?.localite?.mission?.id) ?? {};
     worksheet.addRow({
       id:             m.id,
       idTerrain:      m.idTerrain,
-      mission:        m.methode.localite.mission.ordreMission,
-      localite:       m.methode.localite.nom,
-      region:         m.methode.localite.region,
-      latitude:       m.methode.localite.latitude,
-      longitude:      m.methode.localite.longitude,
-      methode:        m.methode.typeMethode?.nom,
-      taxonomie:      libelleTaxonomie(m.taxonomie),
+      genre:          genre  ?? '',
+      espece:         espece ?? '',
       nombre:         m.nombre,
       sexe:           m.sexe,
       stade:          m.stade,
       parite:         m.parite,
-      pariteSOP:      toParietéSOP(m.parite),
-      repasSang:      m.repasSang,
+      statutSanguin:  m.repasSang,
       organePreleve:  m.organePreleve,
+      dateCollecte:   m.dateCollecte ? m.dateCollecte.toISOString().split('T')[0] : null,
+      trancheHoraire: formatTrancheHoraire(m.trancheHoraire),
+      projet:         m.methode.localite.mission.projet?.nom
+        ?? m.methode.localite.mission.projet?.code ?? '',
+      mission:        m.methode.localite.mission.ordreMission,
+      chefMission:    equipe.chef   ?? '',
+      agents:         equipe.agents ?? '',
+      localite:       m.methode.localite.nom,
+      region:         m.methode.localite.region,
+      district:       m.methode.localite.district,
+      commune:        m.methode.localite.commune,
+      fokontany:      m.methode.localite.fokontany,
+      // cf. recherche.controller.js : piège d'abord, localité en repli.
+      latitude:       m.methode.latitude  ?? m.methode.localite.latitude,
+      longitude:      m.methode.longitude ?? m.methode.localite.longitude,
+      methode:        m.methode.typeMethode?.code && m.methode.numero != null
+        ? `${m.methode.typeMethode.code}_${m.methode.numero}`
+        : (m.methode.typeMethode?.code ?? ''),
+      typeMethode:    m.methode.typeMethode?.nom ?? '',
       solution:       m.solution?.nom,
       container:      m.container?.code,
       position:       m.position,
-      dateCollecte:   m.dateCollecte ? m.dateCollecte.toISOString().split('T')[0] : null,
       notes:          m.notes,
     });
   });

@@ -11,8 +11,9 @@ const {
   includeBase,
   includeWithHote,
 } = require('../utils/specimenSearch');
-const { libelleTaxonomie } = require('../utils/taxonomyResolve');
-const { toParietéSOP } = require('../utils/importMappings');
+const { libelleTaxonomie, decomposeTaxon } = require('../utils/taxonomyResolve');
+const { chargerEquipes } = require('../utils/missionEquipe');
+const { formatTrancheHoraire } = require('../utils/trancheHoraire');
 
 const TYPES_VALIDES = ['moustique', 'tique', 'puce'];
 
@@ -134,6 +135,11 @@ const search = async (req, res) => {
       id:           s.id,
       idTerrain:    s.idTerrain,
       taxonomie:    s.taxonomie,
+      // Décomposition calculée côté serveur : le frontend affiche Genre et
+      // Espèce en deux colonnes et ne doit pas re-dériver la règle de remontée
+      // du sous-genre (c'est cette duplication qui avait fait diverger les
+      // libellés entre l'écran, l'export et la page de recherche).
+      ...decomposeTaxon(s.taxonomie),
       nombre:       s.nombre,
       sexe:         s.sexe,
       stade:        s.stade,
@@ -172,16 +178,38 @@ const exportExcel = async (req, res) => {
     { header: 'Type',         key: 'type',       width: 12 },
     { header: 'ID',           key: 'id',         width: 8  },
     { header: 'ID terrain',   key: 'idTerrain',  width: 14 },
-    { header: 'Taxonomie',    key: 'taxo',       width: 25 },
+    // Genre et espèce en colonnes distinctes plutôt qu'un libellé concaténé :
+    // permet de trier, filtrer et faire un tableau croisé par genre sans
+    // redécouper la chaîne dans Excel.
+    { header: 'Genre',        key: 'genre',      width: 20 },
+    { header: 'Espèce',       key: 'espece',     width: 20 },
     { header: 'Nombre',       key: 'nombre',     width: 8  },
     { header: 'Sexe',         key: 'sexe',       width: 10 },
     { header: 'Stade',        key: 'stade',      width: 10 },
+    // Colonne "Parité (SOP)" supprimée le 2026-09-02 : la parité étant binaire
+    // (Nulle/Pare), elle dupliquait strictement cette colonne en notation NP/P.
     { header: 'Parité',       key: 'parite',     width: 10 },
-    { header: 'Parité (SOP)', key: 'pariteSOP',  width: 12 },
-    { header: 'Repas sang',   key: 'repasSang',  width: 12 },
-    { header: 'Gorgée',       key: 'gorge',      width: 10 },
+    // "Repas sang" (moustiques) et "Gorgée" (tiques) fusionnées le 2026-09-02 :
+    // les deux champs partagent le même enum STATUT_SANGUIN et le même helper
+    // d'affichage, et ne pouvaient jamais être remplies sur la même ligne. Deux
+    // colonnes affirmaient une distinction que la donnée ne fait pas.
+    { header: 'Statut sanguin', key: 'statutSanguin', width: 14 },
+    // Champ moustique uniquement — vide pour les autres types, comme "Parité".
+    // Même position que dans l'export moustiques, pour garder les deux alignés.
+    { header: 'Organe prélevé', key: 'organePreleve', width: 15 },
     { header: 'Date collecte',key: 'date',       width: 14 },
+    // Créneau horaire : moustiques uniquement, renseigné par les protocoles
+    // horodatés (HLC). Chargé depuis l'enum, restitué en clair ("18h–19h").
+    { header: 'Tranche horaire', key: 'trancheHoraire', width: 14 },
+    // Le projet était chargé à chaque requête et n'était exporté nulle part :
+    // le fichier donnait la mission sans dire à quel projet elle appartient.
+    { header: 'Projet',       key: 'projet',     width: 22 },
     { header: 'Mission',      key: 'mission',    width: 14 },
+    { header: 'Chef de mission', key: 'chefMission', width: 22 },
+    // Agents rattachés à la MISSION, pas au spécimen : tous les spécimens d'une
+    // même mission portent donc la même liste. Ce n'est pas « qui a capturé ce
+    // spécimen », information que le modèle n'enregistre pas.
+    { header: 'Agents',       key: 'agents',     width: 30 },
     { header: 'Localité',     key: 'localite',   width: 22 },
     { header: 'Région',       key: 'region',     width: 14 },
     { header: 'District',     key: 'district',   width: 14 },
@@ -189,7 +217,10 @@ const exportExcel = async (req, res) => {
     { header: 'Fokontany',    key: 'fokontany',  width: 18 },
     { header: 'Latitude',     key: 'lat',        width: 12 },
     { header: 'Longitude',    key: 'lng',        width: 12 },
-    { header: 'Méthode',      key: 'methode',    width: 18 },
+    // Code d'instance (BG_1) et type (BIOGENTS_TRAP) séparés, comme Genre/Espèce :
+    // permet de regrouper par type de piège sans redécouper la chaîne.
+    { header: 'Méthode',      key: 'methode',    width: 14 },
+    { header: 'Type de méthode', key: 'typeMethode', width: 22 },
     { header: 'Hôte',         key: 'hote',       width: 22 },
     { header: 'Solution',     key: 'solution',   width: 14 },
     { header: 'Container',    key: 'container',  width: 18 },
@@ -200,31 +231,51 @@ const exportExcel = async (req, res) => {
   ws.getRow(1).fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D9E75' } };
   ws.getRow(1).alignment = { horizontal: 'center' };
 
+  // Chef de mission + agents : une seule requête pour toutes les missions
+  // représentées dans l'export. Les charger via l'include des spécimens aurait
+  // dupliqué la même liste sur chaque ligne (des centaines de fois par mission).
+  const equipes = await chargerEquipes(items.map((s) => s.methode?.localite?.mission?.id));
+
   items.forEach((s) => {
+    const { genre, espece } = decomposeTaxon(s.taxonomie);
+    const equipe = equipes.get(s.methode?.localite?.mission?.id) ?? {};
     ws.addRow({
       type:      s._type,
       id:        s.id,
       idTerrain: s.idTerrain || '',
-      taxo:      libelleTaxonomie(s.taxonomie),
+      genre:     genre  ?? '',
+      espece:    espece ?? '',
       nombre:    s.nombre,
       sexe:      s.sexe,
       stade:     s.stade,
       parite:    s.parite ?? '',
-      pariteSOP: toParietéSOP(s.parite),
-      repasSang: s._type === 'moustique' ? (s.repasSang ?? '') : '',
-      gorge:     s._type === 'tique'     ? (s.gorge     ?? '') : '',
+      // Un spécimen ne porte que l'un des deux champs selon son type — ils ne
+      // peuvent donc pas se contredire (cf. commentaire de la colonne).
+      statutSanguin: s.repasSang ?? s.gorge ?? '',
+      organePreleve: s.organePreleve ?? '',
       date:      s.dateCollecte ? new Date(s.dateCollecte).toISOString().split('T')[0] : '',
+      trancheHoraire: formatTrancheHoraire(s.trancheHoraire),
+      projet:    s.methode?.localite?.mission?.projet?.nom
+        ?? s.methode?.localite?.mission?.projet?.code ?? '',
       mission:   s.methode?.localite?.mission?.ordreMission ?? '',
+      chefMission: equipe.chef   ?? '',
+      agents:      equipe.agents ?? '',
       localite:  s.methode?.localite?.nom ?? '',
       region:    s.methode?.localite?.region ?? '',
       district:  s.methode?.localite?.district ?? '',
       commune:   s.methode?.localite?.commune ?? '',
       fokontany: s.methode?.localite?.fokontany ?? '',
-      lat:       s.methode?.localite?.latitude ?? '',
-      lng:       s.methode?.localite?.longitude ?? '',
+      // Coordonnées du piège d'abord, celles de la localité en repli : c'est là
+      // que le spécimen a réellement été capturé. L'export ne lisait que la
+      // localité, si bien qu'un site géolocalisé au niveau du piège seulement
+      // (cas de "Terrain Ambohimanoro") sortait sans coordonnées, alors que
+      // l'application et la carte les affichaient.
+      lat:       s.methode?.latitude  ?? s.methode?.localite?.latitude  ?? '',
+      lng:       s.methode?.longitude ?? s.methode?.localite?.longitude ?? '',
       methode:   s.methode?.typeMethode?.code && s.methode?.numero != null
         ? `${s.methode.typeMethode.code}_${s.methode.numero}`
-        : (s.methode?.typeMethode?.nom ?? ''),
+        : (s.methode?.typeMethode?.code ?? ''),
+      typeMethode: s.methode?.typeMethode?.nom ?? '',
       hote:      s.hote?.taxonomieHote?.nom ?? '',
       solution:  s.solution?.nom ?? '',
       container: s.container?.code ?? '',
