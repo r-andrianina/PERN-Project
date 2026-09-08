@@ -144,7 +144,7 @@ export default function NouveauMoustique() {
   const solutionOptions  = solutions.map(s => ({ value: s.id, label: `${s.nom}${s.temperature ? ' (' + s.temperature + ')' : ''}` }));
   const sexeOptions    = [{ value:'M', label: t('sexe.M') }, { value:'F', label: t('sexe.F') }, { value:'inconnu', label: t('sexe.inconnu') }];
   const stadeOptions   = STADE_OPTIONS_MOUSTIQUE;
-  const pariteOptions  = [{ value:'Nulle', label:'Nulle' }, { value:'Multi', label:'Multi' }];
+  const pariteOptions  = [{ value:'Nullipare', label:'Nullipare' }, { value:'Pare', label:'Pare' }];
   const organeOptions  = [
     { value: 'Tête',    label: t('specimenDetail.organeTete') },
     { value: 'Thorax',  label: t('specimenDetail.organeThorax') },
