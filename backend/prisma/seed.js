@@ -9,9 +9,28 @@ const prisma = new PrismaClient();
 // ----------------------------------------------------------------
 //  Helpers
 // ----------------------------------------------------------------
+// Niveaux où un nom doit être unique sur TOUT l'arbre (même type), pas
+// seulement sous le même parent. Règle unique du projet, déjà appliquée par
+// taxonomieSpecimens.controller.js, taxonomieHotes.controller.js et
+// scripts/import-taxo.js — le seed était le seul à s'en écarter.
+//
+// Conséquence du décalage (constatée en production le 2026-09-08) : le
+// dictionnaire du taxonomiste ne renseigne aucune sous-famille, donc
+// import-taxo crée « Aedes » sous la famille Culicidae ; le seed le cherchait
+// ensuite sous la sous-famille Culicinae, ne le trouvait pas, et en créait un
+// SECOND. Résultat : un même genre présent deux fois dans l'arbre, et les
+// spécimens répartis entre les deux branches — 318 moustiques éclatés sur
+// deux « Culex », deux « Aedes », deux « Anopheles ».
+const GLOBAL_UNIQUE_LEVELS = ['ordre', 'famille', 'sous_famille', 'genre', 'sous_genre'];
+
+const rechercheNoeud = (niveau, nom, parentId, extra = {}) =>
+  (GLOBAL_UNIQUE_LEVELS.includes(niveau)
+    ? { niveau, nom: { equals: nom, mode: 'insensitive' }, ...extra }
+    : { niveau, nom, parentId: parentId ?? null });
+
 async function upsertSpecimenNode({ niveau, nom, parentId, type, auteur, annee, nomCommun }) {
   const existing = await prisma.taxonomieSpecimen.findFirst({
-    where: { niveau, nom, parentId: parentId ?? null },
+    where: rechercheNoeud(niveau, nom, parentId, { type }),
   });
   if (existing) return existing;
   return prisma.taxonomieSpecimen.create({
@@ -21,7 +40,7 @@ async function upsertSpecimenNode({ niveau, nom, parentId, type, auteur, annee, 
 
 async function upsertHoteNode({ niveau, nom, parentId, nomCommun }) {
   const existing = await prisma.taxonomieHote.findFirst({
-    where: { niveau, nom, parentId: parentId ?? null },
+    where: rechercheNoeud(niveau, nom, parentId),
   });
   if (existing) return existing;
   return prisma.taxonomieHote.create({
