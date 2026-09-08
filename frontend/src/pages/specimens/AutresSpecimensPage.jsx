@@ -4,6 +4,7 @@ import { Plus, Search, X } from 'lucide-react';
 import { Card, Button, Badge, EmptyState, PageHeader, Spinner, Pagination, DataTable } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
 import api from '../../api/axios';
+import { taxoLabel } from '../../utils/taxoLabel';
 import useAuthStore from '../../store/authStore';
 import { dialog } from '../../lib/dialog';
 import { toast } from '../../lib/toast';
@@ -33,7 +34,7 @@ export default function AutresSpecimensPage() {
       key: 'taxonomie',
       label: t('autresSpecimensPage.colTaxonomy'),
       render: (s) => s.taxonomie
-        ? <span className="italic text-sm text-fg">{s.taxonomie.parent ? `${s.taxonomie.parent.nom} ${s.taxonomie.nom}` : s.taxonomie.nom}</span>
+        ? <span className="italic text-sm text-fg">{taxoLabel(s.taxonomie)}</span>
         : <span className="text-fg-subtle text-xs">—</span>,
     },
     {

@@ -148,6 +148,11 @@ const includeBase = {
     select: {
       id: true,
       numero: true,
+      // Coordonnées du PIÈGE : plus précises que celles de la localité (deux
+      // pièges d'un même site peuvent être à des centaines de mètres). Servent
+      // de source primaire aux exports, la localité n'étant que le repli.
+      latitude: true,
+      longitude: true,
       typeMethode: { select: { code: true, nom: true } },
       localite: {
         select: {
@@ -164,7 +169,7 @@ const includeBase = {
       },
     },
   },
-  taxonomie: { include: { parent: { include: { parent: true } } } },
+  taxonomie:    { include: { parent: { include: { parent: { include: { parent: true } } } } } },
   solution:  { select: { id: true, nom: true } },
   container: { select: { id: true, code: true, type: true } },
 };

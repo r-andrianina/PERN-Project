@@ -10,6 +10,7 @@ import api from '../api/axios';
 import { useT } from '../lib/i18n';
 import useAuthStore from '../store/authStore';
 import SpecimenIcon from './SpecimenIcon';
+import { taxoLabel } from '../utils/taxoLabel';
 
 const TYPE_TONE  = { moustique: '#1D9E75',   tique: '#f59e0b', puce: '#ef4444' };
 
@@ -332,7 +333,9 @@ export default function GlobalSearch() {
                 </p>
                 {results.specimens.map((s, i) => {
                   const idx = i;
-                  const taxoNom = s.taxonomie ? (s.taxonomie.parent?.nom ? `${s.taxonomie.parent.nom} ${s.taxonomie.nom}` : s.taxonomie.nom) : '—';
+                  // taxoLabel remonte au vrai genre à travers un éventuel
+                  // sous-genre ; la reconstruction inline affichait le sous-genre.
+                  const taxoNom = taxoLabel(s.taxonomie) || '—';
                   return (
                     <button key={`s-${s._type}-${s.id}`} onClick={() => navigateTo({ type: 'specimen', data: s })}
                       className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2 transition-colors text-left

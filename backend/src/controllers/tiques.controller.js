@@ -29,7 +29,7 @@ const includeBase = {
     },
   },
   hote:      { include: { taxonomieHote: { select: { nom: true, niveau: true } } } },
-  taxonomie: { include: { parent: { include: { parent: true } } } },
+  taxonomie:    { include: { parent: { include: { parent: { include: { parent: true } } } } } },
   solution:  { select: { id: true, nom: true } },
   container: { select: { id: true, code: true, type: true } },
 };
@@ -162,7 +162,7 @@ const exportExcel = async (req, res) => {
     include: {
       methode:   { select: { typeMethode: { select: { nom: true } }, localite: { select: { nom: true, region: true, latitude: true, longitude: true, mission: { select: { ordreMission: true } } } } } },
       hote:      { include: { taxonomieHote: { select: { nom: true } } } },
-      taxonomie: { include: { parent: { include: { parent: true } } } },
+      taxonomie:    { include: { parent: { include: { parent: { include: { parent: true } } } } } },
       solution:  { select: { nom: true } },
       container: { select: { code: true } },
     },

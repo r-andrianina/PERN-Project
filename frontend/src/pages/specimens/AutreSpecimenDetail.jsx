@@ -4,6 +4,7 @@ import { Bug, FlaskConical, FileText, Pencil, Trash2, Save, X, MapPin, Beaker, P
 import api from '../../api/axios';
 import { Card, Badge, Button, PageHeader, Spinner, Breadcrumb, DatePicker } from '../../components/ui';
 import useAuthStore from '../../store/authStore';
+import { taxoLabel } from '../../utils/taxoLabel';
 import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 import { useT, interpolate } from '../../lib/i18n';
@@ -157,7 +158,7 @@ export default function AutreSpecimenDetail() {
               <Field label={t('autreSpecimenDetail.typeSpecimen')}>{s.typeSpecimen?.nom}</Field>
               <Field label={t('autreSpecimenDetail.taxonomie')}>
                 {s.taxonomie
-                  ? <span className="italic">{s.taxonomie.parent ? `${s.taxonomie.parent.nom} ${s.taxonomie.nom}` : s.taxonomie.nom}</span>
+                  ? <span className="italic">{taxoLabel(s.taxonomie)}</span>
                   : null}
               </Field>
               <Field label={t('autreSpecimenDetail.idTerrain')}>
