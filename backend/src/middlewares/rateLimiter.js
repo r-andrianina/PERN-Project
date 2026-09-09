@@ -60,4 +60,22 @@ const exportLimiter = rateLimit({
   message: { error: 'Trop d\'exports — réessayez dans quelques minutes.' },
 });
 
-module.exports = { loginLimiter, publicLimiter, searchLimiter, exportLimiter };
+// /import/* : de loin l'endpoint le plus coûteux de l'API — jusqu'à 25 Mo
+// téléversés, un classeur entier chargé en RAM, puis une transaction qui écrit
+// des milliers de lignes. Il n'avait aucun throttling, alors que les routes de
+// recherche et d'export en ont un depuis longtemps : un seul compte pouvait
+// saturer la mémoire et le pool de connexions du backend.
+// Quota volontairement large pour l'usage réel (on importe quelques fichiers par
+// séance, pas quelques dizaines par minute) mais suffisant pour couper une boucle.
+const importLimiter = rateLimit({
+  windowMs:        10 * 60 * 1000, // 10 minutes
+  max:             20,
+  standardHeaders: 'draft-7',
+  legacyHeaders:   false,
+  // Clé par utilisateur : l'institut est derrière un NAT, plusieurs comptes
+  // partagent la même IP publique (cf. searchLimiter).
+  keyGenerator:    (req) => (req.user?.id ? String(req.user.id) : ipKeyGenerator(req.ip)),
+  message: { error: "Trop d'imports lancés — patientez quelques minutes avant de réessayer." },
+});
+
+module.exports = { loginLimiter, publicLimiter, searchLimiter, exportLimiter, importLimiter };

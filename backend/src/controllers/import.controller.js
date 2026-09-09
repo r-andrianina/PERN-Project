@@ -23,11 +23,55 @@ const {
   FIELD_COLUMNS: COL,
 } = require('../utils/importMappings');
 const { getAccessibleProjetIds, assertProjetAccessible } = require('../utils/access');
-const { logAudit, ACTIONS } = require('../utils/audit');
+const { buildAuditData, notifierActivite, ACTIONS } = require('../utils/audit');
 const { parseTrancheHoraire } = require('../utils/trancheHoraire');
 const { nouveauRegistre, enregistrerTube, tubesHorsProtocole } = require('../utils/protocoleTube');
 const { lireReperesPieges } = require('../utils/feuilleGps');
+const {
+  chargerClasseurUtilisateur, premiereFeuille, assertVolumeTraitable,
+} = require('../utils/excelGuards');
 const AppError = require('../utils/AppError');
+
+// ── Bornes d'exécution ───────────────────────────────────────────
+// Toutes exposées ici plutôt que dispersées : ce sont les garde-fous qui font
+// la différence entre un import de 500 lignes (le cas réel) et un fichier qui
+// met le backend à genoux.
+
+// Lignes insérées par appel `createMany`. 500 tient largement sous la limite de
+// paramètres liés de PostgreSQL (~65 535 pour ~15 colonnes) tout en réduisant
+// d'un facteur 500 le nombre d'aller-retours : l'ancien code faisait UN
+// `create()` par ligne, soit 1000 allers-retours pour un fichier de 1000 lignes.
+const TAILLE_LOT_INSERT = 500;
+
+// Découpage des listes passées à un `in:` Prisma. Sans découpage, un fichier de
+// plus de ~65 000 lignes faisait échouer le préchargement des idTerrain sur la
+// limite de paramètres de PostgreSQL — donc l'import entier, sans message clair.
+const TAILLE_LOT_IN = 2000;
+
+// Plafond de messages détaillés renvoyés dans la réponse JSON. Un fichier de
+// 20 000 lignes toutes fautives produisait 20 000 objets sérialisés dans une
+// seule réponse (plusieurs dizaines de Mo) puis autant de lignes de tableau à
+// rendre côté navigateur. Les COMPTEURS, eux, restent exacts : seul le détail
+// est tronqué, et la troncature est annoncée à l'utilisateur.
+const MAX_LOGS = 2000;
+
+// Délais de la transaction d'import. Un import de 20 000 lignes par lots de 500
+// tient très en deçà, mais une base distante et chargée mérite de la marge.
+// Réglables sans redéploiement de code (variables d'environnement).
+const TX_TIMEOUT_MS = Number(process.env.IMPORT_TX_TIMEOUT_MS) || 10 * 60 * 1000;
+const TX_MAXWAIT_MS  = Number(process.env.IMPORT_TX_MAXWAIT_MS) || 30 * 1000;
+
+// Longueurs maximales imposées par le schéma Prisma. Elles étaient jusqu'ici
+// découvertes à l'insertion (erreur P2000 remontée en « ERREUR_BDD » opaque) ;
+// avec l'insertion par lots, un seul débordement ferait échouer tout un lot.
+// On tronque donc en amont, en le signalant.
+const LONGUEURS_MAX = {
+  idTerrain:     50,
+  position:      10,
+  stade:         50,
+  parite:        50,
+  organePreleve: 100,
+};
 
 // En-têtes obligatoires. La taxonomie accepte deux formats au choix : le nom
 // scientifique complet (SCIENTIFIC_NAME) ou les colonnes structurées
@@ -70,10 +114,16 @@ async function importAnterieur(empreinte) {
   const entrees = await prisma.auditLog.findMany({
     where:   { entity: 'ImportMoustiques', newValues: { path: ['empreinte'], equals: empreinte } },
     orderBy: { createdAt: 'asc' },
-    take:    1,
+    // Plusieurs entrées par import (une par mission touchée) : on en prend
+    // assez pour trouver la première qui a réellement écrit quelque chose.
+    take:    20,
     select:  { createdAt: true, newValues: true, user: { select: { nom: true, prenom: true } } },
   });
-  return entrees[0] ?? null;
+  // Une tentative qui n'a créé AUCUN spécimen (fichier entièrement rejeté) ne
+  // doit pas bloquer une nouvelle tentative : il n'y a pas de doublon possible.
+  // Le filtre se fait ici plutôt que dans le `where` pour ne pas dépendre du
+  // support des comparaisons numériques sur chemin JSON côté Prisma/PostgreSQL.
+  return entrees.find((e) => Number(e.newValues?.importes ?? 0) > 0) ?? null;
 }
 
 /**
@@ -106,14 +156,129 @@ function freePlaquePositions(occupiedSet) {
 }
 
 // ── Helpers internes ─────────────────────────────────────────
+
+// Bornes du « numéro de série » de date Excel : 1 = 1900-01-01,
+// 2958465 = 9999-12-31. Hors de cette plage, un nombre n'est pas une date.
+const EXCEL_SERIAL_MIN = 1;
+const EXCEL_SERIAL_MAX = 2958465;
+
+/**
+ * Convertit une valeur de cellule en Date.
+ *
+ * ExcelJS ne renvoie un objet Date que si la cellule porte un FORMAT de date.
+ * Une colonne saisie en « Standard » (le cas le plus courant quand le fichier
+ * transite par un export CSV puis un ré-enregistrement) renvoie le numéro de
+ * série Excel brut — ex : 45366. `new Date(45366)` l'interprétait alors comme
+ * 45 366 millisecondes depuis l'epoch, soit **1970-01-01**, enregistré en base
+ * en silence. C'était une corruption de données invisible : la ligne passait,
+ * la date était fausse.
+ *
+ * Le décalage de référence est 1899-12-30 (et non le 31) : Excel considère à
+ * tort 1900 comme bissextile, convention reproduite ici pour rester aligné sur
+ * ce qu'affiche Excel.
+ */
 const toDate = (v) => {
-  if (!v) return null;
-  if (v instanceof Date) return v;
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    if (v < EXCEL_SERIAL_MIN || v > EXCEL_SERIAL_MAX) return null;
+    // Partie entière = jours ; on ignore la fraction horaire (l'heure de
+    // collecte a sa propre colonne, TIME_OF_COLLECTION).
+    const ms = Math.floor(v) * 86400000;
+    const d  = new Date(Date.UTC(1899, 11, 30) + ms);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   const d = new Date(v);
-  return isNaN(d) ? null : d;
+  return isNaN(d.getTime()) ? null : d;
 };
 
 const toString = (v) => (v === null || v === undefined ? null : String(v).trim() || null);
+
+/**
+ * Tronque une valeur à la longueur admise par la colonne, en signalant.
+ * Le schéma impose des VarChar : sans ce contrôle, un débordement produisait un
+ * P2000 à l'insertion — ligne perdue avec un message opaque, et depuis le
+ * passage à l'insertion par lots, c'est tout le lot qui aurait échoué.
+ */
+function tronquer(valeur, champ, signaler) {
+  const max = LONGUEURS_MAX[champ];
+  if (valeur == null || max == null || String(valeur).length <= max) return valeur;
+  const coupe = String(valeur).slice(0, max);
+  signaler?.('avertissement', 'VALEUR_TRONQUEE',
+    `Champ "${champ}" trop long (${String(valeur).length} caractères, maximum ${max}) — tronqué à "${coupe}"`);
+  return coupe;
+}
+
+/** Découpe un tableau en tranches de `taille` — pour les `in:` Prisma. */
+function parLots(tableau, taille) {
+  const lots = [];
+  for (let i = 0; i < tableau.length; i += taille) lots.push(tableau.slice(i, i + taille));
+  return lots;
+}
+
+/**
+ * Message d'erreur base de données présentable à l'utilisateur.
+ *
+ * `err.message` de Prisma expose les noms de contraintes, de colonnes et parfois
+ * les valeurs en cause : le renvoyer au client était une fuite d'information sur
+ * la structure interne. On mappe les codes connus et on journalise le détail
+ * complet côté serveur, où il reste exploitable.
+ */
+function messageErreurBdd(err, contexte) {
+  console.error(`[import] Erreur base de données (${contexte}) :`, err?.code ?? '', err?.message ?? err);
+  switch (err?.code) {
+    case 'P2002': return 'Doublon de contrainte unique (identifiant terrain déjà utilisé)';
+    case 'P2003': return 'Référence invalide — une donnée liée (mission, taxonomie, container) est introuvable';
+    case 'P2000': return 'Valeur trop longue pour la colonne visée';
+    case 'P2025': return 'Enregistrement lié introuvable';
+    case 'P2024': return 'Base de données saturée (délai d\'attente de connexion dépassé)';
+    case 'P1001':
+    case 'P1002': return 'Base de données injoignable';
+    default:      return 'erreur base de données inattendue';
+  }
+}
+
+/**
+ * Collecteur de messages borné.
+ *
+ * Les compteurs restent EXACTS quel que soit le volume ; seul le détail cesse
+ * d'être conservé au-delà de MAX_LOGS. Sans cette borne, un fichier entièrement
+ * fautif produisait une réponse JSON de plusieurs dizaines de Mo, coûteuse à
+ * sérialiser côté serveur et impossible à afficher côté navigateur.
+ */
+function nouveauJournal(max = MAX_LOGS) {
+  const entrees = [];
+  // Décompte des codes d'erreur, tenu à la volée : il doit rester juste même
+  // quand le détail est tronqué (l'ancien code le recalculait en parcourant
+  // `logs`, ce qui aurait sous-compté dès la première troncature).
+  const resume    = {};
+  const compteurs = { erreur: 0, avertissement: 0, info: 0 };
+  let omis = 0;
+
+  return {
+    entrees, resume, compteurs,
+    push(entree) {
+      if (entree.niveau in compteurs) compteurs[entree.niveau]++;
+      if (entree.niveau === 'erreur') resume[entree.code] = (resume[entree.code] ?? 0) + 1;
+      if (entrees.length < max) entrees.push(entree);
+      else omis++;
+    },
+    get omis() { return omis; },
+    /** Ajoute, si nécessaire, la ligne annonçant la troncature. */
+    finaliser() {
+      if (omis > 0) {
+        entrees.push({
+          ligne: 0, idTerrain: null, niveau: 'avertissement', code: 'RAPPORT_TRONQUE',
+          raison: `Rapport tronqué : ${omis} message(s) supplémentaire(s) non affiché(s). `
+                + 'Les compteurs ci-dessus restent exacts — corrigez les erreurs listées puis relancez.',
+        });
+      }
+      return entrees;
+    },
+  };
+}
 
 const toFloat = (v) => {
   if (v === null || v === undefined) return null;
@@ -147,13 +312,55 @@ function parseLocationNom(raw) {
 // cache : un projet compte typiquement 2-5 solutions de conservation
 // distinctes pour des centaines de lignes — sans cache, chaque ligne
 // relance la même requête `findFirst`.
-async function resolveSolution(rawValue, cache) {
+/**
+ * Résout un couple (genre, espèce) vers une entrée du dictionnaire taxonomique.
+ *
+ * Repli au niveau du GENRE si l'espèce n'est pas trouvée — l'appelant lit
+ * `niveau` pour décider s'il doit avertir.
+ *
+ * Factorisé ici parce que l'import et la validation à sec doivent rendre
+ * exactement le même verdict : les deux copies avaient déjà divergé une fois
+ * (correctif sous-genre du 2026-08-20 appliqué d'un seul côté), ce qui faisait
+ * annoncer « valide » à l'aperçu puis rejeter la ligne à l'import.
+ *
+ * @returns {Promise<{id: number, niveau: string}|null>}
+ */
+async function resoudreTaxonomie(db, genus, species) {
+  if (!genus) return null;
+
+  if (species) {
+    const espece = await db.taxonomieSpecimen.findFirst({
+      where: {
+        niveau: 'espece',
+        nom: { equals: species, mode: 'insensitive' },
+        actif: true,
+        // Le parent direct d'une espèce est soit le genre, soit un sous-genre
+        // intermédiaire (ex: Anopheles (Cellia) coustani) — il faut vérifier les
+        // deux, sinon toute espèce rattachée via un sous-genre retombe à tort au
+        // niveau genre.
+        OR: [
+          { parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } },
+          { parent: { niveau: 'sous_genre', parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } } },
+        ],
+      },
+      select: { id: true, niveau: true },
+    });
+    if (espece) return espece;
+  }
+
+  return db.taxonomieSpecimen.findFirst({
+    where: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' }, actif: true },
+    select: { id: true, niveau: true },
+  });
+}
+
+async function resolveSolution(db, rawValue, cache) {
   if (!rawValue) return null;
   const key = normalizeKey(rawValue);
   if (cache.has(key)) return cache.get(key);
   const nom = PRESERVATIVE[key];
   if (!nom) { cache.set(key, null); return null; }
-  const sol = await prisma.solutionConservation.findFirst({
+  const sol = await db.solutionConservation.findFirst({
     where: { nom: { contains: nom, mode: 'insensitive' }, actif: true },
     select: { id: true },
   });
@@ -162,9 +369,9 @@ async function resolveSolution(rawValue, cache) {
   return id;
 }
 
-async function resolveContainer(boxId, missionId, createdById) {
+async function resolveContainer(db, boxId, missionId, createdById) {
   if (!boxId) return null;
-  const existing = await prisma.container.findUnique({
+  const existing = await db.container.findUnique({
     where: { code: boxId },
     select: { id: true, type: true },
   });
@@ -173,7 +380,7 @@ async function resolveContainer(boxId, missionId, createdById) {
   const type     = /^P_/i.test(boxId) ? 'PLAQUE' : 'BOITE';
   const capacity = type === 'PLAQUE' ? 96 : 81;
 
-  return prisma.container.create({
+  return db.container.create({
     data: { code: boxId, type, capacity, missionId, createdById },
     select: { id: true, type: true },
   });
@@ -200,12 +407,12 @@ function projetIdentite(projetNom) {
  *     règle, n'importe quel technicien fabriquait des projets hors périmètre
  *     en déposant un fichier, et y écrivait des spécimens.
  */
-async function findOrCreateProjet(projetNom, logs, accessibleProjetIds) {
+async function findOrCreateProjet(db, projetNom, logs, accessibleProjetIds) {
   const { nom: nomNettoye, code } = projetIdentite(projetNom);
 
-  let projet = await prisma.projet.findUnique({ where: { code }, select: { id: true, nom: true } });
+  let projet = await db.projet.findUnique({ where: { code }, select: { id: true, nom: true } });
   if (!projet) {
-    projet = await prisma.projet.findFirst({
+    projet = await db.projet.findFirst({
       where: { nom: { equals: nomNettoye, mode: 'insensitive' } },
       select: { id: true, nom: true },
     });
@@ -221,7 +428,7 @@ async function findOrCreateProjet(projetNom, logs, accessibleProjetIds) {
     );
   }
 
-  projet = await prisma.projet.create({
+  projet = await db.projet.create({
     data: { code, nom: nomNettoye },
     select: { id: true, nom: true },
   });
@@ -232,8 +439,8 @@ async function findOrCreateProjet(projetNom, logs, accessibleProjetIds) {
 /**
  * Trouve ou crée une mission pour un ordre de mission donné.
  */
-async function findOrCreateMission(ordreMission, projetId, dateDebut, logs, accessibleProjetIds) {
-  let mission = await prisma.mission.findUnique({
+async function findOrCreateMission(db, ordreMission, projetId, dateDebut, logs, accessibleProjetIds) {
+  let mission = await db.mission.findUnique({
     where: { ordreMission },
     select: { id: true, dateDebut: true, projetId: true },
   });
@@ -246,7 +453,7 @@ async function findOrCreateMission(ordreMission, projetId, dateDebut, logs, acce
   }
 
   const debut = dateDebut ?? new Date();
-  mission = await prisma.mission.create({
+  mission = await db.mission.create({
     data: { ordreMission, projetId, dateDebut: debut },
     select: { id: true, dateDebut: true },
   });
@@ -266,10 +473,10 @@ async function findOrCreateMission(ordreMission, projetId, dateDebut, logs, acce
  *   3. Création avec le code, le nom, et les coordonnées disponibles
  *      (si le code est déjà pris dans une autre mission → création sans code)
  */
-async function findOrCreateLocalite({ missionId, code3w, lat, lon, nomCandidat, altitudeM, logs, rn, idTerrain }) {
+async function findOrCreateLocalite(db, { missionId, code3w, lat, lon, nomCandidat, altitudeM, logs, rn, idTerrain }) {
   // 1. Matching par code dans la même mission
   if (code3w) {
-    const loc = await prisma.localite.findFirst({
+    const loc = await db.localite.findFirst({
       where: { missionId, code: code3w.toUpperCase() },
       select: { id: true },
     });
@@ -278,7 +485,7 @@ async function findOrCreateLocalite({ missionId, code3w, lat, lon, nomCandidat, 
 
   // 2. Matching par GPS dans la même mission
   if (lat != null && lon != null) {
-    const candidates = await prisma.localite.findMany({
+    const candidates = await db.localite.findMany({
       where: { missionId, latitude: { not: null }, longitude: { not: null } },
       select: { id: true, nom: true, latitude: true, longitude: true },
     });
@@ -302,32 +509,38 @@ async function findOrCreateLocalite({ missionId, code3w, lat, lon, nomCandidat, 
   const codeToUse = code3w ? code3w.toUpperCase().slice(0, 10) : null;
   const nomToUse  = (nomCandidat || codeToUse || 'Localité import').slice(0, 200);
 
-  let localite;
-  try {
-    localite = await prisma.localite.create({
-      data: { missionId, code: codeToUse, nom: nomToUse, latitude: lat, longitude: lon, altitudeM },
-      select: { id: true },
+  // `Localite.code` est unique GLOBALEMENT : l'étape 1 n'ayant rien trouvé dans
+  // cette mission, un code déjà pris appartient forcément à une autre mission.
+  //
+  // On le vérifie AVANT d'insérer. L'ancien code laissait volontairement partir
+  // l'insertion puis rattrapait le P2002 — un motif incompatible avec une
+  // transaction : sous PostgreSQL, la première erreur avorte la transaction et
+  // toute requête suivante échoue avec « current transaction is aborted ».
+  // La reprise « création sans code » n'aurait donc jamais abouti, et c'est tout
+  // l'import qui serait tombé.
+  let codeFinal = codeToUse;
+  if (codeToUse) {
+    const prisPar = await db.localite.findUnique({ where: { code: codeToUse }, select: { id: true } });
+    if (prisPar) codeFinal = null;
+  }
+
+  const localite = await db.localite.create({
+    data: { missionId, code: codeFinal, nom: nomToUse, latitude: lat, longitude: lon, altitudeM },
+    select: { id: true },
+  });
+
+  if (codeToUse && codeFinal === null) {
+    logs.push({
+      ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'avertissement',
+      code: 'LOCALITE_CREEE_SANS_CODE',
+      raison: `Localité "${nomToUse}" créée sans code (code "${codeToUse}" déjà utilisé dans une autre mission)`,
     });
+  } else {
     logs.push({
       ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
       code: 'LOCALITE_CREEE',
-      raison: `Localité "${nomToUse}" (code: ${codeToUse ?? 'sans code'}) créée automatiquement`,
+      raison: `Localité "${nomToUse}" (code: ${codeFinal ?? 'sans code'}) créée automatiquement`,
     });
-  } catch (err) {
-    if (err.code === 'P2002') {
-      // Le code est déjà utilisé dans une autre mission → créer sans code
-      localite = await prisma.localite.create({
-        data: { missionId, code: null, nom: nomToUse, latitude: lat, longitude: lon, altitudeM },
-        select: { id: true },
-      });
-      logs.push({
-        ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'avertissement',
-        code: 'LOCALITE_CREEE_SANS_CODE',
-        raison: `Localité "${nomToUse}" créée sans code (code "${codeToUse}" déjà utilisé dans une autre mission)`,
-      });
-    } else {
-      throw err;
-    }
   }
   return { localite, created: true };
 }
@@ -359,7 +572,7 @@ function dateReleveParDefaut(datePose) {
   return d;
 }
 
-async function findOrCreateMethode({ localiteId, methodCode, rawMethod, dateCol, interieurExterieur, numero, repere, lat, lon, logs, rn, idTerrain }) {
+async function findOrCreateMethode(db, { localiteId, methodCode, rawMethod, dateCol, interieurExterieur, numero, repere, lat, lon, logs, rn, idTerrain }) {
   const logCtx = { ligne: rn, idTerrain: idTerrain || `ligne_${rn}` };
 
   // ── Résoudre le TypeMethodeCollecte ──
@@ -367,7 +580,7 @@ async function findOrCreateMethode({ localiteId, methodCode, rawMethod, dateCol,
 
   if (methodCode) {
     // Chemin nominal : mapping JS → code exact en base
-    typeMethode = await prisma.typeMethodeCollecte.findUnique({
+    typeMethode = await db.typeMethodeCollecte.findUnique({
       where: { code: methodCode },
       select: { id: true, nom: true },
     });
@@ -375,7 +588,7 @@ async function findOrCreateMethode({ localiteId, methodCode, rawMethod, dateCol,
 
   if (!typeMethode && rawMethod) {
     // Fallback : recherche floue sur le nom du référentiel
-    typeMethode = await prisma.typeMethodeCollecte.findFirst({
+    typeMethode = await db.typeMethodeCollecte.findFirst({
       where: { nom: { contains: rawMethod, mode: 'insensitive' }, actif: true },
       select: { id: true, nom: true },
     });
@@ -412,7 +625,7 @@ async function findOrCreateMethode({ localiteId, methodCode, rawMethod, dateCol,
 
   let methode = null;
   if (dateCol) {
-    methode = await prisma.methodeCollecte.findFirst({
+    methode = await db.methodeCollecte.findFirst({
       where: { ...identite, datePose: dateCol },
       select: { id: true },
     });
@@ -423,7 +636,7 @@ async function findOrCreateMethode({ localiteId, methodCode, rawMethod, dateCol,
   // constitue deux déploiements, et les rabattre sur le premier écrasait la
   // seconde nuit (donc la durée d'exposition et la densité qui en découle).
   if (!methode && !dateCol) {
-    methode = await prisma.methodeCollecte.findFirst({
+    methode = await db.methodeCollecte.findFirst({
       where: identite,
       orderBy: { datePose: 'desc' },
       select: { id: true },
@@ -432,7 +645,7 @@ async function findOrCreateMethode({ localiteId, methodCode, rawMethod, dateCol,
   if (methode) return { methode, created: false };
 
   // Créer la méthode de collecte
-  methode = await prisma.methodeCollecte.create({
+  methode = await db.methodeCollecte.create({
     data: {
       ...identite,
       datePose:   dateCol,
@@ -456,6 +669,22 @@ async function findOrCreateMethode({ localiteId, methodCode, rawMethod, dateCol,
 }
 
 // ── Contrôleur principal ─────────────────────────────────────
+//
+// GARANTIE TRANSACTIONNELLE (ajoutée le 2026-09-09)
+// -------------------------------------------------
+// Tout l'import — projets, missions, localités, méthodes, containers,
+// spécimens ET l'entrée d'audit qui porte l'empreinte du fichier — s'exécute
+// dans UNE transaction. Auparavant chaque création partait isolément : une
+// coupure réseau ou un plantage au milieu d'un fichier de 1000 lignes laissait
+// en base des missions et des localités créées automatiquement, des spécimens
+// à moitié importés, et AUCUNE entrée d'audit (écrite en dernier) — donc aucune
+// garde contre un ré-import, qui aurait alors dupliqué la première moitié.
+// Désormais : soit tout est enregistré, soit rien ne l'est.
+//
+// Ce que la transaction ne change PAS : une ligne invalide (taxonomie inconnue,
+// doublon, position occupée…) reste ignorée et journalisée, sans annuler les
+// autres. C'est une donnée refusée, pas une panne — le comportement historique
+// est conservé volontairement.
 const importMoustiques = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier fourni' });
 
@@ -487,29 +716,35 @@ const importMoustiques = async (req, res) => {
 
   const startTime = Date.now();
 
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(req.file.buffer);
-
-  const ws = wb.worksheets[0];
-  if (!ws) return res.status(400).json({ error: 'Fichier Excel vide ou format invalide' });
+  // Signature du contenu + plafond de décompression + parsing encapsulé :
+  // un fichier corrompu ou déguisé produit une 400 explicite au lieu d'une 500.
+  const wb = await chargerClasseurUtilisateur(req.file.buffer);
+  const ws = premiereFeuille(wb);
+  assertVolumeTraitable(ws);
 
   const hMap = buildHeaderMap(ws.getRow(1));
   const headerErreur = checkRequiredHeaders(hMap);
   if (headerErreur) return res.status(400).json({ error: headerErreur, colonnes: buildHeaderReport(ws.getRow(1)) });
   const colonnes = buildHeaderReport(ws.getRow(1));
 
-  // Pré-scan : nom de projet et date de collecte depuis la 1ère ligne de données
+  // Un SEUL parcours de la feuille : collecte des lignes et pré-scan (nom de
+  // projet + date de la 1re ligne de données) étaient deux `eachRow` distincts.
+  const rows = [];
   let projetNomCandidat = null;
   let dateDebutCandidat = null;
   ws.eachRow((row, rn) => {
-    if (rn > 1 && projetNomCandidat === null) {
+    if (rn <= 1) return;
+    if (projetNomCandidat === null) {
       projetNomCandidat = toString(cellValue(row, hMap, ...COL.projet)) ?? 'IMPORT_AUTO';
       dateDebutCandidat = toDate(cellValue(row, hMap, ...COL.dateCollecte));
     }
+    rows.push({ row, rn });
   });
 
-  // Logs structurés (tous niveaux)
-  const logs  = [];
+  // Journal borné : les compteurs restent exacts, seul le détail est tronqué
+  // au-delà de MAX_LOGS (cf. nouveauJournal).
+  const journal = nouveauJournal();
+  const logs    = journal;            // les helpers appellent logs.push(...)
   const crees = { projets: [], missions: [], localites: [] };
   // Compte des spécimens réellement créés, par mission — base du journal
   // d'audit émis en fin d'import (une entrée par mission touchée).
@@ -525,370 +760,413 @@ const importMoustiques = async (req, res) => {
     });
   }
 
-  // Caches pour éviter les requêtes répétées
-  const projetCache    = new Map();
-  const missionCache   = new Map();
-  const localiteCache  = new Map();
-  const methodeCache   = new Map();
-  const taxoCache      = new Map();
-  const containerCache = new Map();
-  const solutionCache  = new Map();
-  // positions occupées par container, partagé entre le chemin split-plaque
-  // et le chemin normal — sans ça, un container référencé par N lignes
-  // relance N fois la même requête `findMany` des positions occupées.
-  const positionsCache = new Map();
-
   const counts = { total: 0, imported: 0, skipped: 0 };
   const userId = req.user?.id ?? null;
 
   // null pour admin/superviseur (aucun filtre) ; sinon la liste des projets dont
-  // l'utilisateur est membre. Résolu une fois pour tout le fichier.
+  // l'utilisateur est membre. Résolu une fois pour tout le fichier, hors
+  // transaction (lecture pure, indépendante de ce qui va être écrit).
   const accessibleProjetIds = await getAccessibleProjetIds(req.user?.id, req.user?.role);
 
-  const rows = [];
-  ws.eachRow((row, rn) => { if (rn > 1) rows.push({ row, rn }); });
+  // ═══════════════════════════════════════════════════════════════
+  //  Tout ce qui écrit passe par `tx` — jamais par `prisma`.
+  // ═══════════════════════════════════════════════════════════════
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Caches pour éviter les requêtes répétées
+      const projetCache    = new Map();
+      const missionCache   = new Map();
+      const localiteCache  = new Map();
+      const methodeCache   = new Map();
+      const taxoCache      = new Map();
+      const containerCache = new Map();
+      const solutionCache  = new Map();
+      // positions occupées par container, partagé entre le chemin split-plaque
+      // et le chemin normal — sans ça, un container référencé par N lignes
+      // relance N fois la même requête `findMany` des positions occupées.
+      const positionsCache = new Map();
 
-  // Pré-charge en une seule requête les idTerrain déjà présents en base parmi
-  // ceux du fichier — remplace jusqu'à N requêtes `findUnique` (une par ligne)
-  // par 1 seule. Les doublons INTRA-fichier restent détectés normalement par
-  // la contrainte unique au moment du `create()` (le Set est mis à jour après
-  // chaque insertion réussie, donc capturé sans aller-retour DB superflu).
-  const fileIdTerrains = rows
-    .map(({ row }) => toString(cellValue(row, hMap, ...COL.idTerrain)))
-    .filter(Boolean);
-  const existingIdTerrains = new Set(
-    fileIdTerrains.length
-      ? (await prisma.moustique.findMany({
-          where: { idTerrain: { in: fileIdTerrains } },
-          select: { idTerrain: true },
-        })).map((r) => r.idTerrain)
-      : []
-  );
+      // ── Tampon d'insertion ──────────────────────────────────────
+      // L'ancien code faisait UN `create()` par spécimen : 1000 lignes = 1000
+      // aller-retours réseau, et jusqu'à 96 de plus par ligne « split plaque ».
+      // On accumule ici et on vide par lots de TAILLE_LOT_INSERT via
+      // `createMany`, soit ~2 requêtes pour 1000 spécimens.
+      const enAttente = [];
 
-  for (const { row, rn } of rows) {
-    counts.total++;
-    const idTerrain    = toString(cellValue(row, hMap, ...COL.idTerrain));
-    const ordreMission = toString(cellValue(row, hMap, ...COL.ordreMission));
-
-    const addLog = (niveau, code, raison) => {
-      if (niveau === 'erreur') counts.skipped++;
-      logs.push({ ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau, code, raison });
-    };
-
-    // Filet par ligne : toute exception non prévue (helper findOrCreate* qui
-    // throw, champ trop long → P2000, coupure DB ponctuelle…) est isolée ici.
-    // On journalise la ligne en erreur et on continue, au lieu d'abandonner
-    // tout l'import en laissant des projets/missions/localités déjà créés
-    // orphelins et un fichier à moitié importé difficile à rejouer.
-    try {
-    // ── 1. Projet + Mission ──
-    if (!ordreMission) { addLog('erreur', 'MISSION_MANQUANTE', 'MISSION_ORDER_NUMBER manquant'); continue; }
-
-    if (!missionCache.has(ordreMission)) {
-      const projetNomLigne = toString(cellValue(row, hMap, ...COL.projet)) ?? projetNomCandidat ?? 'IMPORT_AUTO';
-      const projetCacheKey = projetNomLigne.toUpperCase().replace(/\s+/g, '_');
-      const dateColLigne   = toDate(cellValue(row, hMap, ...COL.dateCollecte)) ?? dateDebutCandidat;
-
-      if (!projetCache.has(projetCacheKey)) {
-        // Un refus d'accès est mis en cache comme un succès : sans ça, un
-        // fichier de 1000 lignes sur un projet interdit relançait 1000 fois la
-        // même requête pour reproduire le même refus.
-        try {
-          const { projet, created } = await findOrCreateProjet(projetNomLigne, logs, accessibleProjetIds);
-          projetCache.set(projetCacheKey, projet);
-          if (created) crees.projets.push({ nom: projet.nom });
-        } catch (err) {
-          if (err.name === 'AppError' && err.statusCode === 403) {
-            projetCache.set(projetCacheKey, { refus: err.message });
-          } else {
-            throw err;
+      const viderLot = async () => {
+        while (enAttente.length) {
+          const lot = enAttente.splice(0, TAILLE_LOT_INSERT);
+          const { count } = await tx.moustique.createMany({
+            data: lot,
+            // Filet : les doublons sont déjà écartés en mémoire avant d'arriver
+            // ici (existingIdTerrains + positionsCache). `skipDuplicates` évite
+            // qu'un import CONCURRENT ayant écrit les mêmes identifiants ne
+            // fasse échouer la requête sur un P2002 brut.
+            skipDuplicates: true,
+          });
+          if (count !== lot.length) {
+            // Un écart signifie qu'un autre import a écrit les mêmes
+            // identifiants pendant le traitement. Plutôt que de perdre
+            // silencieusement des spécimens (l'utilisateur lirait « 500
+            // importés » pour 497 en base), on annule tout : la transaction est
+            // là pour ça.
+            throw AppError.conflict(
+              `Conflit d'identifiants détecté pendant l'écriture (${lot.length - count} ligne(s)) — `
+              + "un autre import portant les mêmes identifiants terrain s'est exécuté en parallèle. "
+              + 'Aucune donnée n\'a été enregistrée : relancez l\'import.',
+            );
           }
         }
-      }
-      const projet = projetCache.get(projetCacheKey);
-      if (projet.refus) { addLog('erreur', 'ACCES_REFUSE', projet.refus); continue; }
+      };
 
-      const { mission, created } = await findOrCreateMission(ordreMission, projet.id, dateColLigne, logs, accessibleProjetIds);
-      missionCache.set(ordreMission, mission);
-      if (created) crees.missions.push({ ordreMission });
-    }
-    const mission = missionCache.get(ordreMission);
-    if (!importParMission.has(mission.id)) {
-      importParMission.set(mission.id, { ordreMission, imported: 0 });
-    }
-
-    // ── 2. Localité ──
-    const code3w     = toString(cellValue(row, hMap, ...COL.code3w));
-    const lat        = toFloat(cellValue(row, hMap, ...COL.latitude));
-    const lon        = toFloat(cellValue(row, hMap, ...COL.longitude));
-    const altitudeM  = toFloat(cellValue(row, hMap, ...COL.altitude));
-    const nomLoc     = parseLocationNom(toString(cellValue(row, hMap, ...COL.nomLocalite)));
-
-    // Clé de cache : code si disponible, sinon GPS arrondi
-    const locCacheKey = code3w
-      ? `${mission.id}_CODE_${code3w.toUpperCase()}`
-      : `${mission.id}_GPS_${lat?.toFixed(4) ?? 'x'}_${lon?.toFixed(4) ?? 'x'}`;
-
-    if (!localiteCache.has(locCacheKey)) {
-      const { localite, created } = await findOrCreateLocalite({
-        missionId: mission.id, code3w, lat, lon,
-        nomCandidat: nomLoc, altitudeM,
-        logs, rn, idTerrain,
-      });
-      localiteCache.set(locCacheKey, localite);
-      if (created) crees.localites.push({ nom: nomLoc || code3w || 'Localité' });
-    }
-    const localite = localiteCache.get(locCacheKey);
-
-    if (!localite) {
-      addLog('erreur', 'LOCALITE_INTROUVABLE', `Localité code "${code3w}" introuvable et impossible à créer`);
-      continue;
-    }
-
-    // ── 3. Méthode de collecte ──
-    const rawMethod  = toString(cellValue(row, hMap, ...COL.methode));
-    const methodCode = COLLECTION_METHOD[normalizeKey(rawMethod)] ?? null;
-    const dateCol    = toDate(cellValue(row, hMap, ...COL.dateCollecte));
-    const rawIntExt  = normalizeKey(cellValue(row, hMap, ...COL.interieurExterieur));
-    const intExt     = INTERIEUR_EXTERIEUR[rawIntExt] ?? null;
-    if (rawIntExt && !intExt) {
-      addLog('avertissement', 'POSITION_PIEGE_INVALIDE',
-        `Valeur OUTDOORS_INDOORS "${rawIntExt}" non reconnue — position du piège laissée vide`);
-    }
-    // Une date absente n'était signalée nulle part : le spécimen entrait avec
-    // dateCollecte = null, la méthode sans date de pose ni de relevé, en
-    // silence. Collecté ici, signalé une seule fois en fin de parcours — une
-    // colonne entièrement vide produirait sinon un message par ligne.
-    if (!dateCol) lignesSansDate.push(rn);
-    // ── Identité du piège, depuis CATCH_ID ──
-    // CATCH_ID = code + numéro. La position intérieur/extérieur appartient à
-    // OUTDOORS_INDOORS et NON à CATCH_ID (règle SOP) ; on tolère les
-    // HLC_EXT_1 présents dans les fichiers, mais on le signale.
-    const rawCatch = toString(cellValue(row, hMap, ...COL.piege));
-    const catchId  = parseCatchId(rawCatch);
-    const numero   = catchId.numero ?? 1;
-
-    if (catchId.position) {
-      if (intExt && catchId.position !== intExt) {
-        addLog('avertissement', 'PIEGE_POSITION_DIVERGENTE',
-          `CATCH_ID "${rawCatch}" indique "${catchId.position}" alors que OUTDOORS_INDOORS indique "${intExt}" — c'est OUTDOORS_INDOORS qui fait foi`);
-      } else if (!intExt) {
-        addLog('avertissement', 'PIEGE_POSITION_DANS_CATCH_ID',
-          `CATCH_ID "${rawCatch}" porte la position du piège — elle devrait figurer dans OUTDOORS_INDOORS`);
-      }
-    }
-    // Le code porté par CATCH_ID doit désigner le même type que COLLECTION_METHOD.
-    const codeDepuisCatch = catchId.code ? (COLLECTION_METHOD[normalizeKey(catchId.code)] ?? null) : null;
-    if (codeDepuisCatch && methodCode && codeDepuisCatch !== methodCode) {
-      addLog('avertissement', 'PIEGE_TYPE_DIVERGENT',
-        `CATCH_ID "${rawCatch}" désigne le type "${codeDepuisCatch}" alors que COLLECTION_METHOD indique "${methodCode}" — c'est COLLECTION_METHOD qui fait foi`);
-    }
-
-    // La position ET le numéro font partie de l'identité du piège : HLC_1
-    // intérieur et HLC_1 extérieur sont deux pièges, CDC_1 et CDC_2 aussi.
-    const positionPiege = intExt ?? catchId.position ?? null;
-    const methKey    = `${localite.id}_${methodCode}_${numero}_${positionPiege ?? 'na'}_${dateCol?.toISOString().split('T')[0] ?? 'nodate'}`;
-
-    if (!methodeCache.has(methKey)) {
-      const result = await findOrCreateMethode({
-        localiteId: localite.id, methodCode, rawMethod, dateCol,
-        interieurExterieur: positionPiege, numero,
-        repere: reperesPieges.get(clePiege(rawCatch)) ?? null,
-        lat, lon, logs, rn, idTerrain,
-      });
-      methodeCache.set(methKey, result?.methode ?? null);
-    }
-    const methode = methodeCache.get(methKey);
-    if (!methode) { counts.skipped++; continue; }
-
-    // ── 4. Taxonomie ──
-    // Deux formats acceptés : nom scientifique complet, ou colonnes GENUS
-    // [+ SPECIES] — cf. resolveTaxonInput pour la règle de priorité.
-    const sciName = toString(cellValue(row, hMap, ...COL.nomScientifique));
-    const { genus, species, conflit } = resolveTaxonInput({
-      genus:          toString(cellValue(row, hMap, ...COL.genre)),
-      species:        toString(cellValue(row, hMap, ...COL.espece)),
-      scientificName: sciName,
-    });
-    // Libellé lisible dans les logs, quelle que soit la source utilisée.
-    const taxoLabel = sciName || [genus, species].filter(Boolean).join(' ') || '(vide)';
-    if (conflit) {
-      addLog('avertissement', 'TAXO_SOURCES_DIVERGENTES',
-        `Genre divergent entre colonnes : GENUS="${conflit.genreColonne}" vs SCIENTIFIC_NAME="${conflit.genreNomScientifique}" — la colonne GENUS fait foi`);
-    }
-    const taxoKey = `${genus}_${species}`;
-    if (!taxoCache.has(taxoKey)) {
-      let t = null;
-      if (genus && species) {
-        t = await prisma.taxonomieSpecimen.findFirst({
-          where: {
-            niveau: 'espece',
-            nom: { equals: species, mode: 'insensitive' },
-            actif: true,
-            // Le parent direct d'une espèce est soit le genre, soit un
-            // sous-genre intermédiaire (ex: Anopheles (Cellia) coustani) —
-            // il faut vérifier les deux, sinon toute espèce rattachée via un
-            // sous-genre retombe à tort au niveau genre.
-            OR: [
-              { parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } },
-              { parent: { niveau: 'sous_genre', parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } } },
-            ],
-          },
-          select: { id: true, niveau: true },
+      // Pré-charge en une seule requête (découpée en lots, cf. TAILLE_LOT_IN)
+      // les idTerrain déjà présents en base parmi ceux du fichier — remplace
+      // jusqu'à N requêtes `findUnique` (une par ligne) par ~1. Les doublons
+      // INTRA-fichier sont détectés via le même Set, mis à jour après chaque
+      // ligne mise en attente.
+      //
+      // Le découpage n'est pas cosmétique : au-delà de ~65 000 valeurs, un `in:`
+      // dépasse la limite de paramètres liés de PostgreSQL et la requête échoue.
+      const fileIdTerrains = [...new Set(rows
+        .map(({ row }) => toString(cellValue(row, hMap, ...COL.idTerrain)))
+        .filter(Boolean))];
+      const existingIdTerrains = new Set();
+      for (const lot of parLots(fileIdTerrains, TAILLE_LOT_IN)) {
+        const trouves = await tx.moustique.findMany({
+          where: { idTerrain: { in: lot } },
+          select: { idTerrain: true },
         });
+        for (const t of trouves) existingIdTerrains.add(t.idTerrain);
       }
-      if (!t && genus) {
-        t = await prisma.taxonomieSpecimen.findFirst({
-          where: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' }, actif: true },
-          select: { id: true, niveau: true },
-        });
-      }
-      taxoCache.set(taxoKey, t);
-      // Avertissement unique par nom scientifique quand on tombe au niveau genre —
-      // mais seulement si une espèce a réellement été saisie et non trouvée
-      // (mérite attention). "sp"/"sp." (déjà retiré de `species` par
-      // parseScientificName) veut dire "non déterminée sur le terrain" — un
-      // résultat normal, pas une erreur : simple ligne info, pas d'avertissement.
-      if (t?.niveau === 'genre') {
-        if (species) {
-          logs.push({
-            ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'avertissement',
-            code: 'TAXO_NIVEAU_GENRE',
-            raison: `"${taxoLabel}" résolu au genre uniquement — espèce "${species}" introuvable dans le dictionnaire`,
-          });
-        } else {
-          logs.push({
-            ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
-            code: 'TAXO_ESPECE_NON_DETERMINEE',
-            raison: `"${taxoLabel}" — espèce non déterminée sur le terrain, rattaché au genre`,
-          });
+
+      for (const { row, rn } of rows) {
+        counts.total++;
+        const idTerrainBrut = toString(cellValue(row, hMap, ...COL.idTerrain));
+        const ordreMission  = toString(cellValue(row, hMap, ...COL.ordreMission));
+
+        const addLog = (niveau, code, raison) => {
+          if (niveau === 'erreur') counts.skipped++;
+          logs.push({ ligne: rn, idTerrain: idTerrainBrut || `ligne_${rn}`, niveau, code, raison });
+        };
+
+        // Tronqué au gabarit de la colonne (VarChar(50)) AVANT toute
+        // comparaison d'unicité : sans ça, deux identifiants distincts au-delà
+        // du 50e caractère devenaient un doublon à l'insertion, détecté trop
+        // tard (et fatal pour tout un lot).
+        const idTerrain = tronquer(idTerrainBrut, 'idTerrain', addLog);
+
+        // Filet par ligne : toute exception non prévue (helper findOrCreate* qui
+        // throw, coupure DB ponctuelle…) est isolée ici. On journalise la ligne
+        // en erreur et on continue sur les suivantes.
+        try {
+        // ── 1. Projet + Mission ──
+        if (!ordreMission) { addLog('erreur', 'MISSION_MANQUANTE', 'MISSION_ORDER_NUMBER manquant'); continue; }
+
+        if (!missionCache.has(ordreMission)) {
+          const projetNomLigne = toString(cellValue(row, hMap, ...COL.projet)) ?? projetNomCandidat ?? 'IMPORT_AUTO';
+          const projetCacheKey = projetNomLigne.toUpperCase().replace(/\s+/g, '_');
+          const dateColLigne   = toDate(cellValue(row, hMap, ...COL.dateCollecte)) ?? dateDebutCandidat;
+
+          if (!projetCache.has(projetCacheKey)) {
+            // Un refus d'accès est mis en cache comme un succès : sans ça, un
+            // fichier de 1000 lignes sur un projet interdit relançait 1000 fois la
+            // même requête pour reproduire le même refus.
+            try {
+              const { projet, created } = await findOrCreateProjet(tx, projetNomLigne, logs, accessibleProjetIds);
+              projetCache.set(projetCacheKey, projet);
+              if (created) crees.projets.push({ nom: projet.nom });
+            } catch (err) {
+              if (err.name === 'AppError' && err.statusCode === 403) {
+                projetCache.set(projetCacheKey, { refus: err.message });
+              } else {
+                throw err;
+              }
+            }
+          }
+          const projet = projetCache.get(projetCacheKey);
+          if (projet.refus) { addLog('erreur', 'ACCES_REFUSE', projet.refus); continue; }
+
+          const { mission, created } = await findOrCreateMission(tx, ordreMission, projet.id, dateColLigne, logs, accessibleProjetIds);
+          missionCache.set(ordreMission, mission);
+          if (created) crees.missions.push({ ordreMission });
         }
-      }
-    }
-    const taxo = taxoCache.get(taxoKey);
-    if (!taxo) {
-      addLog('erreur', 'TAXONOMIE_INTROUVABLE', `Taxonomie "${taxoLabel}" introuvable dans le dictionnaire (genre: ${genus ?? '—'}, espèce: ${species ?? '—'})`);
-      continue;
-    }
+        const mission = missionCache.get(ordreMission);
+        if (!importParMission.has(mission.id)) {
+          importParMission.set(mission.id, { ordreMission, imported: 0 });
+        }
 
-    // ── 5. Mapper les champs biologiques ──
-    const rawStade  = normalizeKey(cellValue(row, hMap, ...COL.stade));
-    const rawSexe   = normalizeKey(cellValue(row, hMap, ...COL.sexe));
-    const rawBlood  = normalizeKey(cellValue(row, hMap, ...COL.repasSang));
-    const rawOrgane = normalizeKey(cellValue(row, hMap, ...COL.organePreleve));
-    const rawPres   = normalizeKey(cellValue(row, hMap, ...COL.solution));
+        // ── 2. Localité ──
+        const code3w     = toString(cellValue(row, hMap, ...COL.code3w));
+        const lat        = toFloat(cellValue(row, hMap, ...COL.latitude));
+        const lon        = toFloat(cellValue(row, hMap, ...COL.longitude));
+        const altitudeM  = toFloat(cellValue(row, hMap, ...COL.altitude));
+        const nomLoc     = parseLocationNom(toString(cellValue(row, hMap, ...COL.nomLocalite)));
 
-    const rawParite = normalizeKey(cellValue(row, hMap, ...COL.parite));
-    // Valeur brute, non normalisée : c'est une heure Excel (objet Date), que
-    // normalizeKey détruirait en la passant par String().
-    const rawHeure       = cellValue(row, hMap, ...COL.trancheHoraire);
-    const trancheHoraire = parseTrancheHoraire(rawHeure);
-    if (rawHeure != null && rawHeure !== '' && !trancheHoraire) {
-      addLog('avertissement', 'TRANCHE_HORAIRE_INVALIDE',
-        `Valeur TIME_OF_COLLECTION "${rawHeure instanceof Date ? rawHeure.toISOString().slice(11, 16) : rawHeure}" hors des créneaux d'une nuit (18h→06h) — créneau laissé vide`);
-    }
+        // Clé de cache : code si disponible, sinon GPS arrondi
+        const locCacheKey = code3w
+          ? `${mission.id}_CODE_${code3w.toUpperCase()}`
+          : `${mission.id}_GPS_${lat?.toFixed(4) ?? 'x'}_${lon?.toFixed(4) ?? 'x'}`;
 
-    const stade         = LIFESTAGE[rawStade]      ?? null;
-    const sexe          = SEX[rawSexe]             ?? 'inconnu';
-    const repasSang     = BLOOD_MEAL[rawBlood]     ?? 'NC';
-    const organePreleve = ORGANISM_PART[rawOrgane] ?? null;
-    const solutionId    = await resolveSolution(rawPres, solutionCache);
+        if (!localiteCache.has(locCacheKey)) {
+          const { localite, created } = await findOrCreateLocalite(tx, {
+            missionId: mission.id, code3w, lat, lon,
+            nomCandidat: nomLoc, altitudeM,
+            logs, rn, idTerrain,
+          });
+          localiteCache.set(locCacheKey, localite);
+          if (created) crees.localites.push({ nom: nomLoc || code3w || 'Localité' });
+        }
+        const localite = localiteCache.get(locCacheKey);
 
-    // ── Parité ──
-    // Une valeur non reconnue est signalée plutôt que silencieusement perdue :
-    // c'est un critère de dissection, jamais une saisie approximative.
-    const parite = PARITE[rawParite] ?? null;
-    if (rawParite && !parite) {
-      addLog('avertissement', 'PARITE_INVALIDE',
-        `Valeur PARITY "${rawParite}" non reconnue — parité laissée vide (attendu : Nullipare/NP ou Pare/P)`);
-    }
-    // La parité se lit sur les ovaires : elle n'a pas de sens hors femelle.
-    if (parite && sexe !== 'F') {
-      addLog('avertissement', 'PARITE_HORS_FEMELLE',
-        `Parité "${parite}" renseignée sur un spécimen de sexe "${sexe}" — la parité s'observe sur les ovaires`);
-    }
+        if (!localite) {
+          addLog('erreur', 'LOCALITE_INTROUVABLE', `Localité code "${code3w}" introuvable et impossible à créer`);
+          continue;
+        }
 
-    // NUMBER ≤ 0 ou non numérique → 1 : jamais de compte négatif/zéro stocké.
-    const rawNombre    = cellValue(row, hMap, ...COL.nombre);
-    const parsedNombre = parseInt(rawNombre ?? 1);
-    const nombre       = Number.isFinite(parsedNombre) && parsedNombre > 0 ? parsedNombre : 1;
-    if (rawNombre != null && rawNombre !== '' && parsedNombre !== nombre) {
-      addLog('avertissement', 'NOMBRE_INVALIDE', `Valeur NUMBER "${rawNombre}" invalide (≤ 0 ou non numérique) — ramené à 1`);
-    }
-    const notes  = toString(cellValue(row, hMap, ...COL.notes));
+        // ── 3. Méthode de collecte ──
+        const rawMethod  = toString(cellValue(row, hMap, ...COL.methode));
+        const methodCode = COLLECTION_METHOD[normalizeKey(rawMethod)] ?? null;
+        const dateCol    = toDate(cellValue(row, hMap, ...COL.dateCollecte));
+        const rawIntExt  = normalizeKey(cellValue(row, hMap, ...COL.interieurExterieur));
+        const intExt     = INTERIEUR_EXTERIEUR[rawIntExt] ?? null;
+        if (rawIntExt && !intExt) {
+          addLog('avertissement', 'POSITION_PIEGE_INVALIDE',
+            `Valeur OUTDOORS_INDOORS "${rawIntExt}" non reconnue — position du piège laissée vide`);
+        }
+        // Une date absente n'était signalée nulle part : le spécimen entrait avec
+        // dateCollecte = null, la méthode sans date de pose ni de relevé, en
+        // silence. Collecté ici, signalé une seule fois en fin de parcours — une
+        // colonne entièrement vide produirait sinon un message par ligne.
+        if (!dateCol) lignesSansDate.push(rn);
+        // ── Identité du piège, depuis CATCH_ID ──
+        // CATCH_ID = code + numéro. La position intérieur/extérieur appartient à
+        // OUTDOORS_INDOORS et NON à CATCH_ID (règle SOP) ; on tolère les
+        // HLC_EXT_1 présents dans les fichiers, mais on le signale.
+        const rawCatch = toString(cellValue(row, hMap, ...COL.piege));
+        const catchId  = parseCatchId(rawCatch);
+        const numero   = catchId.numero ?? 1;
 
-    // ── 5c. Protocole tube (avertissement, cf. validateMoustiques) ──
-    enregistrerTube(registreTubes, {
-      box: toString(cellValue(row, hMap, ...COL.container)),
-      tube: toString(cellValue(row, hMap, ...COL.position)),
-      estBoite: !/^P_/i.test(toString(cellValue(row, hMap, ...COL.container)) ?? ''),
-      individus: nombre, rn,
-      dims: {
-        espece:   [genus, species].filter(Boolean).join(' ') || null,
-        piege:    toString(cellValue(row, hMap, ...COL.piege)),
-        sexe:     toString(cellValue(row, hMap, ...COL.sexe)),
-        sang:     toString(cellValue(row, hMap, ...COL.repasSang)),
-        localite: code3w ?? nomLoc,
-        date:     dateCol ? dateCol.toISOString().slice(0, 10) : null,
-      },
-    });
+        if (catchId.position) {
+          if (intExt && catchId.position !== intExt) {
+            addLog('avertissement', 'PIEGE_POSITION_DIVERGENTE',
+              `CATCH_ID "${rawCatch}" indique "${catchId.position}" alors que OUTDOORS_INDOORS indique "${intExt}" — c'est OUTDOORS_INDOORS qui fait foi`);
+          } else if (!intExt) {
+            addLog('avertissement', 'PIEGE_POSITION_DANS_CATCH_ID',
+              `CATCH_ID "${rawCatch}" porte la position du piège — elle devrait figurer dans OUTDOORS_INDOORS`);
+          }
+        }
+        // Le code porté par CATCH_ID doit désigner le même type que COLLECTION_METHOD.
+        const codeDepuisCatch = catchId.code ? (COLLECTION_METHOD[normalizeKey(catchId.code)] ?? null) : null;
+        if (codeDepuisCatch && methodCode && codeDepuisCatch !== methodCode) {
+          addLog('avertissement', 'PIEGE_TYPE_DIVERGENT',
+            `CATCH_ID "${rawCatch}" désigne le type "${codeDepuisCatch}" alors que COLLECTION_METHOD indique "${methodCode}" — c'est COLLECTION_METHOD qui fait foi`);
+        }
 
-    // ── 6. Container ──
-    const boxId = toString(cellValue(row, hMap, ...COL.container));
-    let position = toString(cellValue(row, hMap, ...COL.position));
-    let containerId = null;
-    let containerType = null;
+        // La position ET le numéro font partie de l'identité du piège : HLC_1
+        // intérieur et HLC_1 extérieur sont deux pièges, CDC_1 et CDC_2 aussi.
+        const positionPiege = intExt ?? catchId.position ?? null;
+        const methKey    = `${localite.id}_${methodCode}_${numero}_${positionPiege ?? 'na'}_${dateCol?.toISOString().split('T')[0] ?? 'nodate'}`;
 
-    if (boxId) {
-      if (!containerCache.has(boxId)) {
-        const c = await resolveContainer(boxId, mission.id, userId);
-        containerCache.set(boxId, c ?? null);
-      }
-      const container = containerCache.get(boxId);
-      containerId   = container?.id   ?? null;
-      containerType = container?.type ?? null;
-    }
+        if (!methodeCache.has(methKey)) {
+          const result = await findOrCreateMethode(tx, {
+            localiteId: localite.id, methodCode, rawMethod, dateCol,
+            interieurExterieur: positionPiege, numero,
+            repere: reperesPieges.get(clePiege(rawCatch)) ?? null,
+            lat, lon, logs, rn, idTerrain,
+          });
+          methodeCache.set(methKey, result?.methode ?? null);
+        }
+        const methode = methodeCache.get(methKey);
+        if (!methode) { counts.skipped++; continue; }
 
-    // ── 6a. PLAQUE + nombre > 1 → split automatique ──────────────
-    if (containerId && containerType === 'PLAQUE' && nombre > 1) {
-      // positionsCache partagé avec le chemin 6b — un container référencé par
-      // plusieurs lignes (split ou non) ne relance qu'une seule fois la
-      // requête des positions occupées.
-      if (!positionsCache.has(containerId)) {
-        const occupiedRows = await prisma.moustique.findMany({
-          where: { containerId, position: { not: null } },
-          select: { position: true, idTerrain: true },
+        // ── 4. Taxonomie ──
+        // Deux formats acceptés : nom scientifique complet, ou colonnes GENUS
+        // [+ SPECIES] — cf. resolveTaxonInput pour la règle de priorité.
+        const sciName = toString(cellValue(row, hMap, ...COL.nomScientifique));
+        const { genus, species, conflit } = resolveTaxonInput({
+          genus:          toString(cellValue(row, hMap, ...COL.genre)),
+          species:        toString(cellValue(row, hMap, ...COL.espece)),
+          scientificName: sciName,
         });
-        positionsCache.set(containerId, new Map(occupiedRows.map((r) => [r.position, r.idTerrain])));
-      }
-      const occupiedMap   = positionsCache.get(containerId);
-      const freePositions = freePlaquePositions(occupiedMap);
+        // Libellé lisible dans les logs, quelle que soit la source utilisée.
+        const taxoLabel = sciName || [genus, species].filter(Boolean).join(' ') || '(vide)';
+        if (conflit) {
+          addLog('avertissement', 'TAXO_SOURCES_DIVERGENTES',
+            `Genre divergent entre colonnes : GENUS="${conflit.genreColonne}" vs SCIENTIFIC_NAME="${conflit.genreNomScientifique}" — la colonne GENUS fait foi`);
+        }
+        const taxoKey = `${genus}_${species}`;
+        if (!taxoCache.has(taxoKey)) {
+          const t = await resoudreTaxonomie(tx, genus, species);
+          taxoCache.set(taxoKey, t);
+          // Avertissement unique par nom scientifique quand on tombe au niveau genre —
+          // mais seulement si une espèce a réellement été saisie et non trouvée
+          // (mérite attention). "sp"/"sp." (déjà retiré de `species` par
+          // parseScientificName) veut dire "non déterminée sur le terrain" — un
+          // résultat normal, pas une erreur : simple ligne info, pas d'avertissement.
+          if (t?.niveau === 'genre') {
+            if (species) {
+              logs.push({
+                ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'avertissement',
+                code: 'TAXO_NIVEAU_GENRE',
+                raison: `"${taxoLabel}" résolu au genre uniquement — espèce "${species}" introuvable dans le dictionnaire`,
+              });
+            } else {
+              logs.push({
+                ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
+                code: 'TAXO_ESPECE_NON_DETERMINEE',
+                raison: `"${taxoLabel}" — espèce non déterminée sur le terrain, rattaché au genre`,
+              });
+            }
+          }
+        }
+        const taxo = taxoCache.get(taxoKey);
+        if (!taxo) {
+          addLog('erreur', 'TAXONOMIE_INTROUVABLE', `Taxonomie "${taxoLabel}" introuvable dans le dictionnaire (genre: ${genus ?? '—'}, espèce: ${species ?? '—'})`);
+          continue;
+        }
 
-      if (freePositions.length < nombre) {
-        addLog('erreur', 'POSITION_INSUFFISANTE',
-          `Pas assez de positions libres dans "${boxId}" — ${freePositions.length} libre(s) pour ${nombre} individu(s) demandé(s)`);
-        continue;
-      }
+        // ── 5. Mapper les champs biologiques ──
+        const rawStade  = normalizeKey(cellValue(row, hMap, ...COL.stade));
+        const rawSexe   = normalizeKey(cellValue(row, hMap, ...COL.sexe));
+        const rawBlood  = normalizeKey(cellValue(row, hMap, ...COL.repasSang));
+        const rawOrgane = normalizeKey(cellValue(row, hMap, ...COL.organePreleve));
+        const rawPres   = normalizeKey(cellValue(row, hMap, ...COL.solution));
 
-      const positionsToUse = freePositions.slice(0, nombre);
-      let splitOk = 0;
+        const rawParite = normalizeKey(cellValue(row, hMap, ...COL.parite));
+        // Valeur brute, non normalisée : c'est une heure Excel (objet Date), que
+        // normalizeKey détruirait en la passant par String().
+        const rawHeure       = cellValue(row, hMap, ...COL.trancheHoraire);
+        const trancheHoraire = parseTrancheHoraire(rawHeure);
+        if (rawHeure != null && rawHeure !== '' && !trancheHoraire) {
+          addLog('avertissement', 'TRANCHE_HORAIRE_INVALIDE',
+            `Valeur TIME_OF_COLLECTION "${rawHeure instanceof Date ? rawHeure.toISOString().slice(11, 16) : rawHeure}" hors des créneaux d'une nuit (18h→06h) — créneau laissé vide`);
+        }
 
-      for (const pos of positionsToUse) {
-        const splitId = idTerrain ? `${idTerrain}-${pos}` : null;
+        const stade         = tronquer(LIFESTAGE[rawStade] ?? null, 'stade', addLog);
+        const sexe          = SEX[rawSexe]             ?? 'inconnu';
+        const repasSang     = BLOOD_MEAL[rawBlood]     ?? 'NC';
+        const organePreleve = tronquer(ORGANISM_PART[rawOrgane] ?? null, 'organePreleve', addLog);
+        const solutionId    = await resolveSolution(tx, rawPres, solutionCache);
 
-        // Vérifier doublon pour l'ID dérivé
-        if (splitId) {
-          const dupl = await prisma.moustique.findUnique({ where: { idTerrain: splitId }, select: { id: true } });
-          if (dupl) {
-            logs.push({ ligne: rn, idTerrain: splitId, niveau: 'avertissement',
-              code: 'DOUBLON', raison: `"${splitId}" déjà importé — position ${pos} ignorée` });
+        // ── Parité ──
+        // Une valeur non reconnue est signalée plutôt que silencieusement perdue :
+        // c'est un critère de dissection, jamais une saisie approximative.
+        const parite = tronquer(PARITE[rawParite] ?? null, 'parite', addLog);
+        if (rawParite && !parite) {
+          addLog('avertissement', 'PARITE_INVALIDE',
+            `Valeur PARITY "${rawParite}" non reconnue — parité laissée vide (attendu : Nullipare/NP ou Pare/P)`);
+        }
+        // La parité se lit sur les ovaires : elle n'a pas de sens hors femelle.
+        if (parite && sexe !== 'F') {
+          addLog('avertissement', 'PARITE_HORS_FEMELLE',
+            `Parité "${parite}" renseignée sur un spécimen de sexe "${sexe}" — la parité s'observe sur les ovaires`);
+        }
+
+        // NUMBER ≤ 0 ou non numérique → 1 : jamais de compte négatif/zéro stocké.
+        const rawNombre    = cellValue(row, hMap, ...COL.nombre);
+        const parsedNombre = parseInt(rawNombre ?? 1);
+        const nombre       = Number.isFinite(parsedNombre) && parsedNombre > 0 ? parsedNombre : 1;
+        if (rawNombre != null && rawNombre !== '' && parsedNombre !== nombre) {
+          addLog('avertissement', 'NOMBRE_INVALIDE', `Valeur NUMBER "${rawNombre}" invalide (≤ 0 ou non numérique) — ramené à 1`);
+        }
+        const notes  = toString(cellValue(row, hMap, ...COL.notes));
+
+        // ── 5c. Protocole tube (avertissement, cf. validateMoustiques) ──
+        enregistrerTube(registreTubes, {
+          box: toString(cellValue(row, hMap, ...COL.container)),
+          tube: toString(cellValue(row, hMap, ...COL.position)),
+          estBoite: !/^P_/i.test(toString(cellValue(row, hMap, ...COL.container)) ?? ''),
+          individus: nombre, rn,
+          dims: {
+            espece:   [genus, species].filter(Boolean).join(' ') || null,
+            piege:    toString(cellValue(row, hMap, ...COL.piege)),
+            sexe:     toString(cellValue(row, hMap, ...COL.sexe)),
+            sang:     toString(cellValue(row, hMap, ...COL.repasSang)),
+            localite: code3w ?? nomLoc,
+            date:     dateCol ? dateCol.toISOString().slice(0, 10) : null,
+          },
+        });
+
+        // ── 6. Container ──
+        const boxId = toString(cellValue(row, hMap, ...COL.container));
+        let position = tronquer(toString(cellValue(row, hMap, ...COL.position)), 'position', addLog);
+        let containerId = null;
+        let containerType = null;
+
+        if (boxId) {
+          if (!containerCache.has(boxId)) {
+            const c = await resolveContainer(tx, boxId, mission.id, userId);
+            containerCache.set(boxId, c ?? null);
+          }
+          const container = containerCache.get(boxId);
+          containerId   = container?.id   ?? null;
+          containerType = container?.type ?? null;
+        }
+
+        // Positions déjà occupées dans ce container — chargées UNE fois par
+        // container, partagées entre le chemin split (6a) et le chemin normal (6b).
+        const chargerPositions = async () => {
+          if (!positionsCache.has(containerId)) {
+            const occupiedRows = await tx.moustique.findMany({
+              where: { containerId, position: { not: null } },
+              select: { position: true, idTerrain: true },
+            });
+            positionsCache.set(containerId, new Map(occupiedRows.map((r) => [r.position, r.idTerrain])));
+          }
+          return positionsCache.get(containerId);
+        };
+
+        // ── 6a. PLAQUE + nombre > 1 → split automatique ──────────────
+        if (containerId && containerType === 'PLAQUE' && nombre > 1) {
+          const occupiedMap   = await chargerPositions();
+          const freePositions = freePlaquePositions(occupiedMap);
+
+          if (freePositions.length < nombre) {
+            addLog('erreur', 'POSITION_INSUFFISANTE',
+              `Pas assez de positions libres dans "${boxId}" — ${freePositions.length} libre(s) pour ${nombre} individu(s) demandé(s)`);
             continue;
           }
-        }
 
-        try {
-          await prisma.moustique.create({
-            data: {
+          const positionsToUse = freePositions.slice(0, nombre);
+
+          // Identifiants dérivés (SERIE-A1, SERIE-A2…). L'ancien code testait
+          // leur unicité par UN `findUnique` par puits — jusqu'à 95 requêtes
+          // pour une seule ligne. Un seul `findMany` suffit.
+          //
+          // Le préfixe est raccourci si nécessaire pour que l'identifiant dérivé
+          // tienne dans la colonne (VarChar(50)) : le tronquer après coup aurait
+          // fusionné deux puits distincts sur le même identifiant.
+          const splitIds = new Map(); // position -> idTerrain dérivé (ou null)
+          if (idTerrain) {
+            const suffixeMax = Math.max(...positionsToUse.map((p) => p.length)) + 1;
+            const base = idTerrain.slice(0, LONGUEURS_MAX.idTerrain - suffixeMax);
+            for (const pos of positionsToUse) splitIds.set(pos, `${base}-${pos}`);
+          } else {
+            for (const pos of positionsToUse) splitIds.set(pos, null);
+          }
+
+          const candidats = [...splitIds.values()].filter(Boolean);
+          const dejaPris  = new Set();
+          for (const lot of parLots(candidats, TAILLE_LOT_IN)) {
+            const trouves = await tx.moustique.findMany({
+              where: { idTerrain: { in: lot } }, select: { idTerrain: true },
+            });
+            for (const t of trouves) dejaPris.add(t.idTerrain);
+          }
+          // Les identifiants déjà mis en attente plus tôt dans CE fichier
+          // comptent aussi comme pris.
+          for (const c of candidats) if (existingIdTerrains.has(c)) dejaPris.add(c);
+
+          let splitOk = 0;
+          const positionsCreees = [];
+          for (const pos of positionsToUse) {
+            const splitId = splitIds.get(pos);
+            if (splitId && dejaPris.has(splitId)) {
+              logs.push({ ligne: rn, idTerrain: splitId, niveau: 'avertissement',
+                code: 'DOUBLON', raison: `"${splitId}" déjà importé — position ${pos} ignorée` });
+              continue;
+            }
+            enAttente.push({
               idTerrain:    splitId,
               methodeId:    methode.id,
               taxonomieId:  taxo.id,
@@ -898,69 +1176,55 @@ const importMoustiques = async (req, res) => {
               position:     pos,
               dateCollecte: dateCol,
               notes,
-            },
-          });
-          splitOk++;
-          // Marquer la position comme occupée pour les lignes suivantes du même fichier
-          occupiedMap.set(pos, splitId);
-        } catch (err) {
-          logs.push({ ligne: rn, idTerrain: splitId || `ligne_${rn}-${pos}`, niveau: 'erreur',
-            code: 'ERREUR_BDD', raison: `Erreur création individu ${pos} : ${err.message}` });
+            });
+            splitOk++;
+            positionsCreees.push(pos);
+            // Marquer position et identifiant comme pris pour les lignes suivantes
+            occupiedMap.set(pos, splitId);
+            if (splitId) existingIdTerrains.add(splitId);
+          }
+
+          counts.imported += splitOk;
+          importParMission.get(mission.id).imported += splitOk;
+          if (splitOk > 0) {
+            logs.push({ ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
+              code: 'SPLIT_PLAQUE',
+              raison: `Split: ${splitOk}/${nombre} individu(s) créé(s) aux positions ${positionsCreees.join(', ')} dans "${boxId}"` });
+          }
+          if (enAttente.length >= TAILLE_LOT_INSERT) await viderLot();
+          continue; // passer à la ligne suivante
         }
-      }
+        // ─────────────────────────────────────────────────────────────
 
-      counts.imported += splitOk;
-      importParMission.get(mission.id).imported += splitOk;
-      if (splitOk > 0) {
-        logs.push({ ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
-          code: 'SPLIT_PLAQUE',
-          raison: `Split: ${splitOk}/${nombre} individu(s) créé(s) aux positions ${positionsToUse.slice(0, splitOk).join(', ')} dans "${boxId}"` });
-      }
-      continue; // passer à la ligne suivante
-    }
-    // ─────────────────────────────────────────────────────────────
+        // ── 6b. PLAQUE normale (nombre = 1) ou BOITE ──
+        if (containerId) {
+          // H12 = témoin négatif SOP sur les plaques
+          if (containerType === 'PLAQUE' && position === 'H12') {
+            addLog('avertissement', 'TEMOIN_H12',
+              `Position H12 réservée au témoin négatif (SOP) — spécimen importé sans position assignée`);
+            position = null;
+          }
 
-    // ── 6b. PLAQUE normale (nombre = 1) ou BOITE ──
-    if (containerId) {
-      // H12 = témoin négatif SOP sur les plaques
-      if (containerType === 'PLAQUE' && position === 'H12') {
-        addLog('avertissement', 'TEMOIN_H12',
-          `Position H12 réservée au témoin négatif (SOP) — spécimen importé sans position assignée`);
-        position = null;
-      }
-
-      if (position) {
-        if (!positionsCache.has(containerId)) {
-          const occupiedRows = await prisma.moustique.findMany({
-            where: { containerId, position: { not: null } },
-            select: { position: true, idTerrain: true },
-          });
-          positionsCache.set(containerId, new Map(occupiedRows.map((r) => [r.position, r.idTerrain])));
+          if (position) {
+            const occupiedMap = await chargerPositions();
+            if (occupiedMap.has(position)) {
+              addLog('erreur', 'POSITION_OCCUPEE',
+                `Position "${position}" déjà occupée dans "${boxId}" par ${occupiedMap.get(position) ?? '(sans idTerrain)'}`);
+              continue;
+            }
+          }
         }
-        const occupiedMap = positionsCache.get(containerId);
-        if (occupiedMap.has(position)) {
-          addLog('erreur', 'POSITION_OCCUPEE',
-            `Position "${position}" déjà occupée dans "${boxId}" par ${occupiedMap.get(position) ?? '(sans idTerrain)'}`);
+
+        // ── 7. Unicité idTerrain ──
+        // Vérifié contre le pré-chargement (existingIdTerrains) + les idTerrain
+        // déjà mis en attente plus tôt dans CE fichier — plus de requête ici.
+        if (idTerrain && existingIdTerrains.has(idTerrain)) {
+          addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" déjà présent en base — ligne ignorée`);
           continue;
         }
-      }
-    }
 
-    // ── 7. Unicité idTerrain ──
-    // Vérifié contre le pré-chargement (existingIdTerrains) + les idTerrain
-    // déjà insérés plus tôt dans CE fichier (Set mis à jour après chaque
-    // création réussie, cf. section 8) — plus de requête ici.
-    if (idTerrain) {
-      if (existingIdTerrains.has(idTerrain)) {
-        addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" déjà présent en base — ligne ignorée`);
-        continue;
-      }
-    }
-
-    // ── 8. Créer le moustique ──
-    try {
-      await prisma.moustique.create({
-        data: {
+        // ── 8. Mettre le moustique en file d'insertion ──
+        enAttente.push({
           idTerrain,
           methodeId:    methode.id,
           taxonomieId:  taxo.id,
@@ -976,33 +1240,89 @@ const importMoustiques = async (req, res) => {
           position,
           dateCollecte: dateCol,
           notes,
+        });
+        counts.imported++;
+        importParMission.get(mission.id).imported++;
+        // Tient à jour les caches en mémoire pour les lignes suivantes du même
+        // fichier (doublon idTerrain / position occupée détectés sans requête).
+        if (idTerrain) existingIdTerrains.add(idTerrain);
+        if (containerId && position) positionsCache.get(containerId)?.set(position, idTerrain);
+
+        if (enAttente.length >= TAILLE_LOT_INSERT) await viderLot();
+        } catch (rowErr) {
+          // Filet par ligne ouvert en début de boucle : la ligne est perdue mais
+          // l'import continue sur les suivantes.
+          if (rowErr.name === 'AppError' && rowErr.statusCode === 403) {
+            // Cloisonnement projet (mission rattachée à un projet hors périmètre) :
+            // ce n'est pas un incident technique, on le nomme comme tel.
+            addLog('erreur', 'ACCES_REFUSE', rowErr.message);
+          } else if (rowErr.name === 'AppError') {
+            // Conflit d'écriture (cf. viderLot) : la transaction est déjà
+            // compromise, on ne peut pas « continuer sur la ligne suivante ».
+            throw rowErr;
+          } else if (rowErr.code && /^P\d{4}$/.test(rowErr.code)) {
+            // Erreur Prisma : sous PostgreSQL elle avorte la transaction, toute
+            // requête ultérieure échouerait de toute façon. On remonte.
+            throw rowErr;
+          } else {
+            addLog('erreur', 'ERREUR_LIGNE', `Erreur inattendue sur la ligne : ${rowErr.message}`);
+          }
+        }
+      }
+
+      // Dernier lot partiel
+      await viderLot();
+
+      // ── Journal d'audit ──
+      // Écrit DANS la transaction : c'est cette entrée qui porte l'empreinte du
+      // fichier et bloque un ré-import. L'écrire après coup laissait une fenêtre
+      // où les spécimens existaient sans leur garde.
+      //
+      // Une entrée par mission touchée, et non par spécimen : un import de 1000
+      // lignes ne doit pas noyer audit_logs sous 1000 entrées. Rattaché à la
+      // mission (entityId) parce que c'est la question à laquelle le journal doit
+      // répondre : « qui a importé quoi dans cette mission, et quand ».
+      const dureeAudit = Number(((Date.now() - startTime) / 1000).toFixed(1));
+      const lignesAudit = [...importParMission].map(([missionId, info]) => buildAuditData({
+        req,
+        action:   ACTIONS.CREATE,
+        entity:   'ImportMoustiques',
+        entityId: missionId,
+        newValues: {
+          fichier:       req.file?.originalname ?? null,
+          // Empreinte du contenu : c'est elle qui bloquera un ré-import.
+          empreinte,
+          // Tracé : `?force=true` contourne la garde anti-ré-import. Sans cette
+          // trace, un doublon volontaire était indiscernable d'un premier import.
+          force,
+          ordreMission:  info.ordreMission,
+          importes:      info.imported,
+          lignesFichier: counts.total,
+          ignorees:      counts.skipped,
+          dureeSec:      dureeAudit,
+          creesAuto: {
+            projets:   crees.projets.map(p => p.nom),
+            missions:  crees.missions.map(m => m.ordreMission),
+            localites: crees.localites.length,
+          },
         },
-      });
-      counts.imported++;
-      importParMission.get(mission.id).imported++;
-      // Tient à jour les caches en mémoire pour les lignes suivantes du même
-      // fichier (doublon idTerrain / position occupée détectés sans requête).
-      if (idTerrain) existingIdTerrains.add(idTerrain);
-      if (containerId && position) positionsCache.get(containerId)?.set(position, idTerrain);
-    } catch (err) {
-      if (err.code === 'P2002') {
-        addLog('erreur', 'DOUBLON', `Doublon de contrainte unique (idTerrain ou position déjà prise)`);
-      } else {
-        addLog('erreur', 'ERREUR_BDD', `Erreur base de données : ${err.message}`);
-      }
-    }
-    } catch (rowErr) {
-      // Filet par ligne ouvert en début de boucle : la ligne est perdue mais
-      // l'import continue sur les suivantes.
-      if (rowErr.name === 'AppError' && rowErr.statusCode === 403) {
-        // Cloisonnement projet (mission rattachée à un projet hors périmètre) :
-        // ce n'est pas un incident technique, on le nomme comme tel.
-        addLog('erreur', 'ACCES_REFUSE', rowErr.message);
-      } else {
-        addLog('erreur', 'ERREUR_LIGNE', `Erreur inattendue sur la ligne : ${rowErr.message}`);
-      }
-    }
+      }));
+      if (lignesAudit.length) await tx.auditLog.createMany({ data: lignesAudit });
+    }, { timeout: TX_TIMEOUT_MS, maxWait: TX_MAXWAIT_MS });
+  } catch (err) {
+    if (err.name === 'AppError') throw err;
+    // Toute autre panne (coupure DB, dépassement du délai de transaction…) :
+    // la transaction a été annulée, rien n'a été écrit. On le DIT — un message
+    // générique laissait l'utilisateur ignorer si sa base était à moitié remplie.
+    console.error('[import] Transaction annulée :', err?.code ?? '', err?.message ?? err);
+    throw AppError.internal(
+      `Import interrompu : ${messageErreurBdd(err, 'transaction import')}. `
+      + "Aucune donnée n'a été enregistrée (annulation complète) — corrigez le fichier puis relancez.",
+    );
   }
+
+  // Diffusion SSE une seule fois, après validation de la transaction.
+  if (importParMission.size) notifierActivite(userId);
 
   for (const t of tubesHorsProtocole(registreTubes)) {
     logs.push({
@@ -1022,46 +1342,14 @@ const importMoustiques = async (req, res) => {
   // ── Résumé final ──
   const dureeSec = ((Date.now() - startTime) / 1000).toFixed(1);
 
-  const resume = {};
-  for (const log of logs) {
-    if (log.niveau === 'erreur') {
-      resume[log.code] = (resume[log.code] ?? 0) + 1;
-    }
-  }
+  // `resume` est tenu à la volée par le journal : il reste exact même si le
+  // détail des messages a été tronqué (cf. nouveauJournal).
+  const resume = journal.resume;
+  const entrees = journal.finaliser();
 
-  const errors = logs
+  const errors = entrees
     .filter(l => l.niveau === 'erreur')
     .map(l => ({ ligne: l.ligne, idTerrain: l.idTerrain, raison: l.raison }));
-
-  // ── Journal d'audit ──
-  // Une entrée par mission touchée, et non par spécimen : un import de 1000
-  // lignes ne doit pas noyer audit_logs sous 1000 entrées. Rattaché à la mission
-  // (entityId) parce que c'est la question à laquelle le journal doit répondre :
-  // « qui a importé quoi dans cette mission, et quand ». L'import était jusqu'ici
-  // la seule opération d'écriture en masse à ne laisser aucune trace.
-  for (const [missionId, info] of importParMission) {
-    await logAudit({
-      req,
-      action:   ACTIONS.CREATE,
-      entity:   'ImportMoustiques',
-      entityId: missionId,
-      newValues: {
-        fichier:       req.file?.originalname ?? null,
-        // Empreinte du contenu : c'est elle qui bloquera un ré-import.
-        empreinte,
-        ordreMission:  info.ordreMission,
-        importes:      info.imported,
-        lignesFichier: counts.total,
-        ignorees:      counts.skipped,
-        dureeSec:      Number(dureeSec),
-        creesAuto: {
-          projets:   crees.projets.map(p => p.nom),
-          missions:  crees.missions.map(m => m.ordreMission),
-          localites: crees.localites.length,
-        },
-      },
-    });
-  }
 
   return res.json({
     message: `Import terminé — ${counts.imported} spécimen(s) importé(s), ${counts.skipped} ignoré(s) sur ${counts.total}`,
@@ -1072,7 +1360,8 @@ const importMoustiques = async (req, res) => {
     resume,
     colonnes,
     crees,
-    logs,
+    logs: entrees,
+    logsTronques: journal.omis,
     errors,
   });
 };
@@ -1249,20 +1538,26 @@ const getTemplateMoustiques = async (req, res) => {
 // ── Validation à sec (aucune écriture en base) ───────────────────
 // POST /api/v1/import/moustiques/validate
 // Lit le fichier, vérifie chaque ligne, renvoie un rapport sans importer.
+//
+// PERFORMANCE (revu le 2026-09-09) : cette route interrogeait la base 1 à 3 fois
+// PAR LIGNE (unicité de l'identifiant terrain, container, positions occupées),
+// sans le moindre cache — c'était le point chaud du module, plus lent que
+// l'import lui-même sur un gros fichier. Tout est désormais préchargé ou mis en
+// cache, sur le modèle de ce que faisait déjà importMoustiques.
 const validateMoustiques = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier fourni' });
 
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(req.file.buffer);
-  const ws = wb.worksheets[0];
-  if (!ws) return res.status(400).json({ error: 'Fichier Excel vide ou format invalide' });
+  const wb = await chargerClasseurUtilisateur(req.file.buffer);
+  const ws = premiereFeuille(wb);
+  assertVolumeTraitable(ws);
 
   const hMap = buildHeaderMap(ws.getRow(1));
   const headerErreur = checkRequiredHeaders(hMap);
   if (headerErreur) return res.status(400).json({ error: headerErreur, colonnes: buildHeaderReport(ws.getRow(1)) });
   const colonnes = buildHeaderReport(ws.getRow(1));
 
-  const logs          = [];
+  const journal = nouveauJournal();
+  const logs    = journal;
   // Signalé dès l'aperçu : découvrir le blocage seulement après avoir cliqué
   // « Importer » ferait perdre le temps d'analyse du fichier entier.
   const precedent = await importAnterieur(empreinteFichier(req.file.buffer));
@@ -1278,6 +1573,8 @@ const validateMoustiques = async (req, res) => {
   const taxoCache     = new Map();
   const methodeCache  = new Map();
   const projetCache   = new Map();
+  const containerCache = new Map();   // code container -> { id, type } | null
+  const positionsCache = new Map();   // containerId -> Map(position -> idTerrain)
   const seenIds       = new Set();
   const repetitions   = new Map(); // idTerrain -> lignes répétées (hors 1re)
   const premiereLigne = new Map(); // idTerrain -> 1re ligne où il apparaît
@@ -1289,17 +1586,31 @@ const validateMoustiques = async (req, res) => {
   // "tout valide" puis l'import refusait chaque ligne pour cause de périmètre.
   const accessibleProjetIds = await getAccessibleProjetIds(req.user?.id, req.user?.role);
 
-  // Même repli que l'import : une ligne sans colonne PROJET hérite du nom lu sur
-  // la première ligne de données (cf. projetNomCandidat dans importMoustiques).
+  // Un seul parcours de la feuille (le repli sur le nom de projet de la 1re
+  // ligne de données se faisait dans un `eachRow` séparé).
+  const rows = [];
   let projetNomCandidat = null;
   ws.eachRow((row, rn) => {
-    if (rn > 1 && projetNomCandidat === null) {
+    if (rn <= 1) return;
+    if (projetNomCandidat === null) {
       projetNomCandidat = toString(cellValue(row, hMap, ...COL.projet)) ?? 'IMPORT_AUTO';
     }
+    rows.push({ row, rn });
   });
 
-  const rows = [];
-  ws.eachRow((row, rn) => { if (rn > 1) rows.push({ row, rn }); });
+  // Préchargement des identifiants terrain déjà en base : remplace un
+  // `findUnique` PAR LIGNE par ~1 requête pour tout le fichier (découpée pour
+  // ne pas dépasser la limite de paramètres liés de PostgreSQL).
+  const fileIdTerrains = [...new Set(rows
+    .map(({ row }) => toString(cellValue(row, hMap, ...COL.idTerrain)))
+    .filter(Boolean))];
+  const existingIdTerrains = new Set();
+  for (const lot of parLots(fileIdTerrains, TAILLE_LOT_IN)) {
+    const trouves = await prisma.moustique.findMany({
+      where: { idTerrain: { in: lot } }, select: { idTerrain: true },
+    });
+    for (const t of trouves) existingIdTerrains.add(t.idTerrain);
+  }
 
   for (const { row, rn } of rows) {
     counts.total++;
@@ -1320,9 +1631,20 @@ const validateMoustiques = async (req, res) => {
       else if (niveau === 'avertissement') counts.avertissements++;
     };
 
+    // Filet par ligne : l'aperçu ne doit jamais échouer en bloc à cause d'une
+    // seule ligne pathologique — il est justement là pour les mettre au jour.
+    try {
+
     // 1. Champs obligatoires
     if (!ordreMission) addLog('erreur', 'MISSION_MANQUANTE', 'MISSION_ORDER_NUMBER manquant');
     if (!genus)        addLog('erreur', 'TAXONOMIE_INTROUVABLE', 'Taxonomie manquante (ni SCIENTIFIC_NAME ni GENUS renseignés)');
+
+    // Même contrôle de gabarit qu'à l'import : un identifiant au-delà de 50
+    // caractères sera tronqué, ce qui peut créer un doublon avec une autre ligne.
+    if (idTerrain && idTerrain.length > LONGUEURS_MAX.idTerrain) {
+      addLog('avertissement', 'VALEUR_TRONQUEE',
+        `Identifiant terrain trop long (${idTerrain.length} caractères, maximum ${LONGUEURS_MAX.idTerrain}) — il sera tronqué à l'import`);
+    }
 
     // 1b. Périmètre projet — même verdict que l'import (cf. findOrCreateProjet)
     if (accessibleProjetIds !== null) {
@@ -1349,34 +1671,12 @@ const validateMoustiques = async (req, res) => {
         `Genre divergent entre colonnes : GENUS="${conflit.genreColonne}" vs SCIENTIFIC_NAME="${conflit.genreNomScientifique}" — la colonne GENUS fait foi`);
     }
 
-    // 2. Taxonomie
+    // 2. Taxonomie — via le même résolveur que l'import (resoudreTaxonomie),
+    // pour que l'aperçu et l'import ne puissent plus rendre deux verdicts.
     if (genus) {
       const taxoKey = `${genus}_${species}`;
       if (!taxoCache.has(taxoKey)) {
-        let t = null;
-        if (genus && species) {
-          t = await prisma.taxonomieSpecimen.findFirst({
-            where: {
-              niveau: 'espece',
-              nom: { equals: species, mode: 'insensitive' },
-              actif: true,
-              // cf. importMoustiques — même correctif : le parent direct peut
-              // être un sous-genre intermédiaire, pas seulement le genre.
-              OR: [
-                { parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } },
-                { parent: { niveau: 'sous_genre', parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } } },
-              ],
-            },
-            select: { id: true, niveau: true },
-          });
-        }
-        if (!t && genus) {
-          t = await prisma.taxonomieSpecimen.findFirst({
-            where: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' }, actif: true },
-            select: { id: true, niveau: true },
-          });
-        }
-        taxoCache.set(taxoKey, t ?? null);
+        taxoCache.set(taxoKey, await resoudreTaxonomie(prisma, genus, species));
       }
       const taxo = taxoCache.get(taxoKey);
       if (!taxo) {
@@ -1397,7 +1697,8 @@ const validateMoustiques = async (req, res) => {
     // Les répétitions INTRA-fichier sont collectées ici et signalées une seule
     // fois par valeur en fin de parcours (cf. plus bas) : un tube répété 209
     // fois produisait 209 messages identiques, illisibles et inexploitables
-    // pour corriger le fichier. Le doublon vis-à-vis de la BASE reste par ligne.
+    // pour corriger le fichier. Le doublon vis-à-vis de la BASE reste par ligne,
+    // désormais résolu sur le préchargement (plus de requête ici).
     if (idTerrain) {
       if (seenIds.has(idTerrain)) {
         if (!repetitions.has(idTerrain)) repetitions.set(idTerrain, []);
@@ -1407,8 +1708,9 @@ const validateMoustiques = async (req, res) => {
       } else {
         seenIds.add(idTerrain);
         premiereLigne.set(idTerrain, rn);
-        const dupl = await prisma.moustique.findUnique({ where: { idTerrain }, select: { id: true } });
-        if (dupl) addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" déjà présent en base de données`);
+        if (existingIdTerrains.has(idTerrain)) {
+          addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" déjà présent en base de données`);
+        }
       }
     }
 
@@ -1496,39 +1798,73 @@ const validateMoustiques = async (req, res) => {
     }
 
     if (boxId) {
-      const container = await prisma.container.findUnique({
-        where: { code: boxId }, select: { id: true, type: true },
-      });
+      // Container et positions occupées mis en cache : un fichier de 500 lignes
+      // référence typiquement 2 à 5 containers, l'ancien code relançait pourtant
+      // les mêmes requêtes 500 fois.
+      if (!containerCache.has(boxId)) {
+        const enBase = await prisma.container.findUnique({
+          where: { code: boxId }, select: { id: true, type: true },
+        });
+        // Container absent : l'import le CRÉERA (cf. resolveContainer), en
+        // déduisant son type du préfixe. L'aperçu l'ignorait complètement — il
+        // annonçait donc « 1 ligne valide » là où l'import allait répartir 3
+        // individus sur une plaque neuve, et ne voyait aucune collision de
+        // position entre deux lignes du même fichier. On le simule ici avec la
+        // même règle et un contenant vide, pour que l'aperçu dise ce que
+        // l'import fera.
+        containerCache.set(boxId, enBase ?? {
+          id: `nouveau:${boxId}`,
+          type: /^P_/i.test(boxId) ? 'PLAQUE' : 'BOITE',
+          nouveau: true,
+        });
+      }
+      const container = containerCache.get(boxId);
 
       if (container) {
-        // PLAQUE + nombre > 1 → vérifier qu'il y a assez de positions libres
-        if (container.type === 'PLAQUE' && nombre > 1) {
+        if (container.nouveau) {
+          // Rien en base : le contenant est vide, on part d'une carte vierge
+          // sans interroger la base.
+          if (!positionsCache.has(container.id)) positionsCache.set(container.id, new Map());
+        } else if (!positionsCache.has(container.id)) {
           const occupiedRows = await prisma.moustique.findMany({
             where: { containerId: container.id, position: { not: null } },
-            select: { position: true },
+            select: { position: true, idTerrain: true },
           });
-          const occupiedSet   = new Set(occupiedRows.map(r => r.position));
-          const freePositions = freePlaquePositions(occupiedSet);
+          positionsCache.set(container.id, new Map(occupiedRows.map((r) => [r.position, r.idTerrain])));
+        }
+        const occupiedMap = positionsCache.get(container.id);
+
+        // PLAQUE + nombre > 1 → vérifier qu'il y a assez de positions libres
+        if (container.type === 'PLAQUE' && nombre > 1) {
+          const freePositions = freePlaquePositions(occupiedMap);
 
           if (freePositions.length < nombre) {
             addLog('erreur', 'POSITION_INSUFFISANTE',
               `Pas assez de positions libres dans "${boxId}" — ${freePositions.length} libre(s) pour ${nombre} individu(s) demandé(s)`);
           } else {
+            const prises = freePositions.slice(0, nombre);
             addLog('info', 'SPLIT_PLAQUE',
-              `Split prévu : ${nombre} individu(s) → positions ${freePositions.slice(0, nombre).join(', ')} dans "${boxId}"`);
+              `Split prévu : ${nombre} individu(s) → positions ${prises.join(', ')} dans "${boxId}"`);
+            // Réserve les positions pour les lignes suivantes du même fichier :
+            // sans ça, deux splits sur la même plaque annonçaient les MÊMES
+            // puits et l'aperçu passait alors que l'import aurait manqué de place.
+            for (const p of prises) occupiedMap.set(p, idTerrain ?? `ligne_${rn}`);
           }
         } else if (position && position !== 'H12') {
           // PLAQUE normale ou BOITE : vérifier position occupée
-          const occupied = await prisma.moustique.findFirst({
-            where: { containerId: container.id, position }, select: { id: true, idTerrain: true },
-          });
-          if (occupied) {
+          if (occupiedMap.has(position)) {
             addLog('erreur', 'POSITION_OCCUPEE',
-              `Position "${position}" déjà occupée dans "${boxId}" par ${occupied.idTerrain}`);
+              `Position "${position}" déjà occupée dans "${boxId}" par ${occupiedMap.get(position) ?? '(sans idTerrain)'}`);
+          } else {
+            occupiedMap.set(position, idTerrain ?? `ligne_${rn}`);
           }
         }
       }
-      // Si container inexistant → sera créé à l'import, pas d'erreur de validation
+    }
+
+    } catch (rowErr) {
+      console.error(`[import/validate] Ligne ${rn} :`, rowErr?.code ?? '', rowErr?.message ?? rowErr);
+      addLog('erreur', 'ERREUR_LIGNE', `Ligne non vérifiable : ${messageErreurBdd(rowErr, `validation ligne ${rn}`)}`);
     }
 
     if (rowOk) counts.valid++;
@@ -1571,10 +1907,9 @@ const validateMoustiques = async (req, res) => {
     });
   }
 
-  const resume = {};
-  for (const log of logs) {
-    if (log.niveau === 'erreur') resume[log.code] = (resume[log.code] ?? 0) + 1;
-  }
+  // `resume` est tenu à la volée par le journal (exact même si le détail des
+  // messages a été tronqué).
+  const resume = journal.resume;
   // Le résumé compte des LIGNES en erreur, pas des messages : sans ça un
   // identifiant répété 209 fois n'aurait pesé que 1 dans le total.
   if (lignesDoublonnees) {
@@ -1588,11 +1923,16 @@ const validateMoustiques = async (req, res) => {
     avertissements: counts.avertissements,
     resume,
     colonnes,
-    logs,
+    logs: journal.finaliser(),
+    logsTronques: journal.omis,
   });
 };
 
 module.exports = {
   importMoustiques, validateMoustiques, getTemplateMoustiques,
   TEMPLATE_COLUMNS, // exporté pour le test de cohérence avec FIELD_COLUMNS
+  // Helpers purs exposés pour les tests unitaires : ils portent des règles de
+  // conversion et de bornage que rien d'autre ne couvre (une date Excel mal
+  // interprétée corrompt les données en silence, cf. toDate).
+  __test__: { toDate, tronquer, nouveauJournal, parLots, compacterLignes, LONGUEURS_MAX, MAX_LOGS },
 };

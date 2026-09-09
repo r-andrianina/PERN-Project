@@ -13,6 +13,7 @@ const { formatTrancheHoraire } = require('../utils/trancheHoraire');
 const { generateMany } = require('../utils/idTerrain');
 const { countSpecimenRefs, refsReason, findReferencedSpecimenIds } = require('../utils/specimenRefs');
 const { logAudit, ACTIONS } = require('../utils/audit');
+const { chargerClasseurUtilisateur, premiereFeuille, assertVolumeTraitable } = require('../utils/excelGuards');
 const { BLOOD_MEAL, normalizeKey } = require('../utils/importMappings');
 const { getAccessibleProjetIds, canBypass, projetScopeWhere, assertProjetAccessible } = require('../utils/access');
 const { createSpecimenService }    = require('../services/specimenFactory');
@@ -94,9 +95,13 @@ const importExcel = async (req, res) => {
     assertProjetAccessible(methode.localite.mission.projetId, ids);
   }
 
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(req.file.buffer);
-  const worksheet = workbook.worksheets[0];
+  // Mêmes garde-fous que /api/v1/import (signature du contenu, plafond de
+  // décompression, plafond de lignes, parsing encapsulé) : ce second chemin
+  // d'import chargeait le classeur sans le moindre contrôle — un fichier corrompu
+  // ou un binaire renommé y produisait une 500 opaque.
+  const workbook  = await chargerClasseurUtilisateur(req.file.buffer);
+  const worksheet = premiereFeuille(workbook);
+  assertVolumeTraitable(worksheet);
 
   const results  = { success: 0, errors: [] };
   const dataRows = [];
