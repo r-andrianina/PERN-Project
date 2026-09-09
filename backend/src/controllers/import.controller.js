@@ -465,19 +465,54 @@ async function findOrCreateMission(db, ordreMission, projetId, dateDebut, logs, 
 }
 
 /**
+ * Normalise un code de localité tel qu'il sera stocké.
+ *
+ * Une SEULE fonction pour la recherche, la clé de cache et l'insertion : elles
+ * divergeaient (recherche sur la valeur brute, stockage sur la valeur tronquée),
+ * si bien qu'un code de plus de 10 caractères était écrit en base sous une forme
+ * que l'import ne retrouvait jamais au passage suivant — il recréait une
+ * localité à chaque mission.
+ *
+ * `LONGUEUR_MAX_CODE_LOCALITE` suit `Localite.code` (VarChar(50)) ; la convention
+ * de terrain (ABC, ABC_001) tient très en deçà, la marge n'existe que pour les
+ * fichiers venant de partenaires.
+ */
+const LONGUEUR_MAX_CODE_LOCALITE = 50;
+
+function normaliserCodeLocalite(code3w) {
+  if (!code3w) return null;
+  return String(code3w).trim().toUpperCase().slice(0, LONGUEUR_MAX_CODE_LOCALITE) || null;
+}
+
+/**
  * Trouve ou crée une localité.
  *
+ * Une Localite est une OCCURRENCE de visite : elle appartient à une Mission.
+ * Deux missions sur le même village produisent donc deux lignes — voulu, chaque
+ * passage ayant ses propres coordonnées relevées et ses propres pièges. Depuis
+ * la migration `20260909060000_localite_code_unique_par_mission`, le code est
+ * unique PAR MISSION : chacune conserve le sien, et c'est ce code qui permet de
+ * relier les passages successifs sur un même lieu.
+ *
  * Ordre de résolution :
- *   1. Par code WHAT_3_WORDS dans la même mission
+ *   1. Par code (WHAT_3_WORDS) dans la même mission
  *   2. Par proximité GPS dans la même mission (seuil GPS_THRESHOLD_KM)
  *   3. Création avec le code, le nom, et les coordonnées disponibles
- *      (si le code est déjà pris dans une autre mission → création sans code)
  */
 async function findOrCreateLocalite(db, { missionId, code3w, lat, lon, nomCandidat, altitudeM, logs, rn, idTerrain }) {
+  const code = normaliserCodeLocalite(code3w);
+  if (code3w && code && String(code3w).trim().length > LONGUEUR_MAX_CODE_LOCALITE) {
+    logs.push({
+      ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'avertissement',
+      code: 'VALEUR_TRONQUEE',
+      raison: `Code localité trop long (${String(code3w).trim().length} caractères, maximum ${LONGUEUR_MAX_CODE_LOCALITE}) — tronqué à "${code}"`,
+    });
+  }
+
   // 1. Matching par code dans la même mission
-  if (code3w) {
+  if (code) {
     const loc = await db.localite.findFirst({
-      where: { missionId, code: code3w.toUpperCase() },
+      where: { missionId, code },
       select: { id: true },
     });
     if (loc) return { localite: loc, created: false };
@@ -506,42 +541,24 @@ async function findOrCreateLocalite(db, { missionId, code3w, lat, lon, nomCandid
   }
 
   // 3. Création
-  const codeToUse = code3w ? code3w.toUpperCase().slice(0, 10) : null;
-  const nomToUse  = (nomCandidat || codeToUse || 'Localité import').slice(0, 200);
-
-  // `Localite.code` est unique GLOBALEMENT : l'étape 1 n'ayant rien trouvé dans
-  // cette mission, un code déjà pris appartient forcément à une autre mission.
   //
-  // On le vérifie AVANT d'insérer. L'ancien code laissait volontairement partir
-  // l'insertion puis rattrapait le P2002 — un motif incompatible avec une
-  // transaction : sous PostgreSQL, la première erreur avorte la transaction et
-  // toute requête suivante échoue avec « current transaction is aborted ».
-  // La reprise « création sans code » n'aurait donc jamais abouti, et c'est tout
-  // l'import qui serait tombé.
-  let codeFinal = codeToUse;
-  if (codeToUse) {
-    const prisPar = await db.localite.findUnique({ where: { code: codeToUse }, select: { id: true } });
-    if (prisPar) codeFinal = null;
-  }
+  // Aucune pré-vérification d'unicité n'est nécessaire : le code est unique PAR
+  // MISSION, et l'étape 1 vient d'établir qu'il n'existe pas dans celle-ci. Le
+  // cas « code déjà pris dans une autre mission » — qui obligeait à créer la
+  // localité SANS code, la rendant impossible à relier au même lieu d'une année
+  // sur l'autre — a disparu avec l'ancienne contrainte globale.
+  const nomToUse = (nomCandidat || code || 'Localité import').slice(0, 200);
 
   const localite = await db.localite.create({
-    data: { missionId, code: codeFinal, nom: nomToUse, latitude: lat, longitude: lon, altitudeM },
+    data: { missionId, code, nom: nomToUse, latitude: lat, longitude: lon, altitudeM },
     select: { id: true },
   });
 
-  if (codeToUse && codeFinal === null) {
-    logs.push({
-      ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'avertissement',
-      code: 'LOCALITE_CREEE_SANS_CODE',
-      raison: `Localité "${nomToUse}" créée sans code (code "${codeToUse}" déjà utilisé dans une autre mission)`,
-    });
-  } else {
-    logs.push({
-      ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
-      code: 'LOCALITE_CREEE',
-      raison: `Localité "${nomToUse}" (code: ${codeFinal ?? 'sans code'}) créée automatiquement`,
-    });
-  }
+  logs.push({
+    ligne: rn, idTerrain: idTerrain || `ligne_${rn}`, niveau: 'info',
+    code: 'LOCALITE_CREEE',
+    raison: `Localité "${nomToUse}" (code: ${code ?? 'sans code'}) créée automatiquement`,
+  });
   return { localite, created: true };
 }
 
@@ -902,9 +919,14 @@ const importMoustiques = async (req, res) => {
         const altitudeM  = toFloat(cellValue(row, hMap, ...COL.altitude));
         const nomLoc     = parseLocationNom(toString(cellValue(row, hMap, ...COL.nomLocalite)));
 
-        // Clé de cache : code si disponible, sinon GPS arrondi
-        const locCacheKey = code3w
-          ? `${mission.id}_CODE_${code3w.toUpperCase()}`
+        // Clé de cache : code si disponible, sinon GPS arrondi.
+        // La clé est bâtie sur le code NORMALISÉ (celui qui sera réellement
+        // stocké) — sinon deux écritures d'un même code résolvant vers la même
+        // valeur en base ouvrent deux entrées de cache, puis deux insertions,
+        // et depuis l'unicité par mission la seconde ferait échouer l'import.
+        const codeLocalite = normaliserCodeLocalite(code3w);
+        const locCacheKey = codeLocalite
+          ? `${mission.id}_CODE_${codeLocalite}`
           : `${mission.id}_GPS_${lat?.toFixed(4) ?? 'x'}_${lon?.toFixed(4) ?? 'x'}`;
 
         if (!localiteCache.has(locCacheKey)) {
@@ -1383,7 +1405,10 @@ const TEMPLATE_COLUMNS = [
   { header: 'PROJET',               key: 'projet',  width: 20, requis: false, note: 'Nom ou code projet (créé automatiquement par un superviseur)' },
   // — Localisation —
   { header: 'COLLECTION_LOCATION',  key: 'lieu',    width: 34, requis: false, note: 'Lieu, du plus large au plus fin : Région | District | Commune | Fokontany' },
-  { header: 'WHAT_3_WORDS',         key: 'w3w',     width: 20, requis: false, note: 'Code localité 3 mots ou code court — ex : ///a.b.c' },
+  // Le code identifie le LIEU et doit rester STABLE d'une mission à l'autre :
+  // c'est lui qui permet de relier les passages successifs sur un même point de
+  // collecte. Il est unique à l'intérieur d'une mission, jamais entre missions.
+  { header: 'WHAT_3_WORDS',         key: 'w3w',     width: 20, requis: false, note: 'Code du LIEU, à réutiliser tel quel aux missions suivantes — ex : ABC ou ABC_001. Un code what3words (///a.b.c) est aussi accepté' },
   { header: 'DECIMAL_LATITUDE',     key: 'lat',     width: 16, requis: false, note: 'Latitude décimale (Sud = négatif) — ex : -18.9137' },
   { header: 'DECIMAL_LONGITUDE',    key: 'lon',     width: 16, requis: false, note: 'Longitude décimale — ex : 47.5361' },
   { header: 'ELEVATION',            key: 'alt',     width: 12, requis: false, note: 'Altitude en mètres — ex : 1250' },
@@ -1487,17 +1512,17 @@ const getTemplateMoustiques = async (req, res) => {
   const [m1, m2, m3] = [...prefere, ...methodesDispo, 'CDC', 'CDC', 'CDC'];
   const EXAMPLES = [
     { series: 'MPM-2024-0001', mission: 'OM-2024-001', projet: 'ARBO-MHG',
-      lieu: 'Mahajanga | Boeny | Marovoay | Tsararano', w3w: 'LOC-MHG-001',
+      lieu: 'Mahajanga | Boeny | Marovoay | Tsararano', w3w: 'TSA_001',
       lat: -16.1028, lon: 46.6394, alt: 26, date: '2024-03-15', method: m1,
       taxo: 'Anopheles gambiae', genre: 'Anopheles', espece: 'gambiae', intExt: 'OUTDOORS', heure: '19:00', nombre: 1, sex: 'FEMALE', stage: 'ADULT', blood: 'G', parite: 'Pare',
       organe: 'WHOLE_ORGANISM', preserv: '95%_ETHANOL', box: 'BX_001', pos: 'T001', notes: 'Femelle gorgée' },
     { series: 'MPM-2024-0002', mission: 'OM-2024-001', projet: 'ARBO-MHG',
-      lieu: 'Mahajanga | Boeny | Marovoay | Tsararano', w3w: 'LOC-MHG-001',
+      lieu: 'Mahajanga | Boeny | Marovoay | Tsararano', w3w: 'TSA_001',
       lat: -16.1028, lon: 46.6394, alt: 26, date: '2024-03-15', method: m2,
       taxo: 'Culex quinquefasciatus', genre: 'Culex', espece: 'quinquefasciatus', intExt: 'INDOORS', heure: '', nombre: 12, sex: 'FEMALE', stage: 'ADULT', blood: 'N', parite: 'Nullipare',
       organe: 'ABDOMEN', preserv: 'RNALATER', box: 'P_001', pos: '', notes: 'Lot réparti sur la plaque' },
     { series: 'MPM-2024-0003', mission: 'OM-2024-002', projet: 'ARBO-MHG',
-      lieu: 'Analamanga | Antananarivo | Ambohidratrimo', w3w: 'LOC-ANT-005',
+      lieu: 'Analamanga | Antananarivo | Ambohidratrimo', w3w: 'AMB_005',
       lat: -18.8103, lon: 47.4528, alt: 1290, date: '2024-03-20', method: m3,
       taxo: 'Aedes sp.', genre: 'Aedes', espece: '', intExt: 'OUTDOORS', heure: '', nombre: 1, sex: 'MALE', stage: 'ADULT', blood: 'NC', parite: '',
       organe: 'WHOLE_ORGANISM', preserv: '70%_ETHANOL', box: '', pos: '', notes: 'Espèce non déterminée sur le terrain' },

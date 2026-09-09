@@ -73,7 +73,6 @@ const getCodeLabels = (t) => ({
   MISSION_CREEE:            t('importPage.codeMissionCreee'),
   LOCALITE_CREEE:           t('importPage.codeLocaliteCreee'),
   LOCALITE_MATCHEE_GPS:     t('importPage.codeLocaliteMatcheeGps'),
-  LOCALITE_CREEE_SANS_CODE: t('importPage.codeLocaliteCreeeSansCode'),
   METHODE_CREEE:            t('importPage.codeMethodeCreee'),
   METHODE_MATCHEE_FUZZY:    t('importPage.codeMethodeMatcheeFuzzy'),
   TYPE_METHODE_INTROUVABLE: t('importPage.codeTypeMethodeIntrouvable'),

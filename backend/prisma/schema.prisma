@@ -270,10 +270,21 @@ model MissionAgent {
 //  LOCALITÉS
 // =============================================================
 
+// Une Localite est une OCCURRENCE de visite : elle appartient à une Mission.
+// Deux missions sur le même village produisent donc deux lignes — voulu, chaque
+// passage ayant ses propres coordonnées relevées, son altitude et ses contacts.
+//
+// `code` est unique PAR MISSION et non globalement (changé le 2026-09-09).
+// Avec l'unicité globale, la 2e mission sur un même lieu ne pouvait pas
+// réutiliser son code : la localité était créée SANS code, et le lieu devenait
+// impossible à suivre d'une année sur l'autre — précisément ce à quoi le code
+// sert. VarChar élargi à 50 pour la même raison : un code tronqué à 10 ne
+// correspondait plus à celui du fichier, donc n'était jamais retrouvé au
+// passage suivant.
 model Localite {
   id        Int      @id @default(autoincrement())
   missionId Int      @map("mission_id")
-  code      String?  @unique @db.VarChar(10)
+  code      String?  @db.VarChar(50)
   nom       String   @db.VarChar(200)
   toponyme  String?  @db.VarChar(200)
   pays      String   @default("Madagascar") @db.VarChar(100)
@@ -291,6 +302,7 @@ model Localite {
   methodes MethodeCollecte[]
   contacts LocaliteContact[]
 
+  @@unique([missionId, code])
   @@index([missionId])
   @@map("localites")
 }

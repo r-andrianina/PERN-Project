@@ -4,14 +4,29 @@ const { getAccessibleProjetIds, canBypass, projetScopeWhere, assertProjetAccessi
 
 const CODE_REGEX = /^[A-Z]{3}$/;
 
-const validateCode = async (code, ignoreId = null) => {
+/**
+ * Un code de localité doit être unique DANS SA MISSION, et non globalement
+ * (migration `20260909060000_localite_code_unique_par_mission`).
+ *
+ * Une Localite est une occurrence de visite : deux missions sur le même village
+ * sont deux lignes, et chacune doit pouvoir porter le code du lieu. Avec
+ * l'ancienne unicité globale, la 2e mission se voyait refuser « AKZ » alors
+ * qu'il désignait précisément le lieu où elle se trouvait — et l'import, lui,
+ * créait alors la localité sans code, rendant le lieu impossible à suivre d'une
+ * année sur l'autre.
+ *
+ * @param {string|null} code
+ * @param {number} missionId  mission de rattachement — le périmètre d'unicité
+ * @param {number|null} ignoreId  localité à exclure (cas d'une mise à jour)
+ */
+const validateCode = async (code, missionId, ignoreId = null) => {
   if (!code) return;
   if (!CODE_REGEX.test(code))
     throw AppError.badRequest('Le code doit contenir exactement 3 lettres majuscules (ex: AKZ)');
-  const where = { code };
+  const where = { code, missionId };
   if (ignoreId) where.NOT = { id: ignoreId };
   const dupe = await prisma.localite.findFirst({ where });
-  if (dupe) throw AppError.conflict(`Le code "${code}" est déjà utilisé par une autre localité`);
+  if (dupe) throw AppError.conflict(`Le code "${code}" est déjà utilisé par une autre localité de cette mission`);
 };
 
 const INCLUDE_LIST = {
@@ -125,7 +140,7 @@ const create = async (data) => {
   if (!mission) throw AppError.notFound('Mission introuvable');
 
   const codeUpper = code ? code.trim().toUpperCase() : null;
-  await validateCode(codeUpper);
+  await validateCode(codeUpper, parseInt(missionId));
 
   const nomTrimmed = nom.trim();
 
@@ -182,7 +197,12 @@ const update = async (id, data, user) => {
 
   if (code !== undefined) {
     const codeUpper = code ? code.trim().toUpperCase() : null;
-    await validateCode(codeUpper, id);
+    // L'unicité se juge dans la mission de la localité : il faut donc la
+    // connaître, y compris pour un utilisateur bypass (qui n'a pas déclenché
+    // la lecture de cloisonnement ci-dessus).
+    const courante = await prisma.localite.findUnique({ where: { id }, select: { missionId: true } });
+    if (!courante) throw AppError.notFound('Localité introuvable');
+    await validateCode(codeUpper, courante.missionId, id);
     patch.code = codeUpper;
   }
 
