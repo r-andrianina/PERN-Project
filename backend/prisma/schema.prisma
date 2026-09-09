@@ -302,6 +302,16 @@ model Localite {
   methodes MethodeCollecte[]
   contacts LocaliteContact[]
 
+  // Lien DIRECT vers les spécimens, en plus du chemin methodes → spécimens.
+  // Il n'existe que pour porter le périmètre d'unicité de `idTerrain`
+  // (@@unique([localiteId, idTerrain]) sur chaque table de spécimens) : un index
+  // unique PostgreSQL ne peut pas traverser une jointure. Pour lister les
+  // spécimens d'une localité, passer par `methodes` reste la voie normale.
+  moustiques     Moustique[]
+  tiques         Tique[]
+  puces          Puce[]
+  autresSpecimens AutreSpecimen[]
+
   @@unique([missionId, code])
   @@index([missionId])
   @@map("localites")
@@ -562,8 +572,17 @@ model Hote {
 
 model Moustique {
   id             Int       @id @default(autoincrement())
-  idTerrain      String?   @unique @map("id_terrain") @db.VarChar(50)
+  // L'identifiant terrain (SERIES) est unique DANS SA LOCALITÉ, pas dans toute
+  // la base (changé le 2026-09-09) — cf. @@unique en bas du modèle et le
+  // commentaire de `localiteId`.
+  idTerrain      String?   @map("id_terrain") @db.VarChar(50)
   methodeId      Int       @map("methode_id")
+  // Copie de `methode.localiteId`, portée ici pour servir de PÉRIMÈTRE
+  // D'UNICITÉ à `idTerrain` : un index unique PostgreSQL ne peut pas traverser
+  // une jointure. Jamais à resynchroniser — `methodeId` est exclu des schémas
+  // de mise à jour des spécimens, et `localiteId` de ceux des méthodes : la
+  // chaîne spécimen → méthode → localité est immuable après création.
+  localiteId     Int       @map("localite_id")
   taxonomieId    Int       @map("taxonomie_id")
   nombre         Int       @default(1)
   sexe           Sexe      @default(inconnu)
@@ -581,11 +600,18 @@ model Moustique {
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   methode   MethodeCollecte       @relation(fields: [methodeId], references: [id], onDelete: Cascade)
+  localite  Localite              @relation(fields: [localiteId], references: [id], onDelete: Cascade)
   taxonomie TaxonomieSpecimen     @relation(fields: [taxonomieId], references: [id])
   solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
   container Container?            @relation(fields: [containerId], references: [id])
 
+  // Le numéro de tube terrain (SERIES) repart à 1 à chaque mission : le
+  // protocole numérote <CODE_LOCALITE>_<n> par localité (cf. utils/idTerrain.js),
+  // et une Localite appartient à une Mission. Avec l'ancienne unicité GLOBALE,
+  // la 2e mission sur un même lieu voyait tous ses tubes rejetés en DOUBLON.
+  @@unique([localiteId, idTerrain])
   @@index([methodeId])
+  @@index([localiteId])
   @@index([containerId])
   @@index([taxonomieId])
   @@index([dateCollecte])
@@ -598,8 +624,10 @@ model Moustique {
 
 model Tique {
   id              Int       @id @default(autoincrement())
-  idTerrain       String?   @unique @map("id_terrain") @db.VarChar(50)
+  // Unique dans sa localité, pas globalement — cf. Moustique.
+  idTerrain       String?   @map("id_terrain") @db.VarChar(50)
   methodeId       Int       @map("methode_id")
+  localiteId      Int       @map("localite_id")
   hoteId          Int?      @map("hote_id")
   taxonomieId     Int       @map("taxonomie_id")
   nombre          Int       @default(1)
@@ -616,12 +644,15 @@ model Tique {
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   methode   MethodeCollecte       @relation(fields: [methodeId], references: [id], onDelete: Cascade)
+  localite  Localite              @relation(fields: [localiteId], references: [id], onDelete: Cascade)
   hote      Hote?                 @relation(fields: [hoteId], references: [id])
   taxonomie TaxonomieSpecimen     @relation(fields: [taxonomieId], references: [id])
   solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
   container Container?            @relation(fields: [containerId], references: [id])
 
+  @@unique([localiteId, idTerrain])
   @@index([methodeId])
+  @@index([localiteId])
   @@index([containerId])
   @@index([taxonomieId])
   @@index([dateCollecte])
@@ -635,8 +666,10 @@ model Tique {
 
 model Puce {
   id             Int       @id @default(autoincrement())
-  idTerrain      String?   @unique @map("id_terrain") @db.VarChar(50)
+  // Unique dans sa localité, pas globalement — cf. Moustique.
+  idTerrain      String?   @map("id_terrain") @db.VarChar(50)
   methodeId      Int       @map("methode_id")
+  localiteId     Int       @map("localite_id")
   hoteId         Int?      @map("hote_id")
   taxonomieId    Int       @map("taxonomie_id")
   nombre         Int       @default(1)
@@ -651,12 +684,15 @@ model Puce {
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   methode   MethodeCollecte       @relation(fields: [methodeId], references: [id], onDelete: Cascade)
+  localite  Localite              @relation(fields: [localiteId], references: [id], onDelete: Cascade)
   hote      Hote?                 @relation(fields: [hoteId], references: [id])
   taxonomie TaxonomieSpecimen     @relation(fields: [taxonomieId], references: [id])
   solution  SolutionConservation? @relation(fields: [solutionId], references: [id])
   container Container?            @relation(fields: [containerId], references: [id])
 
+  @@unique([localiteId, idTerrain])
   @@index([methodeId])
+  @@index([localiteId])
   @@index([containerId])
   @@index([taxonomieId])
   @@index([dateCollecte])
@@ -716,8 +752,10 @@ model TypeAutreSpecimen {
 
 model AutreSpecimen {
   id             Int       @id @default(autoincrement())
-  idTerrain      String?   @unique @map("id_terrain") @db.VarChar(50)
+  // Unique dans sa localité, pas globalement — cf. Moustique.
+  idTerrain      String?   @map("id_terrain") @db.VarChar(50)
   methodeId      Int       @map("methode_id")
+  localiteId     Int       @map("localite_id")
   typeSpecimenId Int       @map("type_specimen_id")
   taxonomieId    Int?      @map("taxonomie_id")
   nombre         Int       @default(1)
@@ -734,13 +772,16 @@ model AutreSpecimen {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   methode      MethodeCollecte      @relation(fields: [methodeId],      references: [id], onDelete: Cascade)
+  localite     Localite             @relation(fields: [localiteId],     references: [id], onDelete: Cascade)
   typeSpecimen TypeAutreSpecimen    @relation(fields: [typeSpecimenId], references: [id])
   taxonomie    TaxonomieSpecimen?   @relation(fields: [taxonomieId],    references: [id])
   solution     SolutionConservation? @relation(fields: [solutionId],   references: [id])
   container    Container?           @relation(fields: [containerId],    references: [id])
 
+  @@unique([localiteId, idTerrain])
   @@index([containerId])
   @@index([methodeId])
+  @@index([localiteId])
   @@map("autres_specimens")
 }
 

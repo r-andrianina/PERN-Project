@@ -71,11 +71,23 @@ async function generateMany(methodeId, count) {
 }
 
 /**
- * Vérifie si une chaîne idTerrain est unique sur les 3 tables.
+ * Vérifie qu'un idTerrain est libre DANS SA LOCALITÉ, sur les 4 tables de
+ * spécimens (le compteur `<CODE_LOCALITE>_<n>` est partagé entre les types).
+ *
+ * Le périmètre est la localité et non la base entière (changé le 2026-09-09,
+ * migration `20260909070000_specimen_id_terrain_unique_par_localite`) : le
+ * terrain repart à 1 à chaque mission, et une Localite appartient à une
+ * Mission. Vérifier globalement rejetait la 2e mission sur un même lieu alors
+ * que ses tubes portaient des étiquettes parfaitement légitimes.
+ *
+ * @param {string|null} value
+ * @param {number} localiteId  périmètre d'unicité
+ * @param {string|null} ignoreType  modèle à exclure (cas d'une mise à jour)
+ * @param {number|null} ignoreId
  */
-async function isIdTerrainUnique(value, ignoreType = null, ignoreId = null) {
+async function isIdTerrainUnique(value, localiteId, ignoreType = null, ignoreId = null) {
   if (!value) return true;
-  const where = { idTerrain: value };
+  const where = { idTerrain: value, localiteId };
   const [m, t, p, a] = await Promise.all([
     prisma.moustique.findFirst    ({ where: ignoreType === 'moustique'    ? { ...where, NOT: { id: ignoreId } } : where }),
     prisma.tique.findFirst        ({ where: ignoreType === 'tique'        ? { ...where, NOT: { id: ignoreId } } : where }),

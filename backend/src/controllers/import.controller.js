@@ -816,7 +816,7 @@ const importMoustiques = async (req, res) => {
           const { count } = await tx.moustique.createMany({
             data: lot,
             // Filet : les doublons sont déjà écartés en mémoire avant d'arriver
-            // ici (existingIdTerrains + positionsCache). `skipDuplicates` évite
+            // ici (idTerrainsParLocalite + positionsCache). `skipDuplicates` évite
             // qu'un import CONCURRENT ayant écrit les mêmes identifiants ne
             // fasse échouer la requête sur un P2002 brut.
             skipDuplicates: true,
@@ -836,25 +836,30 @@ const importMoustiques = async (req, res) => {
         }
       };
 
-      // Pré-charge en une seule requête (découpée en lots, cf. TAILLE_LOT_IN)
-      // les idTerrain déjà présents en base parmi ceux du fichier — remplace
-      // jusqu'à N requêtes `findUnique` (une par ligne) par ~1. Les doublons
-      // INTRA-fichier sont détectés via le même Set, mis à jour après chaque
-      // ligne mise en attente.
+      // ── Identifiants terrain déjà pris, PAR LOCALITÉ ────────────
+      // Le périmètre d'unicité de `idTerrain` est la localité et non la base
+      // entière (migration `20260909070000_specimen_id_terrain_unique_par_localite`) :
+      // le terrain numérote <CODE_LOCALITE>_<n> et repart à 1 à chaque mission,
+      // donc « ABC_001 » existe légitimement une fois par passage sur le lieu.
+      // Un pré-chargement global rejetait toute nouvelle mission sur une
+      // localité déjà visitée.
       //
-      // Le découpage n'est pas cosmétique : au-delà de ~65 000 valeurs, un `in:`
-      // dépasse la limite de paramètres liés de PostgreSQL et la requête échoue.
-      const fileIdTerrains = [...new Set(rows
-        .map(({ row }) => toString(cellValue(row, hMap, ...COL.idTerrain)))
-        .filter(Boolean))];
-      const existingIdTerrains = new Set();
-      for (const lot of parLots(fileIdTerrains, TAILLE_LOT_IN)) {
-        const trouves = await tx.moustique.findMany({
-          where: { idTerrain: { in: lot } },
-          select: { idTerrain: true },
-        });
-        for (const t of trouves) existingIdTerrains.add(t.idTerrain);
-      }
+      // Chargement paresseux : un fichier référence quelques localités, on paie
+      // une requête par localité au lieu d'une par ligne. Le Set sert ensuite
+      // aussi à détecter les doublons INTRA-fichier (il est alimenté à chaque
+      // ligne mise en attente).
+      const idTerrainsParLocalite = new Map(); // localiteId -> Set<idTerrain>
+
+      const idTerrainsDeLocalite = async (localiteId) => {
+        if (!idTerrainsParLocalite.has(localiteId)) {
+          const pris = await tx.moustique.findMany({
+            where: { localiteId, idTerrain: { not: null } },
+            select: { idTerrain: true },
+          });
+          idTerrainsParLocalite.set(localiteId, new Set(pris.map((r) => r.idTerrain)));
+        }
+        return idTerrainsParLocalite.get(localiteId);
+      };
 
       for (const { row, rn } of rows) {
         counts.total++;
@@ -1167,30 +1172,24 @@ const importMoustiques = async (req, res) => {
             for (const pos of positionsToUse) splitIds.set(pos, null);
           }
 
-          const candidats = [...splitIds.values()].filter(Boolean);
-          const dejaPris  = new Set();
-          for (const lot of parLots(candidats, TAILLE_LOT_IN)) {
-            const trouves = await tx.moustique.findMany({
-              where: { idTerrain: { in: lot } }, select: { idTerrain: true },
-            });
-            for (const t of trouves) dejaPris.add(t.idTerrain);
-          }
-          // Les identifiants déjà mis en attente plus tôt dans CE fichier
-          // comptent aussi comme pris.
-          for (const c of candidats) if (existingIdTerrains.has(c)) dejaPris.add(c);
+          // Identifiants déjà pris DANS CETTE LOCALITÉ (base + lignes déjà mises
+          // en attente pour ce fichier). Le jeu est déjà chargé, plus aucune
+          // requête ici — l'ancien code faisait un `findUnique` par puits.
+          const prisIci = await idTerrainsDeLocalite(localite.id);
 
           let splitOk = 0;
           const positionsCreees = [];
           for (const pos of positionsToUse) {
             const splitId = splitIds.get(pos);
-            if (splitId && dejaPris.has(splitId)) {
+            if (splitId && prisIci.has(splitId)) {
               logs.push({ ligne: rn, idTerrain: splitId, niveau: 'avertissement',
-                code: 'DOUBLON', raison: `"${splitId}" déjà importé — position ${pos} ignorée` });
+                code: 'DOUBLON', raison: `"${splitId}" déjà importé dans cette localité — position ${pos} ignorée` });
               continue;
             }
             enAttente.push({
               idTerrain:    splitId,
               methodeId:    methode.id,
+              localiteId:   localite.id,
               taxonomieId:  taxo.id,
               nombre:       1,
               sexe, stade, parite, trancheHoraire, repasSang, organePreleve, solutionId,
@@ -1203,7 +1202,7 @@ const importMoustiques = async (req, res) => {
             positionsCreees.push(pos);
             // Marquer position et identifiant comme pris pour les lignes suivantes
             occupiedMap.set(pos, splitId);
-            if (splitId) existingIdTerrains.add(splitId);
+            if (splitId) prisIci.add(splitId);
           }
 
           counts.imported += splitOk;
@@ -1237,11 +1236,14 @@ const importMoustiques = async (req, res) => {
           }
         }
 
-        // ── 7. Unicité idTerrain ──
-        // Vérifié contre le pré-chargement (existingIdTerrains) + les idTerrain
-        // déjà mis en attente plus tôt dans CE fichier — plus de requête ici.
-        if (idTerrain && existingIdTerrains.has(idTerrain)) {
-          addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" déjà présent en base — ligne ignorée`);
+        // ── 7. Unicité idTerrain, DANS LA LOCALITÉ ──
+        // Le même numéro de tube sur une autre localité (ou sur le même lieu à
+        // une autre mission, qui est une autre ligne Localite) n'est PAS un
+        // doublon : le terrain repart à 1 à chaque passage.
+        const idTerrainsIci = await idTerrainsDeLocalite(localite.id);
+        if (idTerrain && idTerrainsIci.has(idTerrain)) {
+          addLog('erreur', 'DOUBLON',
+            `idTerrain "${idTerrain}" déjà utilisé dans cette localité — ligne ignorée`);
           continue;
         }
 
@@ -1249,6 +1251,7 @@ const importMoustiques = async (req, res) => {
         enAttente.push({
           idTerrain,
           methodeId:    methode.id,
+          localiteId:   localite.id,
           taxonomieId:  taxo.id,
           nombre,
           sexe,
@@ -1267,7 +1270,7 @@ const importMoustiques = async (req, res) => {
         importParMission.get(mission.id).imported++;
         // Tient à jour les caches en mémoire pour les lignes suivantes du même
         // fichier (doublon idTerrain / position occupée détectés sans requête).
-        if (idTerrain) existingIdTerrains.add(idTerrain);
+        if (idTerrain) idTerrainsIci.add(idTerrain);
         if (containerId && position) positionsCache.get(containerId)?.set(position, idTerrain);
 
         if (enAttente.length >= TAILLE_LOT_INSERT) await viderLot();
@@ -1601,7 +1604,7 @@ const validateMoustiques = async (req, res) => {
   const containerCache = new Map();   // code container -> { id, type } | null
   const positionsCache = new Map();   // containerId -> Map(position -> idTerrain)
   const seenIds       = new Set();
-  const repetitions   = new Map(); // idTerrain -> lignes répétées (hors 1re)
+  const repetitions   = new Map(); // "mission|codeLocalité::idTerrain" -> { idTerrain, lignes } (hors 1re)
   const premiereLigne = new Map(); // idTerrain -> 1re ligne où il apparaît
   const lignesSansDate = [];
   const registreTubes  = nouveauRegistre();
@@ -1623,19 +1626,47 @@ const validateMoustiques = async (req, res) => {
     rows.push({ row, rn });
   });
 
-  // Préchargement des identifiants terrain déjà en base : remplace un
-  // `findUnique` PAR LIGNE par ~1 requête pour tout le fichier (découpée pour
-  // ne pas dépasser la limite de paramètres liés de PostgreSQL).
-  const fileIdTerrains = [...new Set(rows
-    .map(({ row }) => toString(cellValue(row, hMap, ...COL.idTerrain)))
-    .filter(Boolean))];
-  const existingIdTerrains = new Set();
-  for (const lot of parLots(fileIdTerrains, TAILLE_LOT_IN)) {
-    const trouves = await prisma.moustique.findMany({
-      where: { idTerrain: { in: lot } }, select: { idTerrain: true },
-    });
-    for (const t of trouves) existingIdTerrains.add(t.idTerrain);
-  }
+  // ── Identifiants terrain déjà pris, PAR LOCALITÉ ────────────────
+  // Même périmètre qu'à l'import : « ABC_001 » n'est un doublon que dans SA
+  // localité (le terrain repart à 1 à chaque mission). L'aperçu doit rendre
+  // exactement le même verdict, sinon il annonce des doublons que l'import
+  // accepte — ou l'inverse.
+  //
+  // La localité est résolue en LECTURE SEULE : l'aperçu ne crée rien. Une
+  // mission ou une localité encore inexistante ne peut contenir aucun spécimen,
+  // donc aucun doublon possible — on renvoie alors un jeu vide.
+  const localiteCache = new Map();   // "ordreMission|code" -> localiteId | null
+  const idTerrainsParLocalite = new Map();
+
+  const resoudreLocaliteId = async (ordreMission, code) => {
+    if (!ordreMission) return null;
+    const cle = `${ordreMission}|${code ?? ''}`;
+    if (!localiteCache.has(cle)) {
+      const mission = await prisma.mission.findUnique({
+        where: { ordreMission }, select: { id: true },
+      });
+      let localiteId = null;
+      if (mission) {
+        const loc = code
+          ? await prisma.localite.findFirst({ where: { missionId: mission.id, code }, select: { id: true } })
+          : null;
+        localiteId = loc?.id ?? null;
+      }
+      localiteCache.set(cle, localiteId);
+    }
+    return localiteCache.get(cle);
+  };
+
+  const idTerrainsDeLocalite = async (localiteId) => {
+    if (localiteId == null) return new Set();
+    if (!idTerrainsParLocalite.has(localiteId)) {
+      const pris = await prisma.moustique.findMany({
+        where: { localiteId, idTerrain: { not: null } }, select: { idTerrain: true },
+      });
+      idTerrainsParLocalite.set(localiteId, new Set(pris.map((r) => r.idTerrain)));
+    }
+    return idTerrainsParLocalite.get(localiteId);
+  };
 
   for (const { row, rn } of rows) {
     counts.total++;
@@ -1718,23 +1749,34 @@ const validateMoustiques = async (req, res) => {
       }
     }
 
-    // 3. Doublon idTerrain
+    // 3. Doublon idTerrain — DANS LA LOCALITÉ
     // Les répétitions INTRA-fichier sont collectées ici et signalées une seule
     // fois par valeur en fin de parcours (cf. plus bas) : un tube répété 209
     // fois produisait 209 messages identiques, illisibles et inexploitables
-    // pour corriger le fichier. Le doublon vis-à-vis de la BASE reste par ligne,
-    // désormais résolu sur le préchargement (plus de requête ici).
+    // pour corriger le fichier. Le doublon vis-à-vis de la BASE reste par ligne.
+    //
+    // Le périmètre est la localité, comme à l'import : deux localités peuvent
+    // légitimement porter le même numéro de tube (le préfixe du SERIES est le
+    // code de la localité, donc en pratique ils diffèrent — mais la règle doit
+    // rester juste, pas seulement vraie par habitude).
     if (idTerrain) {
-      if (seenIds.has(idTerrain)) {
-        if (!repetitions.has(idTerrain)) repetitions.set(idTerrain, []);
-        repetitions.get(idTerrain).push(rn);
+      const codeLocalite = normaliserCodeLocalite(toString(cellValue(row, hMap, ...COL.code3w)));
+      const cleLocale    = `${ordreMission ?? ''}|${codeLocalite ?? ''}`;
+      const cleUnicite   = `${cleLocale}::${idTerrain}`;
+
+      if (seenIds.has(cleUnicite)) {
+        if (!repetitions.has(cleUnicite)) repetitions.set(cleUnicite, { idTerrain, lignes: [] });
+        repetitions.get(cleUnicite).lignes.push(rn);
         rowOk = false;
         counts.erreurs++;
       } else {
-        seenIds.add(idTerrain);
-        premiereLigne.set(idTerrain, rn);
-        if (existingIdTerrains.has(idTerrain)) {
-          addLog('erreur', 'DOUBLON', `idTerrain "${idTerrain}" déjà présent en base de données`);
+        seenIds.add(cleUnicite);
+        premiereLigne.set(cleUnicite, rn);
+        const localiteId = await resoudreLocaliteId(ordreMission, codeLocalite);
+        const dejaPris   = await idTerrainsDeLocalite(localiteId);
+        if (dejaPris.has(idTerrain)) {
+          addLog('erreur', 'DOUBLON',
+            `idTerrain "${idTerrain}" déjà utilisé dans cette localité`);
         }
       }
     }
@@ -1920,15 +1962,17 @@ const validateMoustiques = async (req, res) => {
   // Un message par identifiant répété, avec les lignes concernées en plages :
   // c'est ce qui permet de corriger le fichier. Le détail ligne par ligne
   // produisait 209 messages identiques pour un seul tube.
+  // La clé de regroupement porte la localité (cf. section 3) ; l'identifiant
+  // affiché reste le SERIES seul, c'est lui que l'utilisateur doit corriger.
   let lignesDoublonnees = 0;
-  for (const [id, lignes] of [...repetitions].sort((a, b) => b[1].length - a[1].length)) {
+  for (const [cle, { idTerrain, lignes }] of [...repetitions].sort((a, b) => b[1].lignes.length - a[1].lignes.length)) {
     lignesDoublonnees += lignes.length;
     logs.push({
-      ligne: premiereLigne.get(id) ?? lignes[0],
-      idTerrain: id,
+      ligne: premiereLigne.get(cle) ?? lignes[0],
+      idTerrain,
       niveau: 'erreur',
       code: 'DOUBLON',
-      raison: `"${id}" apparaît sur ${lignes.length + 1} lignes (${compacterLignes([premiereLigne.get(id), ...lignes])}) — l'identifiant doit être unique`,
+      raison: `"${idTerrain}" apparaît sur ${lignes.length + 1} lignes (${compacterLignes([premiereLigne.get(cle), ...lignes])}) — l'identifiant doit être unique dans sa localité`,
     });
   }
 

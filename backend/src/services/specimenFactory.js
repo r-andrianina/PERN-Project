@@ -134,7 +134,7 @@ function createSpecimenService(config) {
 
     const methode = await prisma.methodeCollecte.findUnique({
       where: { id: parseInt(methodeId) },
-      include: { localite: { select: { mission: { select: { projetId: true } } } } },
+      include: { localite: { select: { id: true, mission: { select: { projetId: true } } } } },
     });
     if (!methode) throw AppError.notFound('Méthode introuvable');
     await assertMethodeAccessible(methode.localite.mission.projetId, user);
@@ -171,6 +171,8 @@ function createSpecimenService(config) {
       const ids = await generateMany(parseInt(methodeId), nbInt);
       const baseData = {
         methodeId: parseInt(methodeId),
+        // Périmètre d'unicité de idTerrain (cf. @@unique([localiteId, idTerrain]))
+        localiteId: methode.localiteId,
         taxonomieId: taxonomieId ? parseInt(taxonomieId) : null,
         ...(hasTypeSpecimen ? { typeSpecimenId: parseInt(typeSpecimenId) } : {}),
         ...buildBaseData(body),
@@ -201,8 +203,8 @@ function createSpecimenService(config) {
 
     let finalIdTerrain = idTerrain ? idTerrain.trim() : null;
     if (finalIdTerrain) {
-      const ok = await isIdTerrainUnique(finalIdTerrain);
-      if (!ok) throw AppError.conflict(`L'ID "${finalIdTerrain}" est déjà utilisé`);
+      const ok = await isIdTerrainUnique(finalIdTerrain, methode.localiteId);
+      if (!ok) throw AppError.conflict(`L'ID "${finalIdTerrain}" est déjà utilisé dans cette localité`);
     } else {
       finalIdTerrain = await generateIdTerrain(parseInt(methodeId));
     }
@@ -211,6 +213,7 @@ function createSpecimenService(config) {
       data: {
         idTerrain: finalIdTerrain,
         methodeId: parseInt(methodeId),
+        localiteId: methode.localiteId,
         taxonomieId: taxonomieId ? parseInt(taxonomieId) : null,
         ...(hasTypeSpecimen ? { typeSpecimenId: parseInt(typeSpecimenId) } : {}),
         ...buildBaseData(body),
@@ -233,8 +236,12 @@ function createSpecimenService(config) {
     const data = {};
     if (idTerrain !== undefined) {
       if (idTerrain) {
-        const ok = await isIdTerrainUnique(idTerrain.trim(), model, id);
-        if (!ok) throw AppError.conflict(`L'ID "${idTerrain}" est déjà utilisé`);
+        // L'unicité se juge dans la localité du spécimen : il faut donc la
+        // connaître avant le contrôle (`before` n'était lu qu'après).
+        const courant = await db().findUnique({ where: { id }, select: { localiteId: true } });
+        if (!courant) throw AppError.notFound(`${entityLabel} introuvable`);
+        const ok = await isIdTerrainUnique(idTerrain.trim(), courant.localiteId, model, id);
+        if (!ok) throw AppError.conflict(`L'ID "${idTerrain}" est déjà utilisé dans cette localité`);
         data.idTerrain = idTerrain.trim();
       } else {
         data.idTerrain = null;

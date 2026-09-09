@@ -129,6 +129,8 @@ const importExcel = async (req, res) => {
 
     dataRows.push({
       methodeId:   parseInt(methodeId),
+      // Périmètre d unicité de idTerrain (cf. @@unique([localiteId, idTerrain]))
+      localiteId:  methode.localiteId,
       taxonomieId,
       nombre:      parseInt(row.getCell(3).value) || 1,
       sexe:        ['M', 'F', 'inconnu'].includes(sexe) ? sexe : 'inconnu',
