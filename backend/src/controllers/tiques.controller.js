@@ -12,6 +12,7 @@ const { generateMany } = require('../utils/idTerrain');
 const { refsReason } = require('../utils/specimenRefs');
 const { BLOOD_MEAL, normalizeKey } = require('../utils/importMappings');
 const { getAccessibleProjetIds, canBypass, projetScopeWhere, assertProjetAccessible } = require('../utils/access');
+const { chargerClasseurUtilisateur, premiereFeuille, assertVolumeTraitable } = require('../utils/excelGuards');
 const { createSpecimenService }    = require('../services/specimenFactory');
 const { createSpecimenController } = require('./specimenControllerFactory');
 
@@ -29,7 +30,7 @@ const includeBase = {
     },
   },
   hote:      { include: { taxonomieHote: { select: { nom: true, niveau: true } } } },
-  taxonomie: { include: { parent: { include: { parent: true } } } },
+  taxonomie:    { include: { parent: { include: { parent: { include: { parent: true } } } } } },
   solution:  { select: { id: true, nom: true } },
   container: { select: { id: true, code: true, type: true } },
 };
@@ -84,9 +85,13 @@ const importExcel = async (req, res) => {
     assertProjetAccessible(methode.localite.mission.projetId, ids);
   }
 
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(req.file.buffer);
-  const worksheet = workbook.worksheets[0];
+  // Mêmes garde-fous que /api/v1/import (signature du contenu, plafond de
+  // décompression, plafond de lignes, parsing encapsulé) : ce second chemin
+  // d'import chargeait le classeur sans le moindre contrôle — un fichier corrompu
+  // ou un binaire renommé y produisait une 500 opaque.
+  const workbook  = await chargerClasseurUtilisateur(req.file.buffer);
+  const worksheet = premiereFeuille(workbook);
+  assertVolumeTraitable(worksheet);
 
   const results = { success: 0, errors: [] };
   const dataRows = [];
@@ -124,6 +129,8 @@ const importExcel = async (req, res) => {
 
     dataRows.push({
       methodeId:   parseInt(methodeId),
+      // Périmètre d unicité de idTerrain (cf. @@unique([localiteId, idTerrain]))
+      localiteId:  methode.localiteId,
       taxonomieId,
       nombre:      parseInt(row.getCell(3).value) || 1,
       sexe:        ['M', 'F', 'inconnu'].includes(sexe) ? sexe : 'inconnu',
@@ -162,7 +169,7 @@ const exportExcel = async (req, res) => {
     include: {
       methode:   { select: { typeMethode: { select: { nom: true } }, localite: { select: { nom: true, region: true, latitude: true, longitude: true, mission: { select: { ordreMission: true } } } } } },
       hote:      { include: { taxonomieHote: { select: { nom: true } } } },
-      taxonomie: { include: { parent: { include: { parent: true } } } },
+      taxonomie:    { include: { parent: { include: { parent: { include: { parent: true } } } } } },
       solution:  { select: { nom: true } },
       container: { select: { code: true } },
     },

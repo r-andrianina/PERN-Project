@@ -31,8 +31,18 @@ describe('schemas/specimens — Moustique', () => {
     });
 
     it('accepte les 2 valeurs de parité', () => {
-      for (const parite of ['Nulle', 'Multi']) {
+      for (const parite of ['Nullipare', 'Pare']) {
         expect(schema.createMoustique.safeParse({ methodeId: 1, taxonomieId: 2, parite }).success).toBe(true);
+      }
+    });
+
+    // Renommage du 2026-09-02 : 'Nulle'/'Multi' → 'Nullipare'/'Pare'.
+    // "Multi(pare)" était faux avec deux valeurs seulement — une femelle ayant
+    // pondu une fois est paucipare. Les anciennes valeurs ne doivent plus passer
+    // par l'API ; l'import Excel, lui, les tolère encore (cf. table PARITE).
+    it('rejette les anciennes valeurs "Nulle" et "Multi"', () => {
+      for (const parite of ['Nulle', 'Multi']) {
+        expect(schema.createMoustique.safeParse({ methodeId: 1, taxonomieId: 2, parite }).success).toBe(false);
       }
     });
 

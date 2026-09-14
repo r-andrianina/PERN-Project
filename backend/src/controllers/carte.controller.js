@@ -4,11 +4,12 @@
 
 const prisma = require('../config/prisma');
 const { BYPASS_ROLES } = require('../config/rbac');
+const { libelleTaxonomie, TAXONOMIE_INCLUDE } = require('../utils/taxonomyResolve');
 
-const taxoLabel = (t) => {
-  if (!t) return null;
-  return t.parent?.nom ? `${t.parent.nom} ${t.nom}` : t.nom;
-};
+// Utilise l'implémentation partagée : cette copie locale prenait le parent
+// direct pour le genre et affichait donc le SOUS-GENRE sur les points de carte
+// ("Stegomyia aegypti" au lieu de "Aedes aegypti").
+const taxoLabel = libelleTaxonomie;
 
 // GET /api/v1/carte/specimens
 const getSpecimens = async (req, res) => {
@@ -44,7 +45,8 @@ const getSpecimens = async (req, res) => {
   const methodeIds = methodes.map(m => m.id);
 
   // Une requête par type autorisé (batch) — évite le N+1
-  const include = { taxonomie: { include: { parent: true } } };
+  // Profondeur 3 : le genre peut se trouver derrière un sous-genre.
+  const include = { taxonomie: TAXONOMIE_INCLUDE };
   const mapItem = x => ({
     id:        x.id,
     idTerrain: x.idTerrain,

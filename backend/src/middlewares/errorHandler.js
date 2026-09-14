@@ -9,7 +9,41 @@
 
 const AppError = require('../utils/AppError');
 
+// Messages des erreurs Multer. Sans cette table, une limite d'upload dépassée
+// remontait en 500 « Erreur interne du serveur » : l'utilisateur ne pouvait pas
+// deviner que son fichier était simplement trop gros.
+const MULTER_ERREURS = {
+  LIMIT_FILE_SIZE:       [413, 'Fichier trop volumineux'],
+  LIMIT_FILE_COUNT:      [400, 'Un seul fichier à la fois'],
+  LIMIT_UNEXPECTED_FILE: [400, 'Champ de fichier inattendu — le fichier doit être envoyé sous le nom « file »'],
+  LIMIT_PART_COUNT:      [400, 'Requête multipart trop complexe'],
+  LIMIT_FIELD_KEY:       [400, 'Nom de champ trop long'],
+  LIMIT_FIELD_VALUE:     [400, 'Valeur de champ trop longue'],
+  LIMIT_FIELD_COUNT:     [400, 'Trop de champs dans la requête'],
+};
+
 const errorHandler = (err, req, res, next) => { // eslint-disable-line no-unused-vars
+
+  // ── Réponse déjà commencée ──
+  // Cas réel : getTemplateMoustiques écrit le classeur directement dans `res`
+  // (`workbook.xlsx.write(res)`). Une erreur survenue APRÈS l'envoi des en-têtes
+  // faisait planter le process sur ERR_HTTP_HEADERS_SENT en tentant d'écrire un
+  // JSON par-dessus. On délègue alors à Express, qui coupe proprement la socket.
+  if (res.headersSent) {
+    console.error(`[${new Date().toISOString()}] Erreur après envoi des en-têtes :`, err.stack ?? err.message);
+    return next(err);
+  }
+
+  // ── Multer — upload rejeté ──
+  if (err.name === 'MulterError') {
+    const [status, message] = MULTER_ERREURS[err.code] ?? [400, 'Fichier rejeté'];
+    // `req.uploadMaxBytes` est posé par la route juste avant multer : il permet
+    // d'annoncer la limite réelle plutôt qu'un message vague.
+    const limite = err.code === 'LIMIT_FILE_SIZE' && req.uploadMaxBytes
+      ? ` — la taille maximale autorisée est de ${Math.round(req.uploadMaxBytes / 1024 / 1024)} Mo`
+      : '';
+    return res.status(status).json({ error: `${message}${limite}.` });
+  }
 
   // ── AppError — erreur métier intentionnelle ──
   if (err.name === 'AppError') {

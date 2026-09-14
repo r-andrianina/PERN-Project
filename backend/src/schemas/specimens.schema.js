@@ -30,7 +30,11 @@ const createMoustique = z.object({
   nombre:         z.coerce.number().int().positive().default(1),
   sexe:           sexeEnum,
   stade:          stadeStr,
-  parite:         z.enum(['Nulle', 'Multi']).optional().nullable(),
+  // Parité binaire : a-t-elle déjà pondu ? (dissection ovarienne, Detinova)
+  // Renommage du 2026-09-02 : 'Nulle'/'Multi' → 'Nullipare'/'Pare'. Avec deux
+  // valeurs seulement, "Multi(pare)" était faux — une femelle ayant pondu une
+  // seule fois est paucipare, pas multipare.
+  parite:         z.enum(['Nullipare', 'Pare']).optional().nullable(),
   repasSang:      z.enum(STATUT_SANGUIN).default('N'),
   organePreleve:  z.string().max(100).optional().nullable(),
   trancheHoraire: z.enum(TRANCHE_HORAIRE).optional().nullable(),

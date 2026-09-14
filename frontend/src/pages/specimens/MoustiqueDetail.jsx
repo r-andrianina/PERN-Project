@@ -193,7 +193,7 @@ export default function MoustiqueDetail() {
   const solutionOptions = [{ value: '', label: t('specimenDetail.none') }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
   const stadeOptions    = [{ value: '', label: '—' }, ...STADE_OPTIONS_MOUSTIQUE];
   const sexeOptions     = [{ value: 'M', label: t('sexe.M') }, { value: 'F', label: t('sexe.F') }, { value: 'inconnu', label: t('sexe.inconnu') }];
-  const pariteOptions   = [{ value: '', label: '—' }, ...['Nulle', 'Multi'].map(v => ({ value: v, label: v }))];
+  const pariteOptions   = [{ value: '', label: '—' }, ...['Nullipare', 'Pare'].map(v => ({ value: v, label: v }))];
   const trancheHoraireOptions = [{ value: '', label: '—' }, ...TRANCHE_HORAIRE_OPTIONS];
   const requiresTrancheHoraire = !!m.methode?.typeMethode?.requiresTrancheHoraire;
   const organeOptions   = [

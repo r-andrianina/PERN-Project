@@ -21,14 +21,9 @@ const getTypeLabel = (t) => ({ moustique: t('specimenTypes.moustique'), tique: t
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const getSexeLabel = (t) => ({ M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') });
 
-const PARITE_OPTIONS = ['Nulle', 'Multi'];
+// Parité binaire : nullipare / pare (cf. specimens.schema.js).
+const PARITE_OPTIONS = ['Nullipare', 'Pare'];
 const STADE_SUGGEST  = STADE_OPTIONS_MOUSTIQUE;
-
-const taxoLabel = (tx) => {
-  if (!tx) return '—';
-  if (tx.parent?.nom) return `${tx.parent.nom} ${tx.nom}`;
-  return tx.nom;
-};
 
 // ── Section de filtres repliable ─────────────────────────────
 function FilterSection({ title, icon: Icon, children, defaultOpen = true }) {
@@ -88,12 +83,22 @@ const getResultColumns = (t) => {
       ? <Badge tone="primary" size="sm" className="font-mono font-bold">{s.idTerrain}</Badge>
       : null,
   },
+  // Genre et espèce en colonnes distinctes : permet de trier et regrouper par
+  // genre sans redécouper un libellé concaténé. `genre`/`espece` sont calculés
+  // par le backend (decomposeTaxon) — ne pas les redériver ici.
   {
-    key:          'taxonomie',
-    label:        t('recherchePage.colTaxonomie'),
-    skeletonWidth: '80%',
+    key:          'genre',
+    label:        t('recherchePage.colGenre'),
+    skeletonWidth: '70%',
     className:    'italic font-medium text-fg',
-    render: (s) => taxoLabel(s.taxonomie),
+    render: (s) => s.genre ?? '—',
+  },
+  {
+    key:          'espece',
+    label:        t('recherchePage.colEspece'),
+    skeletonWidth: '70%',
+    className:    'italic text-fg-muted',
+    render: (s) => s.espece ?? '—',
   },
   {
     key:           'nombre',

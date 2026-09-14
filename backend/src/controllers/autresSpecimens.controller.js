@@ -29,7 +29,7 @@ const includeBase = {
     },
   },
   typeSpecimen: { select: { id: true, code: true, nom: true } },
-  taxonomie:    { include: { parent: { include: { parent: true } } } },
+  taxonomie:    { include: { parent: { include: { parent: { include: { parent: true } } } } } },
   solution:     { select: { id: true, nom: true, temperature: true } },
   container:    { select: { id: true, code: true, type: true } },
 };

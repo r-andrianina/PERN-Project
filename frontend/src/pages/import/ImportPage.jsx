@@ -7,14 +7,22 @@ import {
   ChevronDown, ChevronRight, Info, Clock, PlusCircle, Download,
   Search, ArrowLeft, ShieldCheck,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import api from '../../api/axios';
 import { Card, PageHeader, Badge, Spinner } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import { useT, interpolate } from '../../lib/i18n';
+import { toast } from '../../lib/toast';
 
 const TEMPLATE_ENDPOINTS = {
   moustique: '/import/template/moustiques',
 };
+
+// Doit rester aligné sur MAX_FICHIER_OCTETS (backend/src/utils/excelGuards.js).
+// Contrôlé aussi côté client pour éviter de faire téléverser 200 Mo à un poste
+// de terrain avant de lui répondre « trop volumineux » : la connexion vers le
+// NAS est le maillon lent.
+const MAX_FICHIER_MO = 25;
 
 async function downloadTemplate(type) {
   const endpoint = TEMPLATE_ENDPOINTS[type];
@@ -24,8 +32,26 @@ async function downloadTemplate(type) {
   const link = document.createElement('a');
   link.href     = url;
   link.download = `template_import_${type}s.xlsx`;
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  // Révoquer immédiatement peut annuler le téléchargement sur certains
+  // navigateurs (l'URL disparaît avant que la sauvegarde ne démarre).
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+/**
+ * Contrôles applicables sans lire le fichier. Ils doublent volontairement les
+ * gardes du backend : celui-ci reste l'autorité, mais l'utilisateur mérite un
+ * refus immédiat plutôt qu'après plusieurs minutes de téléversement.
+ * @returns {string|null} clé i18n du refus, ou null si le fichier est recevable
+ */
+function refuserFichier(file) {
+  if (!file) return null;
+  if (!file.name.toLowerCase().endsWith('.xlsx')) return 'fileWrongType';
+  if (file.size === 0) return 'fileEmpty';
+  if (file.size > MAX_FICHIER_MO * 1024 * 1024) return 'fileTooLarge';
+  return null;
 }
 
 const getTypes = (t) => [
@@ -38,21 +64,35 @@ const getCodeLabels = (t) => ({
   DOUBLON:                  t('importPage.codeDoublon'),
   TAXONOMIE_INTROUVABLE:    t('importPage.codeTaxoIntrouvable'),
   LOCALITE_INTROUVABLE:     t('importPage.codeLocaliteIntrouvable'),
-  METHODE_INTROUVABLE:      t('importPage.codeMethodeIntrouvable'),
+  NOMBRE_INVALIDE:          t('importPage.codeNombreInvalide'),
   POSITION_OCCUPEE:         t('importPage.codePositionOccupee'),
   MISSION_MANQUANTE:        t('importPage.codeMissionManquante'),
-  ERREUR_BDD:               t('importPage.codeErreurBdd'),
+  VALEUR_TRONQUEE:          t('importPage.codeValeurTronquee'),
+  RAPPORT_TRONQUE:          t('importPage.codeRapportTronque'),
   PROJET_CREE:              t('importPage.codeProjetCree'),
   MISSION_CREEE:            t('importPage.codeMissionCreee'),
   LOCALITE_CREEE:           t('importPage.codeLocaliteCreee'),
   LOCALITE_MATCHEE_GPS:     t('importPage.codeLocaliteMatcheeGps'),
-  LOCALITE_CREEE_SANS_CODE: t('importPage.codeLocaliteCreeeSansCode'),
   METHODE_CREEE:            t('importPage.codeMethodeCreee'),
   METHODE_MATCHEE_FUZZY:    t('importPage.codeMethodeMatcheeFuzzy'),
   TYPE_METHODE_INTROUVABLE: t('importPage.codeTypeMethodeIntrouvable'),
+  ACCES_REFUSE:             t('importPage.codeAccesRefuse'),
+  PARITE_INVALIDE:          t('importPage.codePariteInvalide'),
+  DATE_MANQUANTE:           t('importPage.codeDateManquante'),
+  FICHIER_DEJA_IMPORTE:     t('importPage.codeFichierDejaImporte'),
+  TUBE_HORS_PROTOCOLE:      t('importPage.codeTubeHorsProtocole'),
+  REPERES_PIEGES:           t('importPage.codeReperesPieges'),
+  PIEGE_POSITION_DIVERGENTE:    t('importPage.codePiegePositionDivergente'),
+  PIEGE_POSITION_DANS_CATCH_ID: t('importPage.codePiegePositionDansCatchId'),
+  PIEGE_TYPE_DIVERGENT:         t('importPage.codePiegeTypeDivergent'),
+  TRANCHE_HORAIRE_INVALIDE: t('importPage.codeTrancheHoraireInvalide'),
+  POSITION_PIEGE_INVALIDE:  t('importPage.codePositionPiegeInvalide'),
+  PARITE_HORS_FEMELLE:      t('importPage.codePariteHorsFemelle'),
+  ERREUR_LIGNE:             t('importPage.codeErreurLigne'),
   TEMOIN_H12:               t('importPage.codeTemoinH12'),
   TAXO_NIVEAU_GENRE:        t('importPage.codeTaxoNiveauGenre'),
   TAXO_ESPECE_NON_DETERMINEE: t('importPage.codeTaxoEspeceNonDeterminee'),
+  TAXO_SOURCES_DIVERGENTES: t('importPage.codeTaxoSourcesDivergentes'),
   SPLIT_PLAQUE:             t('importPage.codeSplitPlaque'),
   POSITION_INSUFFISANTE:    t('importPage.codePositionInsuffisante'),
 });
@@ -64,11 +104,14 @@ function DropZone({ onFile, disabled }) {
   const [drag, setDrag] = useState(false);
   const inputRef = useRef(null);
 
+  // Le refus (mauvais format, fichier vide ou trop gros) remonte à la page, qui
+  // l'affiche : un `.xlsx` silencieusement ignoré au drop laissait l'utilisateur
+  // devant une zone de dépôt qui « ne réagit pas ».
   const handleDrop = (e) => {
     e.preventDefault();
     setDrag(false);
-    const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.xlsx')) onFile(file);
+    const file = e.dataTransfer.files?.[0];
+    if (file) onFile(file);
   };
 
   return (
@@ -107,6 +150,12 @@ const NIVEAU_STYLE = {
   info:          'text-success',
 };
 
+// Plafond d'affichage une fois le tableau déplié. Le backend borne déjà le
+// rapport à 2000 messages, mais rendre 2000 lignes de tableau d'un coup fige
+// l'onglet plusieurs secondes sur un poste modeste — et personne ne lit 2000
+// lignes : on corrige les premières erreurs puis on relance.
+const MAX_LIGNES_AFFICHEES = 300;
+
 function LogTable({ logs, defaultTab = 'erreur' }) {
   const t = useT();
   const codeLabels = getCodeLabels(t);
@@ -117,7 +166,8 @@ function LogTable({ logs, defaultTab = 'erreur' }) {
   if (!logs?.length) return null;
 
   const filtered = tab === 'all' ? logs : logs.filter(l => l.niveau === tab);
-  const preview  = expanded ? filtered : filtered.slice(0, 8);
+  const preview  = expanded ? filtered.slice(0, MAX_LIGNES_AFFICHEES) : filtered.slice(0, 8);
+  const plafonne = expanded && filtered.length > MAX_LIGNES_AFFICHEES;
   const countByNiveau = (n) => logs.filter(l => l.niveau === n).length;
 
   return (
@@ -179,6 +229,12 @@ function LogTable({ logs, defaultTab = 'erreur' }) {
             </table>
           </div>
 
+          {plafonne && (
+            <p className="text-[11px] text-fg-subtle italic mt-2">
+              {interpolate(t('importPage.logsDisplayCap'), { n: MAX_LIGNES_AFFICHEES })}
+            </p>
+          )}
+
           {filtered.length > 8 && (
             <button type="button" onClick={() => setExpanded(!expanded)}
               className="flex items-center gap-1.5 text-xs text-fg-muted hover:text-fg mt-2">
@@ -188,6 +244,20 @@ function LogTable({ logs, defaultTab = 'erreur' }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// Le backend borne le rapport détaillé (cf. MAX_LOGS) et annonce ici combien de
+// messages n'ont pas été transmis. Sans cette mention, l'utilisateur croirait
+// avoir la liste complète des erreurs et relancerait un import encore fautif.
+function TruncationNotice({ n }) {
+  const t = useT();
+  if (!n) return null;
+  return (
+    <div className="flex items-start gap-2 p-3 mt-3 bg-warning/8 border border-warning/20 rounded-xl">
+      <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" />
+      <p className="text-xs text-warning">{interpolate(t('importPage.logsTruncatedNotice'), { n })}</p>
     </div>
   );
 }
@@ -238,6 +308,79 @@ function PhaseSelect({ file, setFile, onAnalyse, loading, error, type, reset }) 
         )}
       </div>
     </>
+  );
+}
+
+// ── Mapping des colonnes ────────────────────────────────────────
+// Affiché en tête du rapport : montre ce que l'import a compris de la ligne
+// d'en-tête AVANT de parcourir les lignes. Sans ça, une colonne mal nommée ne
+// se manifeste que par une avalanche d'avertissements ligne par ligne, sans
+// que la cause (l'en-tête) soit jamais visible.
+function ColumnMapping({ colonnes }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  if (!colonnes) return null;
+
+  const { reconnues = [], ignorees = [] } = colonnes;
+  if (reconnues.length === 0 && ignorees.length === 0) return null;
+
+  return (
+    <div className="mb-4 border border-border rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-surface-2 hover:bg-surface-3 transition-colors text-left"
+      >
+        <span className="text-xs font-semibold text-fg-muted">
+          {t('importPage.columnMappingTitle')}
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-semibold">
+            {interpolate(t('importPage.columnsRecognized'), { n: reconnues.length })}
+          </span>
+          {ignorees.length > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-semibold">
+              {interpolate(t('importPage.columnsIgnored'), { n: ignorees.length })}
+            </span>
+          )}
+          <ChevronDown size={14} className={`text-fg-subtle transition-transform ${open ? 'rotate-180' : ''}`} />
+        </span>
+      </button>
+
+      {open && (
+        <div className="p-3 space-y-3 bg-surface">
+          {reconnues.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wide mb-1.5">
+                {t('importPage.columnsRecognizedLabel')}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {reconnues.map(({ source, cible }) => (
+                  <span key={source} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-success/8 text-success">
+                    {source}{source !== cible && <span className="text-fg-subtle"> → {cible}</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {ignorees.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wide mb-1.5">
+                {t('importPage.columnsIgnoredLabel')}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {ignorees.map((c, i) => (
+                  <span key={`${c}-${i}`} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-3 text-fg-subtle">
+                    {c}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[10px] text-fg-subtle mt-1.5 italic">{t('importPage.columnsIgnoredHint')}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -307,6 +450,8 @@ function PhaseReport({ report, file, onBack, onConfirm, loading, error }) {
         </div>
       </div>
 
+      <ColumnMapping colonnes={report.colonnes} />
+
       {/* Bannière avertissement si erreurs */}
       {hasErrors && !allInvalid && (
         <div className="flex items-start gap-2 p-3 mb-4 bg-warning/8 border border-warning/20 rounded-xl">
@@ -320,6 +465,7 @@ function PhaseReport({ report, file, onBack, onConfirm, loading, error }) {
 
       {/* Logs détaillés */}
       <LogTable logs={report.logs} defaultTab={report.erreurs > 0 ? 'erreur' : 'avertissement'} />
+      <TruncationNotice n={report.logsTronques} />
 
       {error && (
         <div className="mt-4 p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">
@@ -427,11 +573,16 @@ function PhaseResult({ result, reset }) {
         </div>
       </div>
 
+      <ColumnMapping colonnes={result.colonnes} />
+
       <LogTable logs={allLogs} />
+      <TruncationNotice n={result.logsTronques} />
 
       <div className="flex gap-2 mt-4 pt-4 border-t border-border">
         <button onClick={reset} className="btn-secondary text-sm">{t('importPage.importAnotherFile')}</button>
-        <a href="/specimens/moustiques" className="btn-primary text-sm">{t('importPage.seeSpecimens')}</a>
+        {/* <Link> et non <a> : un href rechargeait toute l'application et
+            faisait disparaître le rapport d'import sans retour possible. */}
+        <Link to="/specimens/moustiques" className="btn-primary text-sm">{t('importPage.seeSpecimens')}</Link>
       </div>
     </Card>
   );
@@ -439,21 +590,43 @@ function PhaseResult({ result, reset }) {
 
 // ── Sidebar guide ────────────────────────────────────────────────
 
+// Ordre et contenu alignés sur TEMPLATE_COLUMNS (import.controller.js).
+// `req` reflète checkRequiredHeaders et RIEN D'AUTRE : WHAT_3_WORDS et
+// COLLECTION_METHOD étaient annoncées obligatoires alors que le backend ne les
+// exige pas, et 7 colonnes lisibles par l'import manquaient à cette liste.
 const getCols = (t) => [
-  { col: 'SERIES',               champ: t('importPage.colIdTerrain'),    req: true  },
-  { col: 'MISSION_ORDER_NUMBER',  champ: t('importPage.colMission'),       req: true  },
-  { col: 'WHAT_3_WORDS',          champ: t('importPage.colCodeLocalite'), req: true  },
-  { col: 'SCIENTIFIC_NAME',        champ: t('importPage.colTaxonomie'),     req: true  },
-  { col: 'COLLECTION_METHOD',     champ: t('importPage.colMethode'),       req: true  },
-  { col: 'PROJET',               champ: t('importPage.colProjet'),        req: false },
-  { col: 'BOX_PLATE_ID',          champ: t('importPage.colContainer'),     req: false },
-  { col: 'TUBE_OR_WELL_ID',       champ: t('importPage.colPosition'),      req: false },
-  { col: 'SEX',                   champ: t('importPage.colSexe'),          req: false },
-  { col: 'LIFESTAGE',             champ: t('importPage.colStade'),         req: false },
-  { col: 'BLOOD_MEAL',            champ: t('importPage.colRepasSang'),    req: false },
-  { col: 'PRESERVATIVE_SOLUTION', champ: t('importPage.colSolution'),      req: false },
+  { col: 'SERIES',                champ: t('importPage.colIdTerrain'),    req: true  },
+  { col: 'MISSION_ORDER_NUMBER',  champ: t('importPage.colMission'),      req: true  },
+  { col: 'SCIENTIFIC_NAME',       champ: t('importPage.colTaxonomie'),    req: true  },
+  { col: 'GENUS',                 champ: t('importPage.colGenre'),        req: false },
+  { col: 'SPECIES',               champ: t('importPage.colEspece'),       req: false },
+  { col: 'PROJET',                champ: t('importPage.colProjet'),       req: false },
+  { col: 'COLLECTION_LOCATION',   champ: t('importPage.colLieu'),         req: false },
+  { col: 'WHAT_3_WORDS',          champ: t('importPage.colCodeLocalite'), req: false },
+  { col: 'DECIMAL_LATITUDE',      champ: t('importPage.colLatitude'),     req: false },
+  { col: 'DECIMAL_LONGITUDE',     champ: t('importPage.colLongitude'),    req: false },
+  { col: 'ELEVATION',             champ: t('importPage.colAltitude'),     req: false },
   { col: 'DATE_OF_COLLECTION',    champ: t('importPage.colDateCollecte'), req: false },
+  { col: 'COLLECTION_METHOD',     champ: t('importPage.colMethode'),      req: false },
+  { col: 'CATCH_ID',              champ: t('importPage.colCatchId'),      req: false },
+  { col: 'OUTDOORS_INDOORS',      champ: t('importPage.colIntExt'),       req: false },
+  { col: 'TIME_OF_COLLECTION',    champ: t('importPage.colHeure'),        req: false },
+  { col: 'NUMBER',                champ: t('importPage.colNombre'),       req: false },
+  { col: 'SEX',                   champ: t('importPage.colSexe'),         req: false },
+  { col: 'LIFESTAGE',             champ: t('importPage.colStade'),        req: false },
+  { col: 'BLOOD_MEAL',            champ: t('importPage.colRepasSang'),    req: false },
+  { col: 'PARITY',                champ: t('importPage.colParite'),       req: false },
+  { col: 'ORGANISM_PART',         champ: t('importPage.colOrgane'),       req: false },
+  { col: 'PRESERVATIVE_SOLUTION', champ: t('importPage.colSolution'),     req: false },
+  { col: 'BOX_PLATE_ID',          champ: t('importPage.colContainer'),    req: false },
+  { col: 'TUBE_OR_WELL_ID',       champ: t('importPage.colPosition'),     req: false },
+  { col: 'REMARKS',               champ: t('importPage.colNotes'),        req: false },
 ];
+
+// Colonnes lues mais volontairement absentes de la liste : ce sont des REPLIS
+// d'autres colonnes (COLLECTOR_SAMPLE_ID pour SERIES, OTHER_INFORMATIONS et
+// MISC_METADATA pour REMARKS). Les afficher laisserait croire à des champs
+// distincts. Un test verrouille cette liste d'exceptions.
 
 function ColRow({ col, champ, req }) {
   return (
@@ -490,7 +663,12 @@ function Sidebar({ activeType }) {
         {TEMPLATE_ENDPOINTS[activeType] && (
           <button
             type="button"
-            onClick={() => downloadTemplate(activeType)}
+            // Sans ce catch, un échec réseau produisait un rejet de promesse non
+            // géré : le bouton ne réagissait pas et rien n'était signalé.
+            onClick={() => {
+              downloadTemplate(activeType)
+                .catch(() => toast.error(t('importPage.templateDownloadError')));
+            }}
             className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl
                        border border-primary/30 bg-primary/5 text-primary text-[11px] font-semibold
                        hover:bg-primary/10 transition-colors"
@@ -542,6 +720,22 @@ export default function ImportPage() {
     setResult(null);
     setError(null);
     setPhase('select');
+  };
+
+  // Point d'entrée unique de la sélection de fichier (glisser-déposer ET
+  // parcourir) : les contrôles de format et de taille s'appliquent aux deux.
+  const choisirFichier = (f) => {
+    setError(null);
+    const refus = refuserFichier(f);
+    if (refus) {
+      setFile(null);
+      setError(interpolate(t(`importPage.${refus}`), {
+        size: (f.size / 1024 / 1024).toFixed(1),
+        max:  MAX_FICHIER_MO,
+      }));
+      return;
+    }
+    setFile(f);
   };
 
   // Phase 1 → 2 : analyse du fichier
@@ -633,7 +827,7 @@ export default function ImportPage() {
         <div className="space-y-4">
           {phase === 'select' && (
             <PhaseSelect
-              file={file} setFile={setFile}
+              file={file} setFile={choisirFichier}
               onAnalyse={handleAnalyse}
               loading={analyzing}
               error={error}

@@ -109,14 +109,21 @@ const update = async (id, data, user) => {
   if (objet !== undefined)         patch.objet         = objet || null;
   if (observations !== undefined)  patch.observations  = observations;
 
-  if (agentIds !== undefined) {
-    await prisma.missionAgent.deleteMany({ where: { missionId: id } });
-    if (agentIds.length > 0) patch.agents = { create: agentIds.map(uid => ({ userId: parseInt(uid) })) };
-  }
+  // Le remplacement des agents (suppression puis recréation) et la mise à jour
+  // de la mission doivent former un seul tout. Hors transaction, un échec de
+  // l'update après le deleteMany — un userId invalide suffit — laissait la
+  // mission SANS AUCUN agent, sans rien pour les rétablir : modifier une
+  // mission pouvait donc vider silencieusement sa liste d'agents.
+  return prisma.$transaction(async (tx) => {
+    if (agentIds !== undefined) {
+      await tx.missionAgent.deleteMany({ where: { missionId: id } });
+      if (agentIds.length > 0) patch.agents = { create: agentIds.map(uid => ({ userId: parseInt(uid) })) };
+    }
 
-  return prisma.mission.update({
-    where: { id }, data: patch,
-    include: { ...INCLUDE_LIST, _count: { select: { localites: true } } },
+    return tx.mission.update({
+      where: { id }, data: patch,
+      include: { ...INCLUDE_LIST, _count: { select: { localites: true } } },
+    });
   });
 };
 

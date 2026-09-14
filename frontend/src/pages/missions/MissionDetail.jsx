@@ -9,6 +9,7 @@ import { toast } from '../../lib/toast';
 import { Card, Breadcrumb } from '../../components/ui';
 import FormField from '../../components/FormField';
 import LocaliteFieldsForm from '../../components/LocaliteFieldsForm';
+import AgentMultiSelect from '../../components/AgentMultiSelect';
 import MethodeFieldsForm from '../../components/MethodeFieldsForm';
 import useAuthStore from '../../store/authStore';
 import { useApiQuery } from '../../hooks';
@@ -45,6 +46,148 @@ function MiniBar({ value, max, colorClass = 'bg-primary' }) {
 }
 
 // ── Modal création / édition de localité ──────────────────────
+// ── Édition de la mission (chef, dates, agents, objet) ───────────────
+// Les agents de terrain n'étaient saisissables qu'à la création : le backend
+// acceptait pourtant `agentIds` en PUT, mais aucun écran ne l'appelait. Les
+// missions créées autrement restaient donc sans agents, définitivement.
+function MissionModal({ mission, onClose, onSaved }) {
+  const t = useT();
+  const [users, setUsers] = useState([]);
+  const [form, setForm] = useState({
+    chefMissionId:  mission.chefMission?.id ? String(mission.chefMission.id) : '',
+    chefMissionNom: mission.chefMissionNom || '',
+    dateDebut:      mission.dateDebut ? mission.dateDebut.slice(0, 10) : '',
+    dateFin:        mission.dateFin   ? mission.dateFin.slice(0, 10)   : '',
+    objet:          mission.objet         || '',
+    observations:   mission.observations  || '',
+    agentIds:       mission.agents?.map((a) => a.user?.id).filter(Boolean) ?? [],
+  });
+  // Un chef hors application est saisi en texte libre ; les deux champs
+  // s'excluent, c'est le mode qui décide lequel est envoyé.
+  const [chefMode, setChefMode] = useState(mission.chefMissionNom && !mission.chefMission ? 'externe' : 'systeme');
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(null);
+
+  useEffect(() => {
+    api.get('/auth/users')
+      .then((r) => setUsers(r.data.users || r.data.items || []))
+      .catch(() => toast.error(t('missionDetail.usersLoadError')));
+  }, [t]);
+
+  const change = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await api.put(`/missions/${mission.id}`, {
+        chefMissionId:  chefMode === 'systeme' ? (form.chefMissionId || null) : null,
+        chefMissionNom: chefMode === 'externe' ? (form.chefMissionNom || null) : null,
+        dateDebut:      form.dateDebut,
+        dateFin:        form.dateFin || null,
+        objet:          form.objet || null,
+        observations:   form.observations || null,
+        agentIds:       form.agentIds.map((i) => parseInt(i)),
+      });
+      toast.success(t('missionDetail.missionSaved'));
+      onSaved();
+    } catch (err) {
+      setError(err.response?.data?.error || t('common.error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const userOptions = [
+    { value: '', label: t('missionDetail.noLead') },
+    ...users.map((u) => ({ value: String(u.id), label: `${u.prenom} ${u.nom} — ${roleLabel(u.role, t)}` })),
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <form onSubmit={submit} className="bg-surface rounded-2xl shadow-2xl w-full max-w-3xl my-4 sm:my-8 max-h-[90vh] overflow-y-auto">
+        <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-5 flex items-center justify-between rounded-t-2xl">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-surface/20 flex items-center justify-center">
+              <Users size={16} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white">{t('missionDetail.editMission')}</h2>
+              <p className="text-xs text-primary-200">{mission.ordreMission}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 text-white/70 hover:text-white hover:bg-surface/20 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6">
+          {error && <div className="mb-4 p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">{error}</div>}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-2 mb-2">
+                <button type="button" onClick={() => setChefMode('systeme')}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors min-h-[44px] md:min-h-0 ${
+                    chefMode === 'systeme' ? 'bg-primary text-white border-primary-600'
+                      : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'}`}>
+                  {t('missionDetail.leadSystemUser')}
+                </button>
+                <button type="button" onClick={() => setChefMode('externe')}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors min-h-[44px] md:min-h-0 ${
+                    chefMode === 'externe' ? 'bg-primary text-white border-primary-600'
+                      : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'}`}>
+                  {t('missionDetail.leadExternal')}
+                </button>
+              </div>
+              {chefMode === 'systeme' ? (
+                <FormField label={t('missionDetail.fieldLead')} name="chefMissionId" type="select"
+                  value={form.chefMissionId} onChange={change} options={userOptions} />
+              ) : (
+                <FormField label={t('missionDetail.fieldLead')} name="chefMissionNom"
+                  value={form.chefMissionNom} onChange={change}
+                  placeholder={t('missionDetail.leadNamePlaceholder')} />
+              )}
+            </div>
+
+            <FormField label={t('missionDetail.startDate')} name="dateDebut" type="date"
+              value={form.dateDebut} onChange={change} required />
+            <FormField label={t('missionDetail.endDate')} name="dateFin" type="date"
+              value={form.dateFin} onChange={change} />
+
+            <div className="md:col-span-2">
+              <AgentMultiSelect
+                value={form.agentIds}
+                onChange={(ids) => setForm((f) => ({ ...f, agentIds: ids }))}
+                users={users} max={20}
+                hint={t('missionDetail.agentsHint')}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <FormField label={t('missionDetail.missionObject')} name="objet" type="textarea"
+                value={form.objet} onChange={change} />
+            </div>
+            <div className="md:col-span-2">
+              <FormField label={t('missionDetail.observations')} name="observations" type="textarea"
+                value={form.observations} onChange={change} />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-5 mt-5 border-t border-border">
+            <button type="button" onClick={onClose} className="btn-secondary">{t('common.cancel')}</button>
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+              {t('common.save')}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function LocaliteModal({ missionId, localite, onClose, onSaved }) {
   const t = useT();
   const isEdit = !!localite?.id;
@@ -358,6 +501,7 @@ export default function MissionDetail() {
   const [loadError,     setLoadError]     = useState(null);
   const [modal,         setModal]         = useState(null);
   const [methodeModal,  setMethodeModal]  = useState(null);
+  const [missionModal,  setMissionModal]  = useState(false);
   const [bulkModal,     setBulkModal]     = useState(null);
 
   const refresh = () => {
@@ -465,6 +609,15 @@ export default function MissionDetail() {
                   <p className="text-sm text-fg-subtle mt-0.5">{mission.projet?.nom}</p>
                 </div>
               </div>
+              {canEdit && (
+                <button
+                  onClick={() => setMissionModal(true)}
+                  className="btn-secondary text-sm flex items-center gap-2 min-h-[44px] flex-shrink-0"
+                  title={t('missionDetail.editMission')}
+                >
+                  <Edit2 size={14} /> {t('common.edit')}
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -817,6 +970,14 @@ export default function MissionDetail() {
 
         </div>
       </div>
+
+      {missionModal && (
+        <MissionModal
+          mission={mission}
+          onClose={() => setMissionModal(false)}
+          onSaved={() => { setMissionModal(false); refresh(); }}
+        />
+      )}
 
       {modal && (
         <LocaliteModal
