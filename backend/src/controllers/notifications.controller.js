@@ -12,10 +12,23 @@ const sseManager  = require('../utils/sseManager');
 
 // Une notification concerne les actions des AUTRES utilisateurs
 // (on ne se notifie pas soi-même de ses propres actions).
+// Entités d'audit qui ne sont PAS de l'activité à diffuser.
+// `Auth` porte les connexions et les tentatives échouées (2026-09-14) : ce sont
+// des données de sécurité, consultables par les admins via
+// /dictionnaire/audit-logs. Les laisser passer ici noierait le flux sous une
+// ligne par personne et par jour, et ferait fuiter vers tous les utilisateurs
+// les tentatives échouées sur les comptes de leurs collègues.
+const ENTITES_HORS_FLUX = ['Auth'];
+
 const othersWhere = (userId) => ({
-  OR: [
-    { userId: { not: userId } },
-    { userId: null },
+  AND: [
+    { entity: { notIn: ENTITES_HORS_FLUX } },
+    {
+      OR: [
+        { userId: { not: userId } },
+        { userId: null },
+      ],
+    },
   ],
 });
 

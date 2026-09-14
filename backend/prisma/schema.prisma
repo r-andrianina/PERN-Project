@@ -127,6 +127,13 @@ enum AuditAction {
   ACTIVATE
   DEACTIVATE
   READ
+  // Traçabilité des connexions (2026-09-14). Ces entrées sont des données de
+  // SÉCURITÉ, consultables par les admins via /dictionnaire/audit-logs — pas
+  // de l'activité à diffuser : le centre de notifications les exclut
+  // explicitement (cf. notifications.controller.js), sans quoi le flux serait
+  // noyé sous une ligne par connexion et par jour.
+  LOGIN
+  LOGIN_FAILED
 }
 
 enum ContainerType {

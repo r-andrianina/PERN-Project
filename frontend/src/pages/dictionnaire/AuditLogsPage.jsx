@@ -6,17 +6,24 @@ import { Card, Badge, PageHeader, Spinner, Select, Pagination, DataTable } from 
 import { useT, interpolate } from '../../lib/i18n';
 
 const ACTION_TONE = {
-  CREATE:     'success',
-  UPDATE:     'info',
-  DELETE:     'danger',
-  ACTIVATE:   'primary',
-  DEACTIVATE: 'default',
-  READ:       'default',
+  CREATE:       'success',
+  UPDATE:       'info',
+  DELETE:       'danger',
+  ACTIVATE:     'primary',
+  DEACTIVATE:   'default',
+  READ:         'default',
+  // Authentification. Une tentative échouée est un signal de sécurité : elle
+  // doit ressortir visuellement autant qu'une suppression.
+  LOGIN:        'primary',
+  LOGIN_FAILED: 'danger',
 };
 
 const ENTITIES = [
   '', 'Moustique', 'Tique', 'Puce', 'Localite', 'MethodeCollecte',
   'ImportMoustiques',
+  // Connexions et tentatives échouées. Cet écran est le SEUL endroit où elles
+  // sont consultables : elles sont exclues du centre de notifications.
+  'Auth',
   'TaxonomieSpecimen', 'TaxonomieHote',
   'TypeMethodeCollecte', 'SolutionConservation', 'TypeEnvironnement', 'TypeHabitat',
 ];

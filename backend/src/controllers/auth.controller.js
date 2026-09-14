@@ -57,18 +57,78 @@ const register = async (req, res) => {
 //  LOGIN
 // =============================================================
 
+// Entité sous laquelle vivent les événements d'authentification. Elle est
+// EXCLUE du centre de notifications (cf. notifications.controller.js) : une
+// connexion n'est pas de l'activité à diffuser aux collègues, et sans cette
+// exclusion le flux serait noyé sous une ligne par personne et par jour.
+const ENTITE_AUTH = 'Auth';
+
+// `audit_logs.entity_id` est NOT NULL. Une tentative sur un email inconnu ne
+// désigne aucun utilisateur : on pose 0, qui ne peut correspondre à aucun id
+// (la séquence PostgreSQL commence à 1).
+const AUCUN_UTILISATEUR = 0;
+
+/**
+ * Journalise une tentative de connexion échouée.
+ *
+ * Le `motif` distingue en interne des cas que la RÉPONSE HTTP confond
+ * volontairement : l'API renvoie le même « Email ou mot de passe incorrect »
+ * pour un email inconnu et un mot de passe faux, afin de ne pas révéler
+ * quels comptes existent. Le journal, lui, est réservé aux admins
+ * (`/dictionnaire/audit-logs`) et peut faire la différence — c'est
+ * précisément ce qui permet de distinguer un utilisateur qui se trompe de
+ * mot de passe d'un balayage d'adresses.
+ *
+ * Le mot de passe soumis n'est JAMAIS journalisé, même haché.
+ *
+ * Volume borné par `loginLimiter` (5 tentatives / 15 min, les connexions
+ * réussies ne consomment pas le quota) : un balayage ne peut pas gonfler
+ * `audit_logs` indéfiniment.
+ */
+const logTentative = (req, userId, email, motif) =>
+  logAudit({
+    req,
+    action:    ACTIONS.LOGIN_FAILED,
+    entity:    ENTITE_AUTH,
+    entityId:  userId ?? AUCUN_UTILISATEUR,
+    userId,                       // absent de req.user : aucun token à ce stade
+    newValues: { email, motif },
+    notify:    false,             // sécurité, pas activité — cf. ENTITE_AUTH
+  });
+
 const login = async (req, res) => {
   // req.body déjà validé (email/password requis, email en minuscules) par Zod
   const { email, password } = req.body;
 
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user)      return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
-  if (!user.actif) return res.status(403).json({ error: 'Votre compte est en attente de validation par un administrateur.' });
+  if (!user) {
+    await logTentative(req, null, email, 'EMAIL_INCONNU');
+    return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+  }
+  if (!user.actif) {
+    await logTentative(req, user.id, email, 'COMPTE_INACTIF');
+    return res.status(403).json({ error: 'Votre compte est en attente de validation par un administrateur.' });
+  }
 
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+  if (!ok) {
+    await logTentative(req, user.id, email, 'MOT_DE_PASSE_INVALIDE');
+    return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+  }
 
   const token = signToken(user);
+
+  // Connexion réussie. `logAudit` avale ses propres erreurs : l'audit ne doit
+  // jamais empêcher un utilisateur légitime de se connecter.
+  await logAudit({
+    req,
+    action:    ACTIONS.LOGIN,
+    entity:    ENTITE_AUTH,
+    entityId:  user.id,
+    userId:    user.id,           // absent de req.user : aucun token à ce stade
+    newValues: { email: user.email, role: user.role },
+    notify:    false,             // sécurité, pas activité — cf. ENTITE_AUTH
+  });
 
   return res.json({
     message: 'Connexion réussie',
