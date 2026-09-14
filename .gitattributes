@@ -1,0 +1,5 @@
+# Les scripts shell sont executes sous Linux (conteneurs Docker et NAS
+# Synology). Sans cette regle, un checkout sous Windows les convertit en CRLF
+# et Linux echoue sur "bad interpreter: /bin/sh^M" -- backend/entrypoint.sh
+# empecherait meme le conteneur de demarrer.
+*.sh text eol=lf
