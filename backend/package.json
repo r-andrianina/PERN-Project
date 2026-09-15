@@ -9,7 +9,8 @@
     "seed": "node prisma/seed.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:smoke": "node scripts/smoke-test.js"
+    "test:smoke": "node scripts/smoke-test.js",
+    "test:integration": "vitest run --config vitest.integration.config.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

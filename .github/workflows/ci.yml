@@ -79,6 +79,13 @@ jobs:
       - name: Seed
         run: npm run seed
 
+      # Import Excel de bout en bout : vrai classeur, vraie route HTTP, vraie
+      # base. Doit venir APRÈS `migrate deploy` — ces tests créent leur propre
+      # base (`specimenmanager_test`) en dérivant DATABASE_URL, mais Prisma doit
+      # d'abord avoir un jeu de migrations applicable.
+      - name: Tests d'intégration (import Excel)
+        run: npm run test:integration
+
       # Démarre l'API et lance le smoke test end-to-end (28 cas) dans le même step
       # pour que le serveur reste vivant le temps du test.
       - name: Smoke test end-to-end
