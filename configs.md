@@ -86,15 +86,15 @@ Nginx container (:80)
 
 ## 3. Fichiers de configuration à créer
 
-> ⚠️ **Section obsolète (constaté 2026-08-12)** — ce chapitre a été écrit avant
-> `entrypoint.sh`, `frontend/Dockerfile.dist`, le renommage du projet Compose
-> (`name: sm_pern`) et le tunnel Postgres en loopback. Les fichiers réels du
-> dépôt ont depuis divergé de ce qui est montré ci-dessous (voir les notes
-> ⚠️ à chaque sous-section). Pour un déploiement/mise à jour aujourd'hui,
-> **suivez `.claude/commands/deploy-nas.md`** (procédure vérifiée contre
-> l'infra réelle) plutôt que cette section — elle reste utile comme
-> explication pédagogique du *pourquoi*, pas comme source de vérité du
-> *contenu exact* des fichiers.
+> **État au 2026-09-15** — les §3.1 (`backend/Dockerfile`) et §3.2
+> (`frontend/Dockerfile.dist`) ont été réalignés sur les fichiers réels du
+> dépôt. Le §3.4 porte encore une note listant ses écarts avec le vrai
+> `docker-compose.prod.yml`.
+>
+> En cas de doute, **le dépôt fait foi** : les fichiers sont versionnés, ce
+> document ne l'est qu'en copie. Pour déployer ou mettre à jour, suivez
+> `.claude/commands/deploy-nas.md` et `transfer-nas.md` — seules procédures
+> vérifiées contre l'infrastructure réelle.
 
 Créez les fichiers suivants **à la racine du projet** sur votre poste de
 développement avant de transférer sur le NAS.
@@ -103,12 +103,7 @@ développement avant de transférer sur le NAS.
 
 ### 3.1 `backend/Dockerfile`
 
-> ⚠️ Le vrai `backend/Dockerfile` copie et exécute `entrypoint.sh` au
-> lieu d'un `CMD ["node", "server.js"]` direct — `entrypoint.sh` lance
-> `npx prisma migrate deploy` **automatiquement** à chaque démarrage du
-> conteneur avant de lancer `server.js` (donc l'étape manuelle §7.3
-> ci-dessous est aujourd'hui redondante en usage normal). Il ajoute aussi
-> un `HEALTHCHECK` sur `/api/health`. Voir le fichier réel pour le détail.
+Contenu réel du fichier en production :
 
 ```dockerfile
 # backend/Dockerfile
@@ -116,59 +111,69 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# openssl est requis par Prisma
+# openssl est requis par le client Prisma
 RUN apk add --no-cache openssl
 
+# Installer les dépendances en premier (couche cachée par Docker)
 COPY package*.json ./
 RUN npm ci --omit=dev
 
+# Copier le code source
 COPY . .
 
-# Génère le Prisma Client (compilation JS, ne touche pas la base)
+# Générer le Prisma Client (compilation JS, ne touche pas la base)
 RUN npx prisma generate
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
+
+CMD ["/entrypoint.sh"]
 ```
+
+**Deux conséquences à connaître :**
+
+- `entrypoint.sh` lance `npx prisma migrate deploy` **à chaque démarrage du
+  conteneur**, avant `server.js`. L'étape manuelle du §7.3 est donc redondante
+  en usage normal — elle reste utile pour vérifier ou rattraper.
+- C'est aussi pourquoi une migration déposée par erreur dans
+  `backend/prisma/migrations/` s'applique au **redémarrage suivant**, sans
+  action explicite. Voir la mise en garde du §9.2.
 
 ---
 
-### 3.2 `frontend/Dockerfile`
+### 3.2 `frontend/Dockerfile.dist`
 
-> ⚠️ En prod, ce n'est **pas** ce fichier qui est utilisé mais
-> `frontend/Dockerfile.dist` — il n'y a aucun build React à l'intérieur de
-> Docker : le frontend est compilé en local (`npm run build`), et
-> `Dockerfile.dist` copie simplement le `frontend/dist/` déjà prêt dans
-> l'image nginx. Le build multi-étapes ci-dessous existe toujours dans le
-> dépôt (`frontend/Dockerfile`) mais n'est pas celui référencé par
-> `docker-compose.prod.yml` (voir §3.4).
+C'est **ce fichier** que référence `docker-compose.prod.yml` (§3.4), et non
+`frontend/Dockerfile`. Il ne compile rien : le frontend est buildé sur le poste
+de développement (`npm run build`), et l'image ne fait que copier le `dist/`
+déjà prêt.
 
 ```dockerfile
-# frontend/Dockerfile
-# Étape 1 : build React avec Vite
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-
-# URL relative : l'API est servie sur le même domaine via Nginx
-ARG VITE_API_URL=/api/v1
-ENV VITE_API_URL=$VITE_API_URL
-
-RUN npm run build
-
-# Étape 2 : serveur Nginx léger qui sert les fichiers statiques
+# frontend/Dockerfile.dist
+# Attend un dist/ pré-compilé localement — aucune compilation dans Docker.
 FROM nginx:1.27-alpine
 
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY frontend/dist /usr/share/nginx/html
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
+
+**Conséquence sur le transfert :** `frontend/dist/` doit impérativement être
+envoyé au NAS **avant** le `docker compose up`. L'exclure du transfert produit
+un conteneur nginx sans contenu — c'est l'erreur que contenait la version
+précédente de ce document.
+
+> Le fichier `frontend/Dockerfile` (build React multi-étapes à l'intérieur de
+> Docker) existe toujours dans le dépôt, mais n'est **pas** utilisé en
+> production. Le build local est préféré : il évite d'installer les dépendances
+> frontend sur le NAS et raccourcit nettement le rebuild.
 
 ---
 
@@ -442,7 +447,7 @@ Chemin résultant sur le NAS : `/volume1/docker/`
 
 ```bash
 # Via SSH sur le NAS
-ssh admin@ADRESSE_IP_DU_NAS
+ssh -i ~/.ssh/nas_deploy Henintsoa_DEV@ADRESSE_IP_DU_NAS
 
 free -h          # RAM disponible (minimum 2 Go libres requis)
 df -h /volume1   # Espace disque
@@ -467,25 +472,22 @@ mkdir -p /volume1/docker/specimenmanager/backups
 
 ### 6.2 Copier les fichiers (depuis votre poste)
 
-**macOS / Linux :**
-```bash
-rsync -avz \
-  --exclude='node_modules' \
-  --exclude='*/node_modules' \
-  --exclude='frontend/dist' \
-  --exclude='.git' \
-  --exclude='*.log' \
-  /chemin/vers/SpecimenManager/ \
-  admin@ADRESSE_IP_DU_NAS:/volume1/docker/specimenmanager/
-```
+**La commande exacte est dans `.claude/commands/transfer-nas.md`.** Elle n'est
+pas recopiée ici, pour qu'il n'existe qu'une seule version à tenir à jour.
 
-**Windows (PowerShell + WinSCP CLI) :**
-```powershell
-winscp.com /command `
-  "open sftp://admin:MOT_DE_PASSE@ADRESSE_IP" `
-  "synchronize remote C:\chemin\SpecimenManager /volume1/docker/specimenmanager" `
-  "exit"
-```
+Ce document proposait auparavant un `rsync` (macOS/Linux) et un WinSCP
+(Windows), tous deux avec le compte `admin`. Trois raisons de ne plus les
+suivre :
+
+- sur Windows, `rsync`/WinSCP/`scp -r` créent sur le NAS des fichiers dont le
+  **nom** est un chemin Windows complet ;
+- le compte réel est `Henintsoa_DEV` avec la clé `~/.ssh/nas_deploy`, pas
+  `admin` ;
+- surtout, ces commandes **excluaient `frontend/dist/`** — précisément ce dont
+  `Dockerfile.dist` a besoin (§3.2). Le conteneur nginx serait resté vide.
+
+La méthode retenue est un pipe `tar` via SSH, qui ne souffre d'aucun de ces
+défauts.
 
 ### 6.3 Vérifier le transfert
 
@@ -746,7 +748,7 @@ ouvrir aucun port sur votre routeur.
 ping 100.X.X.X
 
 # SSH via Tailscale (même commande que sur le réseau local)
-ssh admin@100.X.X.X
+ssh -i ~/.ssh/nas_deploy Henintsoa_DEV@100.X.X.X
 ```
 
 À partir de là, toutes les commandes de déploiement (`/deploy-nas`,
@@ -807,20 +809,28 @@ docker compose -f docker-compose.prod.yml logs -f nginx
 
 ### 9.2 Mettre à jour l'application
 
-```bash
-# Étape 1 — Transférer les nouveaux fichiers (depuis votre poste dev)
-rsync -avz --exclude='node_modules' --exclude='*/node_modules' \
-            --exclude='frontend/dist' --exclude='.git' \
-            /chemin/vers/SpecimenManager/ \
-            admin@ADRESSE_IP:/volume1/docker/specimenmanager/
+**La procédure de référence est `.claude/commands/deploy-nas.md`.** Elle n'est
+volontairement pas recopiée ici.
 
-# Étape 2 — Rebuild et redémarrage (sur le NAS)
-cd /volume1/docker/specimenmanager
-docker compose -f docker-compose.prod.yml up -d --build
+Ce document décrivait auparavant sa propre version de la mise à jour, et c'est
+précisément cette duplication qui l'a laissée dériver : elle transférait via
+`rsync` avec le compte `admin`, alors que l'infrastructure réelle utilise un
+pipe `tar` avec `Henintsoa_DEV` — et surtout elle **excluait `frontend/dist/`**,
+le dossier dont `Dockerfile.dist` a besoin (§3.2). La suivre produisait un
+conteneur nginx vide.
 
-# Étape 3 — Migrations si le schéma a changé
-docker exec sm_backend npx prisma migrate deploy
-```
+Deux points que la procédure de référence détaille, et qu'il ne faut pas
+improviser :
+
+- **`backend/prisma` doit être transféré**, sinon le rebuild tourne sur un
+  schéma obsolète sans qu'aucune erreur ne le signale.
+- **Deux migrations ne doivent jamais partir en production** —
+  `20260506183552_init` et
+  `20260806101736_taxonomie_specimens_unique_indexes` (celle-ci a mis le backend
+  en boucle de crash pendant 2 h le 2026-08-26). Les exclure du transfert ne
+  suffit pas : il faut vérifier qu'elles ne sont pas **déjà** sur le NAS avant de
+  rebuilder, car `tar` ajoute sans effacer et `entrypoint.sh` applique les
+  migrations à chaque démarrage (§3.1).
 
 ### 9.3 Sauvegarder la base de données
 
