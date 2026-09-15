@@ -8,26 +8,9 @@ import { taxoLabel } from '../../utils/taxoLabel';
 import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 import { useT, interpolate } from '../../lib/i18n';
+import { Field, SidebarRow } from '../../components/SpecimenDetailParts';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
-
-function Field({ label, children }) {
-  return (
-    <div>
-      <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-0.5">{label}</p>
-      <div className="text-sm text-fg">{children || <span className="text-fg-subtle">—</span>}</div>
-    </div>
-  );
-}
-
-function SidebarRow({ label, children }) {
-  return (
-    <div className="flex items-start justify-between gap-3 py-1.5 border-b border-border last:border-0">
-      <span className="text-[11px] text-fg-subtle shrink-0">{label}</span>
-      <span className="text-[11px] text-fg font-medium text-right leading-relaxed">{children || '—'}</span>
-    </div>
-  );
-}
 
 export default function AutreSpecimenDetail() {
   const t = useT();

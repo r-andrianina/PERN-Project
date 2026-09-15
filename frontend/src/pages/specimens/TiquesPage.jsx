@@ -8,30 +8,9 @@ import SpecimenIcon from '../../components/SpecimenIcon';
 import { formatGorgement } from '../../utils/gorgement';
 import { taxoLabel } from '../../utils/taxoLabel';
 import { useT, interpolate } from '../../lib/i18n';
+import { sortRows } from '../../utils/specimenSort';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
-
-function sortRows(rows, sort, locale) {
-  if (!sort) return rows;
-  return [...rows].sort((a, b) => {
-    let av, bv;
-    switch (sort.key) {
-      case 'idTerrain':    av = a.idTerrain;    bv = b.idTerrain;    break;
-      case 'nombre':       av = a.nombre;       bv = b.nombre;       break;
-      case 'sexe':         av = a.sexe;         bv = b.sexe;         break;
-      case 'dateCollecte':
-        av = a.dateCollecte ? new Date(a.dateCollecte).getTime() : null;
-        bv = b.dateCollecte ? new Date(b.dateCollecte).getTime() : null;
-        break;
-      default: return 0;
-    }
-    if (av == null && bv == null) return 0;
-    if (av == null) return 1;
-    if (bv == null) return -1;
-    const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv), locale);
-    return sort.dir === 'asc' ? cmp : -cmp;
-  });
-}
 
 export default function TiquesPage() {
   const t = useT();
