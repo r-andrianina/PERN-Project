@@ -65,6 +65,13 @@ const uploadFichier = makeUpload('sequencage', ['.ab1', '.fastq', '.fq', '.gz', 
 
 router.use(verifyToken);
 
+// ── Historique d'analyses d'un spécimen ───────────────────────
+// Déclarée AVANT `/:id` : Express teste les routes dans l'ordre, et
+// `/specimen/moustique/12` serait sinon capturée par `/:id` avec id="specimen".
+// Accessible à tout utilisateur authentifié, comme la lecture des
+// manipulations ; le cloisonnement par projet est appliqué dans le contrôleur.
+router.get('/specimen/:specimenType/:specimenId', asyncHandler(ctrl.getAnalysesSpecimen));
+
 // ── CRUD ──────────────────────────────────────────────────────
 router.get('/',    asyncHandler(ctrl.listManipulations));
 router.get('/:id', asyncHandler(ctrl.getManipulation));

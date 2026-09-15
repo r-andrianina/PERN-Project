@@ -16,6 +16,7 @@ import { TRANCHE_HORAIRE_OPTIONS, formatTrancheHoraire } from '../../utils/tranc
 import { taxoLabel as _taxoLabel } from '../../utils/taxoLabel';
 import { useT, interpolate } from '../../lib/i18n';
 import { Field, SidebarRow, SidebarSection, EditSelect } from '../../components/SpecimenDetailParts';
+import AnalysesLabo from '../../components/AnalysesLabo';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const taxoLabel  = (tx) => tx ? _taxoLabel(tx) : '—';
@@ -391,6 +392,10 @@ export default function MoustiqueDetail() {
               <SidebarRow label={t('specimenDetail.date')}>
                 {m.dateCollecte ? new Date(m.dateCollecte).toLocaleDateString(t('common.locale')) : <span className="text-fg-subtle">—</span>}
               </SidebarRow>
+            </SidebarSection>
+
+            <SidebarSection icon={FlaskConical} iconClass="text-success" label={t('specimenDetail.analyses')}>
+              <AnalysesLabo specimenType="moustique" specimenId={m.id} />
             </SidebarSection>
           </Card>
 

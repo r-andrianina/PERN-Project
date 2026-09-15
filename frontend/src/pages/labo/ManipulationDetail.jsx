@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ChevronLeft, FlaskConical, ShieldCheck, ShieldAlert, FileEdit,
-  TestTube, Dna, Zap, Waves, User, AlertTriangle,
-  Upload, Check, X, Eye, Layers, GitBranch, Microscope, Activity,
+  ChevronLeft, ShieldCheck, ShieldAlert,
+  User, AlertTriangle,
+  Upload, Check, X,
 } from 'lucide-react';
 import { Card, Button, Badge, Spinner } from '../../components/ui';
 import AuthImg, { downloadAuthFile } from '../../components/AuthImg';
@@ -13,27 +13,17 @@ import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 import { useT } from '../../lib/i18n';
+import { getTypeConfig as getTypeConfigBase, getStatutConfig } from '../../utils/laboConfig';
+// Libelles plus explicites que ceux du tableau : cette page a la place de les
+// afficher en entier. Le reste (icone, couleur, fond) vient de la table commune.
+const SURCHARGES_LIBELLES = {
+  identification_morpho: 'manipDetail.typeIdentificationMorpho',
+  nested_pcr:            'manipDetail.typeNestedPcrFull',
+};
+const getTypeConfig = (t) => getTypeConfigBase(t, SURCHARGES_LIBELLES);
+
 
 // ── Config ────────────────────────────────────────────────────
-
-const getTypeConfig = (t) => ({
-  identification_morpho: { label: t('manipDetail.typeIdentificationMorpho'), Icon: Eye,          color: 'text-fg-muted',  bg: 'bg-surface-2'   },
-  broyage_pool:          { label: t('laboPage.typeBroyage'),      Icon: Layers,       color: 'text-info',      bg: 'bg-info/10'     },
-  dessication:           { label: t('laboPage.typeDessication'),  Icon: TestTube,     color: 'text-info',      bg: 'bg-info/10'     },
-  extraction:            { label: t('laboPage.typeExtraction'),   Icon: Dna,          color: 'text-success',   bg: 'bg-success/10'  },
-  amplification_pcr:     { label: t('laboPage.typePcr'),          Icon: Zap,          color: 'text-warning',   bg: 'bg-warning/10'  },
-  qpcr:                  { label: t('laboPage.typeQpcr'),         Icon: Activity,     color: 'text-primary',   bg: 'bg-primary/10'  },
-  nested_pcr:            { label: t('manipDetail.typeNestedPcrFull'), Icon: GitBranch,    color: 'text-warning',   bg: 'bg-warning/10'  },
-  sequencage:            { label: t('laboPage.typeSequencage'),   Icon: Waves,        color: 'text-primary',   bg: 'bg-primary/10'  },
-  microscopie:           { label: t('laboPage.typeMicroscopie'),  Icon: Microscope,   color: 'text-danger',    bg: 'bg-danger/10'   },
-  autre:                 { label: t('laboPage.typeAutre'),        Icon: FlaskConical, color: 'text-fg-muted',  bg: 'bg-surface-2'   },
-});
-
-const getStatutConfig = (t) => ({
-  brut:     { label: t('laboPage.statutBrut'),     tone: 'default', Icon: FileEdit    },
-  valide:   { label: t('laboPage.statutValide'),   tone: 'success', Icon: ShieldCheck },
-  invalide: { label: t('laboPage.statutInvalide'), tone: 'danger',  Icon: ShieldAlert },
-});
 
 const getEventIcons = (t) => ({
   CREATION:       { label: t('manipDetail.eventCreated'),       color: 'bg-primary' },

@@ -9,6 +9,7 @@ import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 import { useT, interpolate } from '../../lib/i18n';
 import { Field, SidebarRow } from '../../components/SpecimenDetailParts';
+import AnalysesLabo from '../../components/AnalysesLabo';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 
@@ -287,6 +288,17 @@ export default function AutreSpecimenDetail() {
               <SidebarRow label={t('autreSpecimenDetail.solution')}>{s.solution?.nom}</SidebarRow>
               <SidebarRow label={t('autreSpecimenDetail.container')}>{s.container?.code}</SidebarRow>
               <SidebarRow label={t('autreSpecimenDetail.position')}>{s.position}</SidebarRow>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="p-4 border-b border-border">
+              <h3 className="flex items-center gap-2 text-xs font-semibold text-fg-subtle uppercase tracking-wider">
+                <Microscope size={12} /> {t('autreSpecimenDetail.analyses')}
+              </h3>
+            </div>
+            <div className="p-4">
+              <AnalysesLabo specimenType="autre" specimenId={s.id} />
             </div>
           </Card>
 

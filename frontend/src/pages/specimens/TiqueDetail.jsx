@@ -15,6 +15,7 @@ import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
 import { taxoLabel as _taxoLabel } from '../../utils/taxoLabel';
 import { useT, interpolate } from '../../lib/i18n';
 import { Field, SidebarRow, SidebarSection, EditSelect } from '../../components/SpecimenDetailParts';
+import AnalysesLabo from '../../components/AnalysesLabo';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const taxoLabel  = (tx) => tx ? _taxoLabel(tx) : '—';
@@ -356,6 +357,10 @@ export default function TiqueDetail() {
               <SidebarRow label={t('specimenDetail.date')}>
                 {tq.dateCollecte ? new Date(tq.dateCollecte).toLocaleDateString(t('common.locale')) : <span className="text-fg-subtle">—</span>}
               </SidebarRow>
+            </SidebarSection>
+
+            <SidebarSection icon={FlaskConical} iconClass="text-success" label={t('specimenDetail.analyses')}>
+              <AnalysesLabo specimenType="tique" specimenId={tq.id} />
             </SidebarSection>
           </Card>
 
