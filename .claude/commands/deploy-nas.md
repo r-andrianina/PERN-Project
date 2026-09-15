@@ -29,9 +29,32 @@ cd "$SRC/frontend" && npm run build
 #    là que vivent schema.prisma et les migrations. L'oublier fait tourner
 #    le rebuild suivant sur un schéma obsolète sans qu'aucune erreur ne le
 #    signale (constaté le 2026-07-27 : 7 migrations manquantes, silencieux).
+#
+#    DEUX migrations ne doivent JAMAIS partir en prod :
+#      · 20260506183552_init — la prod a été baselinée sans elle ; la rejouer
+#        lance des CREATE TABLE sur des tables existantes.
+#      · 20260806101736_taxonomie_specimens_unique_indexes — différée en
+#        attente de l'arbitrage des taxonomistes (14 groupes de doublons
+#        réels). C'est elle qui a mis le backend en boucle de crash pendant
+#        2 h le 2026-08-26.
 cd "$SRC"
-tar czf - backend/src backend/prisma frontend/src frontend/dist \
+tar czf - \
+  --exclude='backend/prisma/migrations/20260506183552_init' \
+  --exclude='backend/prisma/migrations/20260806101736_taxonomie_specimens_unique_indexes' \
+  backend/src backend/prisma frontend/src frontend/dist \
   | ssh -i "$KEY" "$NAS" "tar xzf - -C $DST/"
+
+# 2 bis. VÉRIFIER AVANT DE REBUILDER — l'exclusion ci-dessus n'enlève pas ce
+#    qui est DÉJÀ sur le NAS : `tar xzf` ajoute, il n'efface rien. Une
+#    migration déposée par un transfert antérieur reste inerte tant qu'aucun
+#    rebuild n'a lieu, puis explose au rebuild SUIVANT — potentiellement des
+#    semaines plus tard, et pas forcément lancé par la même personne.
+#    (Constaté le 2026-09-11 : `init` traînait depuis un transfert du 09-09.)
+ssh -i "$KEY" "$NAS" \
+  "ls $DST/backend/prisma/migrations | grep -E 'init|taxonomie_specimens'"
+#    Attendu : AUCUNE sortie. Sinon, écarter le dossier fautif :
+#    sudo mv $DST/backend/prisma/migrations/<dossier> \
+#            $DST/backend/prisma/_migrations_differees/
 
 # 3. Rebuilder les containers
 ssh -i "$KEY" "$NAS" \
