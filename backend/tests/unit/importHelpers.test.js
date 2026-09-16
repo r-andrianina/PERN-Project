@@ -9,7 +9,7 @@
 //   - les longueurs VarChar n'étaient pas vérifiées avant insertion.
 
 const { __test__ } = require('../../src/controllers/import.controller');
-const { toDate, tronquer, nouveauJournal, parLots, LONGUEURS_MAX } = __test__;
+const { toDate, tronquer, nouveauJournal, parLots, datePoseParDefaut, LONGUEURS_MAX } = __test__;
 
 describe('toDate — dates Excel', () => {
   it('conserve un objet Date tel quel', () => {
@@ -105,5 +105,55 @@ describe('parLots — découpage des listes passées à un `in:` Prisma', () => 
 
   it('renvoie une liste vide pour une entrée vide', () => {
     expect(parLots([], 100)).toEqual([]);
+  });
+});
+
+describe('datePoseParDefaut — nuit-piège', () => {
+  // Contexte (2026-09-16) : la date du fichier IPM (DATE_OF_COLLECTION) est le
+  // matin où le piège a été RELEVÉ. Elle alimente dateReleve, et la pose est
+  // déduite à J-1. Auparavant c'était l'inverse — la date allait dans datePose
+  // et le relevé était déduit à J+1 — ce qui datait toute la base d’un jour
+  // trop tard. Inverser ce sens à nouveau ferait échouer la recherche de
+  // méthode existante et dupliquerait chaque méthode à l'import.
+  const veille = (s) => datePoseParDefaut(new Date(s)).toISOString().slice(0, 10);
+
+  it('renvoie la veille du relevé', () => {
+    expect(veille('2026-02-24T00:00:00Z')).toBe('2026-02-23');
+  });
+
+  it('traverse un début de mois', () => {
+    expect(veille('2026-03-01T00:00:00Z')).toBe('2026-02-28');
+  });
+
+  it('traverse un début d’année', () => {
+    expect(veille('2026-01-01T00:00:00Z')).toBe('2025-12-31');
+  });
+
+  it('gère le 29 février d’une année bissextile', () => {
+    expect(veille('2024-03-01T00:00:00Z')).toBe('2024-02-29');
+  });
+
+  it('travaille en UTC — une date proche de minuit ne dérive pas d’un jour', () => {
+    // Le serveur peut tourner sur un fuseau décalé (UTC+3 à Madagascar) :
+    // setDate/getDate en heure locale décalerait le résultat d’un jour.
+    expect(veille('2026-05-20T23:59:59Z')).toBe('2026-05-19');
+    expect(veille('2026-05-20T00:00:00Z')).toBe('2026-05-19');
+  });
+
+  it('ne renvoie rien sans date de relevé', () => {
+    expect(datePoseParDefaut(null)).toBeNull();
+    expect(datePoseParDefaut(undefined)).toBeNull();
+  });
+
+  it('ne modifie pas la date reçue', () => {
+    const d = new Date('2026-02-24T00:00:00Z');
+    datePoseParDefaut(d);
+    expect(d.toISOString().slice(0, 10)).toBe('2026-02-24');
+  });
+
+  it('pose et relevé encadrent exactement une nuit', () => {
+    const releve = new Date('2026-02-24T00:00:00Z');
+    const pose   = datePoseParDefaut(releve);
+    expect((releve - pose) / 86400000).toBe(1);
   });
 });

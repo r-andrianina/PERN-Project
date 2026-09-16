@@ -2009,5 +2009,5 @@ module.exports = {
   // Helpers purs exposés pour les tests unitaires : ils portent des règles de
   // conversion et de bornage que rien d'autre ne couvre (une date Excel mal
   // interprétée corrompt les données en silence, cf. toDate).
-  __test__: { toDate, tronquer, nouveauJournal, parLots, compacterLignes, LONGUEURS_MAX, MAX_LOGS },
+  __test__: { toDate, tronquer, nouveauJournal, parLots, compacterLignes, datePoseParDefaut, LONGUEURS_MAX, MAX_LOGS },
 };
