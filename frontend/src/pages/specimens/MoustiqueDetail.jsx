@@ -305,7 +305,7 @@ export default function MoustiqueDetail() {
         <aside className="space-y-3 xl:sticky xl:top-4 self-start">
 
           {/* Actions */}
-          <Card padding="sm">
+          <Card padding="sm" level="secondary">
             <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('specimenDetail.actions')}</p>
             <div className="space-y-2">
               {editing ? (
@@ -337,7 +337,7 @@ export default function MoustiqueDetail() {
           )}
 
           {/* Localisation */}
-          <Card padding="sm">
+          <Card padding="sm" level="secondary">
             <SidebarSection icon={MapPin} iconClass="text-danger" label={t('specimenDetail.localisation')}>
               {/* Fil d'Ariane */}
               <div className="flex flex-wrap items-center gap-1 text-xs text-fg-muted mb-2">
@@ -376,7 +376,7 @@ export default function MoustiqueDetail() {
           </Card>
 
           {/* Conservation */}
-          <Card padding="sm">
+          <Card padding="sm" level="secondary">
             <SidebarSection icon={FlaskConical} iconClass="text-purple-500" label={t('specimenDetail.conservation')}>
               <SidebarRow label={t('specimenDetail.solution')}>
                 {m.solution?.nom || <span className="text-fg-subtle">—</span>}

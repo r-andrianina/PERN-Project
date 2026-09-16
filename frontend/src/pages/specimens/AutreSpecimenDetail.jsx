@@ -268,7 +268,7 @@ export default function AutreSpecimenDetail() {
 
         {/* Sidebar */}
         <div className="space-y-4">
-          <Card>
+          <Card level="secondary">
             <div className="p-4 border-b border-border">
               <h3 className="flex items-center gap-2 text-xs font-semibold text-fg-subtle uppercase tracking-wider">
                 <MapPin size={12} /> {t('autreSpecimenDetail.localisation')}
@@ -283,7 +283,7 @@ export default function AutreSpecimenDetail() {
             </div>
           </Card>
 
-          <Card>
+          <Card level="secondary">
             <div className="p-4 border-b border-border">
               <h3 className="flex items-center gap-2 text-xs font-semibold text-fg-subtle uppercase tracking-wider">
                 <FlaskConical size={12} /> {t('autreSpecimenDetail.conservation')}
