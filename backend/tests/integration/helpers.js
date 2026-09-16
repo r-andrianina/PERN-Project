@@ -29,6 +29,7 @@ async function resetBase() {
       hotes, methodes_collecte, localites, localite_contacts,
       containers, missions, mission_agents, projets, membres_projet,
       audit_logs, notification_reads,
+      manipulations_labo, pools, pathogenes_cibles,
       taxonomie_specimens, types_methode_collecte, solutions_conservation,
       users
     RESTART IDENTITY CASCADE
