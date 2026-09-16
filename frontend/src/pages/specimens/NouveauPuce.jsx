@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { ChevronLeft, Microscope, FlaskConical, FileText, PawPrint, Check, Loader2, Info, Tag } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from '../../lib/toast';
@@ -31,6 +32,12 @@ export default function NouveauPuce() {
   const [solutions,  setSolutions]  = useState([]);
   const [isLoading,  setIsLoading]  = useState(false);
   const [errors,     setErrors]     = useState({});
+  const [isDirty,    setIsDirty]    = useState(false);
+
+  // Garde contre la perte d'une saisie en cours. Elle n'existait que sur
+  // NouveauMoustique : les trois autres formulaires laissaient partir une
+  // fiche a moitie remplie sans un mot.
+  useUnsavedChanges(isDirty);
 
   useEffect(() => {
     Promise.all([
@@ -48,6 +55,7 @@ export default function NouveauPuce() {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setErrors({ ...errors, [name]: null });
+    setIsDirty(true);
     setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
   };
 
@@ -89,6 +97,7 @@ export default function NouveauPuce() {
         nombre:       parseInt(form.nombre),
         dateCollecte: form.dateCollecte || null,
       });
+      setIsDirty(false);
       navigate('/specimens/puces');
     } catch (err) {
       setErrors({ submit: err.response?.data?.error || t('nouveauSpecimen.creationError') });

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { ChevronLeft, Bug, FlaskConical, FileText, Plus, Minus, Microscope, Tag } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from '../../lib/toast';
@@ -68,6 +69,12 @@ export default function NouvelAutreSpecimen() {
   const [solutions,  setSolutions]  = useState([]);
   const [isLoading,  setIsLoading]  = useState(false);
   const [errors,     setErrors]     = useState({});
+  const [isDirty,    setIsDirty]    = useState(false);
+
+  // Garde contre la perte d'une saisie en cours. Elle n'existait que sur
+  // NouveauMoustique : les trois autres formulaires laissaient partir une
+  // fiche a moitie remplie sans un mot.
+  useUnsavedChanges(isDirty);
 
   useEffect(() => {
     Promise.all([
@@ -85,6 +92,7 @@ export default function NouvelAutreSpecimen() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setErrors((p) => ({ ...p, [name]: null }));
+    setIsDirty(true);
     setForm((f) => ({ ...f, [name]: value }));
   };
 
@@ -126,6 +134,7 @@ export default function NouvelAutreSpecimen() {
         attributs:      Object.keys(attrsObj).length ? attrsObj : null,
       };
       await api.post('/autres-specimens', payload);
+      setIsDirty(false);
       navigate('/specimens/autres');
     } catch (err) {
       setErrors({ submit: err.response?.data?.error || t('nouveauSpecimen.creationError') });
