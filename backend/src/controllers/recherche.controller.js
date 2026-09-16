@@ -14,6 +14,7 @@ const {
 const { libelleTaxonomie, decomposeTaxon } = require('../utils/taxonomyResolve');
 const { chargerEquipes } = require('../utils/missionEquipe');
 const { formatTrancheHoraire } = require('../utils/trancheHoraire');
+const { getAccessibleProjetIds, projetScopeWhere } = require('../utils/access');
 
 const TYPES_VALIDES = ['moustique', 'tique', 'puce'];
 
@@ -22,8 +23,17 @@ const parseTypes = (raw) => {
   return raw.split(',').map((s) => s.trim()).filter((s) => TYPES_VALIDES.includes(s));
 };
 
-// Récupère les spécimens pour les types demandés en parallèle
-async function fetchAllSpecimens(params, types) {
+// Récupère les spécimens pour les types demandés en parallèle.
+//
+// Cloisonnement par projet (2026-09-16) : la recherche ne filtrait que par TYPE
+// de spécimen. Un chercheur affecté à un seul projet pouvait retrouver — et
+// exporter — n'importe quel spécimen de l'institut.
+//
+// `projetIds` est un paramètre OBLIGATOIRE, pas une option avec un défaut
+// permissif : un appelant qui l'oublie doit produire une liste vide, jamais la
+// base entière. Les deux points d'appel (liste et export Excel) le passent.
+async function fetchAllSpecimens(params, types, projetIds) {
+  const scope = projetScopeWhere(['localite', 'mission'], projetIds);
   const [descTaxos, descHotes] = await Promise.all([
     resolveSpecimenDescendants(params.taxonomieId),
     resolveHoteDescendants(params.taxonomieHoteId),
@@ -32,21 +42,21 @@ async function fetchAllSpecimens(params, types) {
   const promises = [];
   if (types.includes('moustique')) {
     promises.push(prisma.moustique.findMany({
-      where:   buildSpecimenWhere({ type: 'moustique', params, descendantTaxonomieIds: descTaxos }),
+      where:   { ...buildSpecimenWhere({ type: 'moustique', params, descendantTaxonomieIds: descTaxos }), ...scope },
       include: includeBase,
       orderBy: { dateCollecte: 'desc' },
     }).then((rows) => rows.map((r) => ({ ...r, _type: 'moustique' }))));
   }
   if (types.includes('tique')) {
     promises.push(prisma.tique.findMany({
-      where:   buildSpecimenWhere({ type: 'tique', params, descendantTaxonomieIds: descTaxos, descendantHoteIds: descHotes }),
+      where:   { ...buildSpecimenWhere({ type: 'tique', params, descendantTaxonomieIds: descTaxos, descendantHoteIds: descHotes }), ...scope },
       include: includeWithHote,
       orderBy: { dateCollecte: 'desc' },
     }).then((rows) => rows.map((r) => ({ ...r, _type: 'tique' }))));
   }
   if (types.includes('puce')) {
     promises.push(prisma.puce.findMany({
-      where:   buildSpecimenWhere({ type: 'puce', params, descendantTaxonomieIds: descTaxos, descendantHoteIds: descHotes }),
+      where:   { ...buildSpecimenWhere({ type: 'puce', params, descendantTaxonomieIds: descTaxos, descendantHoteIds: descHotes }), ...scope },
       include: includeWithHote,
       orderBy: { dateCollecte: 'desc' },
     }).then((rows) => rows.map((r) => ({ ...r, _type: 'puce' }))));
@@ -113,7 +123,8 @@ const search = async (req, res) => {
   const limit  = Math.min(parseInt(req.query.limit)  || 200, 1000);
   const offset = parseInt(req.query.offset) || 0;
 
-  const items = await fetchAllSpecimens(req.query, types);
+  const projetIds = await getAccessibleProjetIds(req.user.id, req.user.role);
+  const items = await fetchAllSpecimens(req.query, types, projetIds);
 
   // Tri global par date décroissante (createdAt si dateCollecte absent)
   items.sort((a, b) => {
@@ -163,7 +174,8 @@ const search = async (req, res) => {
 // ============================================================
 const exportExcel = async (req, res) => {
   const types = resolveAllowedTypes(parseTypes(req.query.types), req.user);
-  const items = await fetchAllSpecimens(req.query, types);
+  const projetIds = await getAccessibleProjetIds(req.user.id, req.user.role);
+  const items = await fetchAllSpecimens(req.query, types, projetIds);
 
   items.sort((a, b) => {
     const da = a.dateCollecte ? new Date(a.dateCollecte) : new Date(a.createdAt);

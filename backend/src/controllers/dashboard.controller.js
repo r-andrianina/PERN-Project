@@ -4,6 +4,8 @@
 
 const prisma = require('../config/prisma');
 const { BYPASS_ROLES } = require('../config/rbac');
+const { Prisma } = require('@prisma/client');
+const { getAccessibleProjetIds, projetScopeWhere } = require('../utils/access');
 
 // Génère les 6 derniers mois (du plus ancien au plus récent)
 function derniersMois(n = 6) {
@@ -14,7 +16,13 @@ function derniersMois(n = 6) {
     d.setMonth(d.getMonth() - i);
     d.setHours(0, 0, 0, 0);
     mois.push({
-      key:   d.toISOString().slice(0, 7),                          // "2025-11"
+      // Clé construite sur les composantes LOCALES, jamais via toISOString()
+      // (corrigé le 2026-09-16). La date est minuit LOCAL du 1er du mois ; en
+      // UTC+3 — le fuseau de Madagascar — toISOString() le ramène au 31 du
+      // mois précédent à 21 h, et la clé désignait donc le MOIS D'AVANT.
+      // Conséquence : chaque barre du graphique portait l'étiquette du mois
+      // suivant ses données, et le mois courant n'apparaissait jamais.
+      key:   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, // "2025-11"
       label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }), // "nov. 25"
       date:  d,
     });
@@ -28,6 +36,34 @@ const getStats = async (req, res) => {
     ? ['moustique', 'tique', 'puce']
     : (req.user.specimensAutorises || []);
 
+  // Cloisonnement par projet (2026-09-16).
+  //
+  // Le tableau de bord ne filtrait que par TYPE de spécimen : un chercheur
+  // affecté à un seul projet lisait les totaux, les courbes mensuelles et le
+  // top des espèces de TOUT l'institut. Des effectifs agrégés restent une
+  // donnée de recherche — ils disent ce qui a été collecté, où, et en quelle
+  // quantité, avant publication.
+  //
+  // getAdminStats n'est pas concerné : sa route est réservée aux admins, qui
+  // bypassent le cloisonnement de toute façon.
+  const projetIds   = await getAccessibleProjetIds(req.user.id, req.user.role);
+  const scopeSpec   = projetScopeWhere(['localite', 'mission'], projetIds);
+  const scopeMission = projetIds === null ? {} : { projetId: { in: projetIds } };
+  const scopeProjet  = projetIds === null ? {} : { id:        { in: projetIds } };
+
+  // Même filtre pour le SQL brut des courbes mensuelles. Un tableau VIDE doit
+  // donner « aucune donnée » et non « aucun filtre » : sans le cas explicite,
+  // Prisma.join([]) lève, et un IN () vide serait une erreur SQL.
+  const filtreProjetSql = projetIds === null
+    ? Prisma.empty
+    : projetIds.length === 0
+      ? Prisma.sql`AND FALSE`
+      : Prisma.sql`AND localite_id IN (
+          SELECT l.id FROM localites l
+          JOIN missions m ON m.id = l.mission_id
+          WHERE m.projet_id IN (${Prisma.join(projetIds)})
+        )`;
+
   // ── Totaux scalaires + missions récentes (toujours fetchés) ──
   const [
     totalProjets,
@@ -37,18 +73,19 @@ const getStats = async (req, res) => {
     aggPuces,
     missionsRecentes,
   ] = await Promise.all([
-    prisma.projet.count(),
-    prisma.mission.count(),
+    prisma.projet.count({ where: scopeProjet }),
+    prisma.mission.count({ where: scopeMission }),
     autorises.includes('moustique')
-      ? prisma.moustique.aggregate({ _sum: { nombre: true } })
+      ? prisma.moustique.aggregate({ _sum: { nombre: true }, where: scopeSpec })
       : null,
     autorises.includes('tique')
-      ? prisma.tique.aggregate({ _sum: { nombre: true } })
+      ? prisma.tique.aggregate({ _sum: { nombre: true }, where: scopeSpec })
       : null,
     autorises.includes('puce')
-      ? prisma.puce.aggregate({ _sum: { nombre: true } })
+      ? prisma.puce.aggregate({ _sum: { nombre: true }, where: scopeSpec })
       : null,
     prisma.mission.findMany({
+      where:   scopeMission,
       take:    6,
       orderBy: { createdAt: 'desc' },
       select: {
@@ -84,6 +121,7 @@ const getStats = async (req, res) => {
                COALESCE(SUM(nombre), 0)::int AS total
         FROM moustiques
         WHERE COALESCE(date_collecte, created_at) >= ${dateMin}
+        ${filtreProjetSql}
         GROUP BY 1
       `.then(rows => ({ type: 'moustique', rows }))
     );
@@ -95,6 +133,7 @@ const getStats = async (req, res) => {
                COALESCE(SUM(nombre), 0)::int AS total
         FROM tiques
         WHERE COALESCE(date_collecte, created_at) >= ${dateMin}
+        ${filtreProjetSql}
         GROUP BY 1
       `.then(rows => ({ type: 'tique', rows }))
     );
@@ -106,6 +145,7 @@ const getStats = async (req, res) => {
                COALESCE(SUM(nombre), 0)::int AS total
         FROM puces
         WHERE COALESCE(date_collecte, created_at) >= ${dateMin}
+        ${filtreProjetSql}
         GROUP BY 1
       `.then(rows => ({ type: 'puce', rows }))
     );
@@ -134,6 +174,7 @@ const getStats = async (req, res) => {
     topQueries.push(
       prisma.moustique.groupBy({
         by: ['taxonomieId'],
+        where: scopeSpec,
         _sum: { nombre: true },
         orderBy: { _sum: { nombre: 'desc' } },
         take: 5,
@@ -144,6 +185,7 @@ const getStats = async (req, res) => {
     topQueries.push(
       prisma.tique.groupBy({
         by: ['taxonomieId'],
+        where: scopeSpec,
         _sum: { nombre: true },
         orderBy: { _sum: { nombre: 'desc' } },
         take: 5,
@@ -154,6 +196,7 @@ const getStats = async (req, res) => {
     topQueries.push(
       prisma.puce.groupBy({
         by: ['taxonomieId'],
+        where: scopeSpec,
         _sum: { nombre: true },
         orderBy: { _sum: { nombre: 'desc' } },
         take: 5,
