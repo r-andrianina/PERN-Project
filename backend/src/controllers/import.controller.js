@@ -569,23 +569,29 @@ async function findOrCreateLocalite(db, { missionId, code3w, lat, lon, nomCandid
  * La MethodeCollecte (instance localité+date) est créée si absente.
  *
  * Ordre de résolution :
- *   1. Par (localiteId, typeMethodeId, datePose exacte)
+ *   1. Par (localiteId, typeMethodeId, dateReleve exacte)
  *   2. Par (localiteId, typeMethodeId) — la plus récente
  *   3. Création
  */
 /**
- * Date de relevé d'un piège : lendemain de la pose.
+ * Date de pose d'un piège : veille du relevé.
  *
- * Les fichiers IPM ne portent qu'une seule date (DATE_OF_COLLECTION), qui vaut
- * date de pose. Le protocole standard étant une exposition d'une nuit, le relevé
- * est déduit à J+1 — sans quoi la durée d'exposition reste inconnue et aucune
- * densité par piège-nuit n'est calculable.
+ * Les fichiers IPM ne portent qu'une seule date (DATE_OF_COLLECTION) : c'est le
+ * matin où le piège a été RELEVÉ, pas le soir où il a été posé. Elle alimente
+ * donc dateReleve, et la pose est déduite à J-1 (exposition d'une nuit, le
+ * protocole standard) — sans quoi la durée d'exposition reste inconnue et
+ * aucune densité par piège-nuit n'est calculable.
+ *
+ * Corrigé le 2026-09-16 : la date du fichier alimentait datePose et le relevé
+ * était déduit à J+1, ce qui datait toute la base d'un jour trop tard. Une
+ * migration a décalé les méthodes existantes ; inverser ce sens sans elle
+ * ferait échouer la recherche ci-dessous et dupliquerait chaque méthode.
  * Travaille en UTC pour ne pas décaler d'un jour selon le fuseau du serveur.
  */
-function dateReleveParDefaut(datePose) {
-  if (!datePose) return null;
-  const d = new Date(datePose);
-  d.setUTCDate(d.getUTCDate() + 1);
+function datePoseParDefaut(dateReleve) {
+  if (!dateReleve) return null;
+  const d = new Date(dateReleve);
+  d.setUTCDate(d.getUTCDate() - 1);
   return d;
 }
 
@@ -628,7 +634,7 @@ async function findOrCreateMethode(db, { localiteId, methodCode, rawMethod, date
   // Cherche une méthode existante
   // NB : la colonne "dateCollecte" a été remplacée par "datePose"/"dateReleve"
   // (migration 20260723000000_methode_pose_releve) — on ne connaît que la date
-  // de collecte du fichier IPM, mappée sur datePose (dateReleve reste vide).
+  // de collecte du fichier IPM : elle vaut dateReleve, la pose est déduite à J-1.
   // L'identité d'un piège est (type, numéro, position) : trois CDC posés sur la
   // même localité la même nuit sont trois pièges distincts, à des dizaines de
   // mètres l'un de l'autre. Sans le numéro, ils fusionnaient en une seule
@@ -643,7 +649,7 @@ async function findOrCreateMethode(db, { localiteId, methodCode, rawMethod, date
   let methode = null;
   if (dateCol) {
     methode = await db.methodeCollecte.findFirst({
-      where: { ...identite, datePose: dateCol },
+      where: { ...identite, dateReleve: dateCol },
       select: { id: true },
     });
   }
@@ -655,7 +661,7 @@ async function findOrCreateMethode(db, { localiteId, methodCode, rawMethod, date
   if (!methode && !dateCol) {
     methode = await db.methodeCollecte.findFirst({
       where: identite,
-      orderBy: { datePose: 'desc' },
+      orderBy: { dateReleve: 'desc' },
       select: { id: true },
     });
   }
@@ -665,8 +671,8 @@ async function findOrCreateMethode(db, { localiteId, methodCode, rawMethod, date
   methode = await db.methodeCollecte.create({
     data: {
       ...identite,
-      datePose:   dateCol,
-      dateReleve: dateReleveParDefaut(dateCol),
+      datePose:   datePoseParDefaut(dateCol),
+      dateReleve: dateCol,
       latitude: lat, longitude: lon,
       // Repère de terrain issu de la feuille GPS annexe — il n'existe nulle
       // part ailleurs et c'est lui qui permet de retrouver le piège sur place.

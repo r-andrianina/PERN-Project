@@ -6,6 +6,7 @@ import api from '../../api/axios';
 import { toast } from '../../lib/toast';
 import FormField from '../../components/FormField';
 import MethodeCascade from '../../components/MethodeCascade';
+import DateCollecteField from '../../components/DateCollecteField';
 import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
 import { Card } from '../../components/ui';
@@ -266,8 +267,7 @@ export default function NouveauMoustique() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
             <FormField label={t('nouveauSpecimen.solutionConservation')} name="solutionId" type="select"
               value={form.solutionId} onChange={handleChange} options={solutionOptions} />
-            <FormField label={t('nouveauSpecimen.dateCollecte')} name="dateCollecte" type="date"
-              value={form.dateCollecte} onChange={handleChange} />
+            <DateCollecteField methode={selectedMethode} value={form.dateCollecte} onChange={handleChange} />
           </div>
 
           <ContainerSelector

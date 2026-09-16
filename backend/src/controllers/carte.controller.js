@@ -98,7 +98,11 @@ const getSpecimens = async (req, res) => {
       methodeId:      m.id,
       latitude:       m.latitude,
       longitude:      m.longitude,
-      dateCollecte:   m.datePose ? m.datePose.toISOString().split('T')[0] : null,
+      // Depuis « 1 methode = 1 nuit-piege » (2026-09-16), dateReleve EST le
+      // matin de collecte, commun a tous les specimens du point. Auparavant on
+      // exposait datePose sous ce nom : la carte affichait alors une date
+      // differente de la fiche du specimen pour 313 moustiques sur 756.
+      dateCollecte:   m.dateReleve ? m.dateReleve.toISOString().split('T')[0] : null,
       typeMethode:    m.typeMethode,
       localite:       m.localite,
       specimens,

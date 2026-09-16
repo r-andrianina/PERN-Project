@@ -5,6 +5,7 @@ import api from '../../api/axios';
 import { toast } from '../../lib/toast';
 import FormField from '../../components/FormField';
 import MethodeCascade from '../../components/MethodeCascade';
+import DateCollecteField from '../../components/DateCollecteField';
 import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
 import { Card } from '../../components/ui';
@@ -25,6 +26,7 @@ export default function NouveauTique() {
     dateCollecte: '', notes: '',
   });
   const [missionId, setMissionId] = useState(null);
+  const [selectedMethode, setSelectedMethode] = useState(null);
   const [hotes,      setHotes]      = useState([]);
   const [taxonomies, setTaxonomies] = useState([]);
   const [solutions,  setSolutions]  = useState([]);
@@ -146,6 +148,7 @@ export default function NouveauTique() {
               methodeId={form.methodeId}
               onChange={(id) => { setErrors((e) => ({ ...e, methodeId: null })); setForm((f) => ({ ...f, methodeId: id, containerId: '', position: '' })); }}
               onMissionChange={setMissionId}
+              onMethodeObjectChange={setSelectedMethode}
               error={errors.methodeId}
             />
             <IdTerrainField
@@ -219,7 +222,7 @@ export default function NouveauTique() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
             <FormField label={t('nouveauSpecimen.solutionConservation')} name="solutionId" type="select" value={form.solutionId} onChange={handleChange} options={solutionOptions} />
-            <FormField label={t('nouveauSpecimen.dateCollecte')} name="dateCollecte" type="date" value={form.dateCollecte} onChange={handleChange} />
+            <DateCollecteField methode={selectedMethode} value={form.dateCollecte} onChange={handleChange} />
           </div>
           <ContainerSelector
             missionId={missionId}

@@ -5,6 +5,7 @@ import api from '../../api/axios';
 import { toast } from '../../lib/toast';
 import FormField from '../../components/FormField';
 import MethodeCascade from '../../components/MethodeCascade';
+import DateCollecteField from '../../components/DateCollecteField';
 import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
 import { useT } from '../../lib/i18n';
@@ -61,6 +62,7 @@ export default function NouvelAutreSpecimen() {
   });
   const [attributs, setAttributs] = useState([{ cle: '', valeur: '' }]);
   const [missionId,  setMissionId]  = useState(null);
+  const [selectedMethode, setSelectedMethode] = useState(null);
   const [typesSpec,  setTypesSpec]  = useState([]);
   const [taxonomies, setTaxonomies] = useState([]);
   const [solutions,  setSolutions]  = useState([]);
@@ -194,6 +196,7 @@ export default function NouvelAutreSpecimen() {
                     setForm((f) => ({ ...f, methodeId: id, containerId: '', position: '' }));
                   }}
                   onMissionChange={setMissionId}
+                  onMethodeObjectChange={setSelectedMethode}
                   error={errors.methodeId}
                 />
 
@@ -251,10 +254,7 @@ export default function NouvelAutreSpecimen() {
                   value={form.sexe} onChange={handleChange}
                   options={SEXE_OPTIONS}
                 />
-                <FormField
-                  label={t('nouveauSpecimen.dateCollecte')} name="dateCollecte" type="date"
-                  value={form.dateCollecte} onChange={handleChange}
-                />
+                <DateCollecteField methode={selectedMethode} value={form.dateCollecte} onChange={handleChange} />
               </div>
             </div>
 
