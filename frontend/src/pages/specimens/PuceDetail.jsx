@@ -146,6 +146,11 @@ export default function PuceDetail() {
         {/* ══ Colonne principale ══ */}
         <div className="space-y-4">
 
+          {/* Analyses de laboratoire — en tete : c'est la question centrale
+              d'une fiche specimen pour un institut qui collecte des vecteurs
+              afin de les tester. */}
+          <AnalysesLabo specimenType="puce" specimenId={p.id} />
+
           {/* Identification */}
           <Card>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
@@ -335,10 +340,6 @@ export default function PuceDetail() {
               <SidebarRow label={t('specimenDetail.date')}>
                 {p.dateCollecte ? new Date(p.dateCollecte).toLocaleDateString(t('common.locale')) : <span className="text-fg-subtle">—</span>}
               </SidebarRow>
-            </SidebarSection>
-
-            <SidebarSection icon={FlaskConical} iconClass="text-success" label={t('specimenDetail.analyses')}>
-              <AnalysesLabo specimenType="puce" specimenId={p.id} />
             </SidebarSection>
           </Card>
 

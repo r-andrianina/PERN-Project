@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Bug, FlaskConical, FileText, Pencil, Trash2, Save, X, MapPin, Beaker, Plus, Minus, Microscope } from 'lucide-react';
+import { Bug, FlaskConical, FileText, Pencil, Trash2, Save, X, MapPin, Plus, Minus, Microscope } from 'lucide-react';
 import api from '../../api/axios';
 import { Card, Badge, Button, PageHeader, Spinner, Breadcrumb, DatePicker } from '../../components/ui';
 import useAuthStore from '../../store/authStore';
@@ -131,6 +131,11 @@ export default function AutreSpecimenDetail() {
       <div className="grid grid-cols-1 xl:grid-cols-[1fr,300px] 2xl:grid-cols-[1fr,380px] gap-5 2xl:gap-8">
         {/* Contenu principal */}
         <div className="space-y-5">
+          {/* Analyses de laboratoire — en tete : c'est la question centrale
+              d'une fiche specimen pour un institut qui collecte des vecteurs
+              afin de les tester. */}
+          <AnalysesLabo specimenType="autre" specimenId={s.id} />
+
           {/* Identification */}
           <Card>
             <div className="p-5 border-b border-border">
@@ -289,27 +294,6 @@ export default function AutreSpecimenDetail() {
               <SidebarRow label={t('autreSpecimenDetail.container')}>{s.container?.code}</SidebarRow>
               <SidebarRow label={t('autreSpecimenDetail.position')}>{s.position}</SidebarRow>
             </div>
-          </Card>
-
-          <Card>
-            <div className="p-4 border-b border-border">
-              <h3 className="flex items-center gap-2 text-xs font-semibold text-fg-subtle uppercase tracking-wider">
-                <Microscope size={12} /> {t('autreSpecimenDetail.analyses')}
-              </h3>
-            </div>
-            <div className="p-4">
-              <AnalysesLabo specimenType="autre" specimenId={s.id} />
-            </div>
-          </Card>
-
-          <Card padding="sm">
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => navigate(`/labo/nouvelle?specimenType=autre&specimenId=${s.id}`)}
-            >
-              <Beaker size={14} /> {t('autreSpecimenDetail.createLaboManip')}
-            </Button>
           </Card>
         </div>
       </div>

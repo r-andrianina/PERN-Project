@@ -151,6 +151,11 @@ export default function TiqueDetail() {
         {/* ══ Colonne principale ══ */}
         <div className="space-y-4">
 
+          {/* Analyses de laboratoire — en tete : c'est la question centrale
+              d'une fiche specimen pour un institut qui collecte des vecteurs
+              afin de les tester. */}
+          <AnalysesLabo specimenType="tique" specimenId={tq.id} />
+
           {/* Identification */}
           <Card>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
@@ -357,10 +362,6 @@ export default function TiqueDetail() {
               <SidebarRow label={t('specimenDetail.date')}>
                 {tq.dateCollecte ? new Date(tq.dateCollecte).toLocaleDateString(t('common.locale')) : <span className="text-fg-subtle">—</span>}
               </SidebarRow>
-            </SidebarSection>
-
-            <SidebarSection icon={FlaskConical} iconClass="text-success" label={t('specimenDetail.analyses')}>
-              <AnalysesLabo specimenType="tique" specimenId={tq.id} />
             </SidebarSection>
           </Card>
 

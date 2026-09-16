@@ -189,6 +189,11 @@ export default function MoustiqueDetail() {
         {/* ══ Colonne principale ══ */}
         <div className="space-y-4">
 
+          {/* Analyses de laboratoire — en tete : c'est la question centrale
+              d'une fiche specimen pour un institut qui collecte des vecteurs
+              afin de les tester. */}
+          <AnalysesLabo specimenType="moustique" specimenId={m.id} />
+
           {/* Identification */}
           <Card>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
@@ -392,10 +397,6 @@ export default function MoustiqueDetail() {
               <SidebarRow label={t('specimenDetail.date')}>
                 {m.dateCollecte ? new Date(m.dateCollecte).toLocaleDateString(t('common.locale')) : <span className="text-fg-subtle">—</span>}
               </SidebarRow>
-            </SidebarSection>
-
-            <SidebarSection icon={FlaskConical} iconClass="text-success" label={t('specimenDetail.analyses')}>
-              <AnalysesLabo specimenType="moustique" specimenId={m.id} />
             </SidebarSection>
           </Card>
 
