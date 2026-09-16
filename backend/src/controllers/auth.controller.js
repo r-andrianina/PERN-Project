@@ -238,6 +238,18 @@ const activateUser = async (req, res) => {
   if (id === req.user.id && actif === false)
     return res.status(400).json({ error: 'Vous ne pouvez pas désactiver votre propre compte' });
 
+  // Même garde que updateUser (2026-09-16) : cette route accepte aussi un rôle,
+  // et rien n'empêchait un admin de se rétrograder par ici. Ce n'est pas une
+  // escalade — on ne peut que descendre — mais un VERROUILLAGE : le dernier
+  // admin qui perd ses droits laisse l'institut sans administration, et la
+  // récupération passe par un accès direct à la base.
+  //
+  // L'interface désactive déjà le sélecteur de rôle sur sa propre ligne, mais
+  // c'était la SEULE protection : un invariant de ce genre n'appartient pas au
+  // client.
+  if (id === req.user.id && role && role !== req.user.role)
+    return res.status(400).json({ error: 'Vous ne pouvez pas modifier votre propre rôle' });
+
   const data = {};
   if (typeof actif === 'boolean') data.actif = actif;
   if (role) data.role = role;
