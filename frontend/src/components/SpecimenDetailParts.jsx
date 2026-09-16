@@ -47,7 +47,7 @@ function ValeurAbsente() {
 export function Field({ label, children }) {
   return (
     <div>
-      <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-0.5">{label}</p>
+      <p className="text-2xs text-fg-subtle uppercase tracking-wider font-medium mb-0.5">{label}</p>
       <div className="text-sm text-fg">{children || <ValeurAbsente />}</div>
     </div>
   );
@@ -57,8 +57,8 @@ export function Field({ label, children }) {
 export function SidebarRow({ label, children }) {
   return (
     <div className="flex items-start justify-between gap-3 py-1.5 border-b border-border last:border-0">
-      <span className="text-[11px] text-fg-subtle shrink-0">{label}</span>
-      <span className="text-[11px] text-fg font-medium text-right leading-relaxed">
+      <span className="text-xs text-fg-subtle shrink-0">{label}</span>
+      <span className="text-xs text-fg font-medium text-right leading-relaxed">
         {children || <ValeurAbsente />}
       </span>
     </div>
@@ -71,7 +71,7 @@ export function SidebarSection({ icon: Icon, iconClass, label, children }) {
     <div>
       <div className="flex items-center gap-1.5 mb-2">
         {Icon && <Icon size={12} className={iconClass ?? 'text-fg-subtle'} />}
-        <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">{label}</p>
+        <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider">{label}</p>
       </div>
       {children}
     </div>

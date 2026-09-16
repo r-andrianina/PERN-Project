@@ -306,7 +306,7 @@ export default function MoustiqueDetail() {
 
           {/* Actions */}
           <Card padding="sm">
-            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('specimenDetail.actions')}</p>
+            <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('specimenDetail.actions')}</p>
             <div className="space-y-2">
               {editing ? (
                 <>
@@ -331,7 +331,7 @@ export default function MoustiqueDetail() {
           {/* ID terrain */}
           {m.idTerrain && (
             <Card padding="sm" tone="primary">
-              <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-1">{t('specimenDetail.idTerrain')}</p>
+              <p className="text-2xs text-fg-subtle uppercase tracking-wider font-medium mb-1">{t('specimenDetail.idTerrain')}</p>
               <p className="font-mono font-bold text-primary text-sm">{m.idTerrain}</p>
             </Card>
           )}
@@ -340,7 +340,7 @@ export default function MoustiqueDetail() {
           <Card padding="sm">
             <SidebarSection icon={MapPin} iconClass="text-danger" label={t('specimenDetail.localisation')}>
               {/* Fil d'Ariane */}
-              <div className="flex flex-wrap items-center gap-1 text-[11px] text-fg-muted mb-2">
+              <div className="flex flex-wrap items-center gap-1 text-xs text-fg-muted mb-2">
                 <span className="font-semibold text-fg">
                   {loc?.mission?.projet?.nom || loc?.mission?.projet?.code || '—'}
                 </span>
@@ -351,7 +351,7 @@ export default function MoustiqueDetail() {
               </div>
               {/* Région · District · Commune */}
               {geoLabel && (
-                <p className="text-[11px] text-fg-subtle mb-3">{geoLabel}</p>
+                <p className="text-xs text-fg-subtle mb-3">{geoLabel}</p>
               )}
             </SidebarSection>
 
@@ -360,7 +360,7 @@ export default function MoustiqueDetail() {
             {/* Méthode de collecte */}
             <SidebarSection icon={Beaker} iconClass="text-info" label={t('specimenDetail.methodeCollecte')}>
               {m.methode?.typeMethode ? (
-                <div className="text-[11px] text-fg font-medium">
+                <div className="text-xs text-fg font-medium">
                   <span>{m.methode.typeMethode.nom}</span>
                   {methodeIdentifiant && (
                     <>
@@ -370,7 +370,7 @@ export default function MoustiqueDetail() {
                   )}
                 </div>
               ) : (
-                <span className="text-[11px] text-fg-subtle">—</span>
+                <span className="text-xs text-fg-subtle">—</span>
               )}
             </SidebarSection>
           </Card>

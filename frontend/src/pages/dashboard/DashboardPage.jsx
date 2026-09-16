@@ -230,7 +230,7 @@ export default function DashboardPage() {
                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
                         <span className="text-xs text-fg-muted flex-1">{d.name}</span>
                         <span className="text-xs font-semibold text-fg">{d.value}</span>
-                        <span className="text-[10px] text-fg-subtle w-8 text-right">{pct}%</span>
+                        <span className="text-2xs text-fg-subtle w-8 text-right">{pct}%</span>
                       </div>
                     );
                   })}

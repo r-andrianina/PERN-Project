@@ -315,7 +315,7 @@ export default function NouveauMoustique() {
               </div>
               <div className="space-y-2.5">
                 <div>
-                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
+                  <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
                   {selectedTaxo ? (
                     <p className="text-sm font-semibold italic text-specimen-moustique">
                       {selectedTaxo.parent?.nom ? `${selectedTaxo.parent.nom} ` : ''}{selectedTaxo.nom}
@@ -326,7 +326,7 @@ export default function NouveauMoustique() {
                 </div>
                 {form.idTerrain && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1">
                       <Tag size={9} /> {t('nouveauSpecimen.idTerrain')}
                     </p>
                     <p className="text-sm font-mono font-bold text-primary">{form.idTerrain}</p>
@@ -376,12 +376,12 @@ export default function NouveauMoustique() {
 
             {/* Aide */}
             <Card padding="sm">
-              <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
+              <p className="text-xs text-fg-muted space-y-1.5 leading-relaxed">
                 <span className="block font-semibold text-fg mb-1">{t('nouveauSpecimen.tips')}</span>
                 <span className="block">• {t('nouveauSpecimen.helpTaxonomiePrefix')} <strong>{t('nouveauSpecimen.helpTaxonomieWord')}</strong> {t('nouveauSpecimen.helpTaxonomieSuffix')}</span>
                 <span className="block">• {t('nouveauSpecimen.helpStadePrefix')} <strong>{t('nouveauSpecimen.helpStadeWord')}</strong> {t('nouveauSpecimen.helpStadeSuffix')}</span>
                 <span className="block">• {t('nouveauSpecimen.helpMalePrefix')} <strong>{t('nouveauSpecimen.helpMaleWord')}</strong> {t('nouveauSpecimen.helpMaleSuffix')}</span>
-                <span className="block">• {t('nouveauSpecimen.helpIdTerrainPrefix')}<code className="font-mono text-[10px]">AKZ_n</code>{t('nouveauSpecimen.helpIdTerrainSuffix')}</span>
+                <span className="block">• {t('nouveauSpecimen.helpIdTerrainPrefix')}<code className="font-mono text-2xs">AKZ_n</code>{t('nouveauSpecimen.helpIdTerrainSuffix')}</span>
               </p>
             </Card>
           </aside>

@@ -18,7 +18,7 @@ function SectionTitle({ icon: Icon, iconClass = 'text-primary', children, sub })
       </div>
       <div>
         <h2 className="text-sm font-bold text-fg tracking-tight">{children}</h2>
-        {sub && <p className="text-[11px] text-fg-subtle mt-0.5">{sub}</p>}
+        {sub && <p className="text-xs text-fg-subtle mt-0.5">{sub}</p>}
       </div>
     </div>
   );
@@ -367,7 +367,7 @@ export default function NouvelAutreSpecimen() {
               )}
             </button>
 
-            <p className="text-[11px] text-fg-subtle text-center leading-relaxed">
+            <p className="text-xs text-fg-subtle text-center leading-relaxed">
               {t('nouvelAutreSpecimen.idTerrainAutoHint')}<br />{t('nouvelAutreSpecimen.idTerrainAutoHint2')}
             </p>
           </div>

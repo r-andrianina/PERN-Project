@@ -63,13 +63,13 @@ export default function IdTerrainField({
         <label className="block text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
           <Tag size={12} className="text-primary" />
           {label}
-          {auto && <span className="text-[10px] text-primary normal-case font-normal">({t('idTerrainField.auto')})</span>}
+          {auto && <span className="text-2xs text-primary normal-case font-normal">({t('idTerrainField.auto')})</span>}
         </label>
         {!auto && (
           <button
             type="button"
             onClick={resetToAuto}
-            className="text-[10px] text-fg-subtle hover:text-primary inline-flex items-center gap-1"
+            className="text-2xs text-fg-subtle hover:text-primary inline-flex items-center gap-1"
           >
             <RefreshCw size={10} /> {t('idTerrainField.regenerate')}
           </button>

@@ -383,7 +383,7 @@ export default function UtilisateursPage() {
             <p className="font-semibold text-fg text-sm">
               {u.prenom} {u.nom}
               {u.id === me?.id && (
-                <span className="ml-2 text-[10px] bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded-full font-medium">{t('utilisateursPage.youBadge')}</span>
+                <span className="ml-2 text-2xs bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded-full font-medium">{t('utilisateursPage.youBadge')}</span>
               )}
             </p>
           </div>
@@ -428,7 +428,7 @@ export default function UtilisateursPage() {
             <span className="text-xs text-danger">{t('utilisateursPage.noSpecimens')}</span>
           ) : (
             (u.specimensAutorises || []).map(s => (
-              <span key={s} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${specimens.find(x => x.value === s)?.color || ''}`}>
+              <span key={s} className={`text-2xs font-semibold px-2 py-0.5 rounded-full border ${specimens.find(x => x.value === s)?.color || ''}`}>
                 {specimens.find(x => x.value === s)?.label ?? s}
               </span>
             ))

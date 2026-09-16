@@ -21,7 +21,7 @@ const taxoLabel   = (tx) => tx ? _taxoLabel(tx) : '—';
 function Field({ label, children }) {
   return (
     <div>
-      <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-0.5">{label}</p>
+      <p className="text-2xs text-fg-subtle uppercase tracking-wider font-medium mb-0.5">{label}</p>
       <div className="text-sm text-fg">{children}</div>
     </div>
   );
@@ -30,8 +30,8 @@ function Field({ label, children }) {
 function SidebarRow({ label, children }) {
   return (
     <div className="flex items-start justify-between gap-3 py-1.5 border-b border-border last:border-0">
-      <span className="text-[11px] text-fg-subtle shrink-0">{label}</span>
-      <span className="text-[11px] text-fg font-medium text-right leading-relaxed">{children}</span>
+      <span className="text-xs text-fg-subtle shrink-0">{label}</span>
+      <span className="text-xs text-fg font-medium text-right leading-relaxed">{children}</span>
     </div>
   );
 }
@@ -41,7 +41,7 @@ function SidebarSection({ icon: Icon, iconClass, label, children }) {
     <div>
       <div className="flex items-center gap-1.5 mb-2">
         {Icon && <Icon size={12} className={iconClass ?? 'text-fg-subtle'} />}
-        <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">{label}</p>
+        <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider">{label}</p>
       </div>
       {children}
     </div>
@@ -302,7 +302,7 @@ export default function HoteDetail() {
           {/* Actions */}
           {canEdit && (
             <Card padding="sm">
-              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('hoteDetail.actions')}</p>
+              <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('hoteDetail.actions')}</p>
               <div className="space-y-2">
                 {editing ? (
                   <>
@@ -328,7 +328,7 @@ export default function HoteDetail() {
           {/* ID terrain */}
           {h.idTerrain && (
             <Card padding="sm" tone="primary">
-              <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-1">{t('hoteDetail.identifiantHote')}</p>
+              <p className="text-2xs text-fg-subtle uppercase tracking-wider font-medium mb-1">{t('hoteDetail.identifiantHote')}</p>
               <p className="font-mono font-bold text-primary text-sm">{h.idTerrain}</p>
             </Card>
           )}
@@ -336,7 +336,7 @@ export default function HoteDetail() {
           {/* Localisation */}
           <Card padding="sm">
             <SidebarSection icon={MapPin} iconClass="text-danger" label={t('hoteDetail.localisation')}>
-              <div className="flex flex-wrap items-center gap-1 text-[11px] text-fg-muted mb-2">
+              <div className="flex flex-wrap items-center gap-1 text-xs text-fg-muted mb-2">
                 <span className="font-semibold text-fg">
                   {loc?.mission?.projet?.nom || loc?.mission?.projet?.code || '—'}
                 </span>
@@ -346,7 +346,7 @@ export default function HoteDetail() {
                 <span className="font-semibold text-fg">{loc?.fokontany || loc?.nom || '—'}</span>
               </div>
               {geoLabel && (
-                <p className="text-[11px] text-fg-subtle mb-3">{geoLabel}</p>
+                <p className="text-xs text-fg-subtle mb-3">{geoLabel}</p>
               )}
             </SidebarSection>
 
@@ -354,7 +354,7 @@ export default function HoteDetail() {
 
             <SidebarSection icon={Beaker} iconClass="text-info" label={t('hoteDetail.methodeCollecte')}>
               {h.methode?.typeMethode ? (
-                <div className="text-[11px] text-fg font-medium">
+                <div className="text-xs text-fg font-medium">
                   <span>{h.methode.typeMethode.nom}</span>
                   {methodeIdentifiant && (
                     <>
@@ -364,7 +364,7 @@ export default function HoteDetail() {
                   )}
                 </div>
               ) : (
-                <span className="text-[11px] text-fg-subtle">—</span>
+                <span className="text-xs text-fg-subtle">—</span>
               )}
             </SidebarSection>
           </Card>

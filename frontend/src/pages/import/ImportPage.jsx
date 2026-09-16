@@ -131,7 +131,7 @@ function DropZone({ onFile, disabled }) {
       <Upload size={36} className={`mx-auto mb-3 ${drag ? 'text-primary' : 'text-fg-subtle'}`} />
       <p className="text-sm font-semibold text-fg">{t('importPage.dropZoneTitle')}</p>
       <p className="text-xs text-fg-muted mt-1">{t('importPage.dropZoneOrPrefix')} <span className="text-primary underline">{t('importPage.dropZoneBrowse')}</span></p>
-      <p className="text-[10px] text-fg-subtle mt-2">{t('importPage.dropZoneFormat')}</p>
+      <p className="text-2xs text-fg-subtle mt-2">{t('importPage.dropZoneFormat')}</p>
     </div>
   );
 }
@@ -186,7 +186,7 @@ function LogTable({ logs, defaultTab = 'erreur' }) {
               }`}
             >
               {tf.label}
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+              <span className={`px-1.5 py-0.5 rounded-md text-2xs font-bold ${
                 tf.key === 'erreur'        ? 'bg-danger/10 text-danger' :
                 tf.key === 'avertissement' ? 'bg-warning/10 text-warning' :
                 tf.key === 'info'          ? 'bg-success/10 text-success' :
@@ -230,7 +230,7 @@ function LogTable({ logs, defaultTab = 'erreur' }) {
           </div>
 
           {plafonne && (
-            <p className="text-[11px] text-fg-subtle italic mt-2">
+            <p className="text-xs text-fg-subtle italic mt-2">
               {interpolate(t('importPage.logsDisplayCap'), { n: MAX_LIGNES_AFFICHEES })}
             </p>
           )}
@@ -335,11 +335,11 @@ function ColumnMapping({ colonnes }) {
           {t('importPage.columnMappingTitle')}
         </span>
         <span className="flex items-center gap-2">
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-semibold">
+          <span className="text-2xs px-1.5 py-0.5 rounded bg-success/10 text-success font-semibold">
             {interpolate(t('importPage.columnsRecognized'), { n: reconnues.length })}
           </span>
           {ignorees.length > 0 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-semibold">
+            <span className="text-2xs px-1.5 py-0.5 rounded bg-warning/10 text-warning font-semibold">
               {interpolate(t('importPage.columnsIgnored'), { n: ignorees.length })}
             </span>
           )}
@@ -351,12 +351,12 @@ function ColumnMapping({ colonnes }) {
         <div className="p-3 space-y-3 bg-surface">
           {reconnues.length > 0 && (
             <div>
-              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wide mb-1.5">
+              <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wide mb-1.5">
                 {t('importPage.columnsRecognizedLabel')}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {reconnues.map(({ source, cible }) => (
-                  <span key={source} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-success/8 text-success">
+                  <span key={source} className="text-2xs font-mono px-1.5 py-0.5 rounded bg-success/8 text-success">
                     {source}{source !== cible && <span className="text-fg-subtle"> → {cible}</span>}
                   </span>
                 ))}
@@ -365,17 +365,17 @@ function ColumnMapping({ colonnes }) {
           )}
           {ignorees.length > 0 && (
             <div>
-              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wide mb-1.5">
+              <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wide mb-1.5">
                 {t('importPage.columnsIgnoredLabel')}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {ignorees.map((c, i) => (
-                  <span key={`${c}-${i}`} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-3 text-fg-subtle">
+                  <span key={`${c}-${i}`} className="text-2xs font-mono px-1.5 py-0.5 rounded bg-surface-3 text-fg-subtle">
                     {c}
                   </span>
                 ))}
               </div>
-              <p className="text-[10px] text-fg-subtle mt-1.5 italic">{t('importPage.columnsIgnoredHint')}</p>
+              <p className="text-2xs text-fg-subtle mt-1.5 italic">{t('importPage.columnsIgnoredHint')}</p>
             </div>
           )}
         </div>
@@ -441,7 +441,7 @@ function PhaseReport({ report, file, onBack, onConfirm, loading, error }) {
           {report.resume && Object.keys(report.resume).length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {Object.entries(report.resume).map(([code, n]) => (
-                <span key={code} className="text-[10px] px-1.5 py-0.5 rounded bg-danger/8 text-danger font-mono">
+                <span key={code} className="text-2xs px-1.5 py-0.5 rounded bg-danger/8 text-danger font-mono">
                   {codeLabels[code] ?? code}: {n}
                 </span>
               ))}
@@ -544,17 +544,17 @@ function PhaseResult({ result, reset }) {
           {nbCrees > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {result.crees?.projets?.map((p, i) => (
-                <span key={i} className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-info/10 text-info font-medium">
+                <span key={i} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-info/10 text-info font-medium">
                   <PlusCircle size={10} /> {interpolate(t('importPage.projetCreated'), { nom: p.nom })}
                 </span>
               ))}
               {result.crees?.missions?.map((m, i) => (
-                <span key={i} className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-info/10 text-info font-medium">
+                <span key={i} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-info/10 text-info font-medium">
                   <PlusCircle size={10} /> {interpolate(t('importPage.missionCreated'), { nom: m.ordreMission })}
                 </span>
               ))}
               {result.crees?.localites?.map((l, i) => (
-                <span key={i} className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-info/10 text-info font-medium">
+                <span key={i} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-info/10 text-info font-medium">
                   <PlusCircle size={10} /> {interpolate(t('importPage.localiteCreated'), { nom: l.nom })}
                 </span>
               ))}
@@ -564,7 +564,7 @@ function PhaseResult({ result, reset }) {
           {result.resume && Object.keys(result.resume).length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {Object.entries(result.resume).map(([code, n]) => (
-                <span key={code} className="text-[10px] px-1.5 py-0.5 rounded bg-danger/8 text-danger font-mono">
+                <span key={code} className="text-2xs px-1.5 py-0.5 rounded bg-danger/8 text-danger font-mono">
                   {codeLabels[code] ?? code}: {n}
                 </span>
               ))}
@@ -631,10 +631,10 @@ const getCols = (t) => [
 function ColRow({ col, champ, req }) {
   return (
     <div className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${req ? 'bg-danger/5' : 'hover:bg-surface-2'} transition-colors`}>
-      <code className="font-mono text-[9px] text-fg-muted leading-tight flex-1 min-w-0">{col}</code>
-      <span className="text-[10px] text-fg-muted whitespace-nowrap shrink-0">{champ}</span>
+      <code className="font-mono text-2xs text-fg-muted leading-tight flex-1 min-w-0">{col}</code>
+      <span className="text-2xs text-fg-muted whitespace-nowrap shrink-0">{champ}</span>
       {req
-        ? <span className="text-danger text-[10px] font-bold shrink-0">✱</span>
+        ? <span className="text-danger text-2xs font-bold shrink-0">✱</span>
         : <span className="w-3 shrink-0" />
       }
     </div>
@@ -648,10 +648,10 @@ function Sidebar({ activeType }) {
     <aside className="space-y-3 lg:sticky lg:top-4 self-start">
       <Card padding="sm">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-wider flex items-center gap-1.5">
+          <p className="text-2xs font-bold text-fg-subtle uppercase tracking-wider flex items-center gap-1.5">
             <FileSpreadsheet size={11} className="text-success" /> {t('importPage.excelColumnsTitle')}
           </p>
-          <span className="text-[9px] text-danger font-semibold flex items-center gap-0.5">
+          <span className="text-2xs text-danger font-semibold flex items-center gap-0.5">
             <span className="font-bold">✱</span> {t('importPage.requiredLabel')}
           </span>
         </div>
@@ -670,7 +670,7 @@ function Sidebar({ activeType }) {
                 .catch(() => toast.error(t('importPage.templateDownloadError')));
             }}
             className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl
-                       border border-primary/30 bg-primary/5 text-primary text-[11px] font-semibold
+                       border border-primary/30 bg-primary/5 text-primary text-xs font-semibold
                        hover:bg-primary/10 transition-colors"
           >
             <Download size={12} />
@@ -680,7 +680,7 @@ function Sidebar({ activeType }) {
       </Card>
 
       <Card padding="sm">
-        <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+        <p className="text-2xs font-bold text-fg-subtle uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
           <Info size={11} className="text-info" /> {t('importPage.behaviorTitle')}
         </p>
         <ul className="text-[10.5px] text-fg-muted space-y-1.5 leading-relaxed">

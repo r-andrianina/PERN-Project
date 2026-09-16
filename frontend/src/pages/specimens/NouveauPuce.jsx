@@ -228,7 +228,7 @@ export default function NouveauPuce() {
               </div>
               <div className="space-y-2.5">
                 <div>
-                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
+                  <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
                   {selectedTaxo ? (
                     <p className="text-sm font-semibold italic text-specimen-puce">
                       {selectedTaxo.parent?.nom ? `${selectedTaxo.parent.nom} ` : ''}{selectedTaxo.nom}
@@ -237,7 +237,7 @@ export default function NouveauPuce() {
                 </div>
                 {form.idTerrain && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Tag size={9} /> {t('nouveauSpecimen.idTerrain')}</p>
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Tag size={9} /> {t('nouveauSpecimen.idTerrain')}</p>
                     <p className="text-sm font-mono font-bold text-primary">{form.idTerrain}</p>
                   </div>
                 )}
@@ -248,7 +248,7 @@ export default function NouveauPuce() {
                 </div>
                 {selectedHote && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauTique.hoteLabel')}</p>
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauTique.hoteLabel')}</p>
                     <p className="text-xs font-medium text-fg italic">{selectedHote.taxonomieHote?.nom}</p>
                   </div>
                 )}
@@ -256,7 +256,7 @@ export default function NouveauPuce() {
             </Card>
 
             <Card padding="sm">
-              <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
+              <p className="text-xs text-fg-muted space-y-1.5 leading-relaxed">
                 <span className="block font-semibold text-fg mb-1">{t('nouveauSpecimen.tips')}</span>
                 <span className="block">• {t('nouveauTique.helpTiqueTaxonomiePrefix')} <strong>{t('nouveauTique.helpTiqueTaxonomieWord')}</strong> {t('nouveauTique.helpTiqueTaxonomieSuffix')}</span>
                 <span className="block">• {t('nouveauPuce.helpRongeurPrefix')} <strong>{t('nouveauPuce.helpRongeurWord')}</strong>{t('nouveauPuce.helpRongeurSuffix')}</span>

@@ -145,7 +145,7 @@ export default function NouvelHote() {
                   {selectedTaxo.nomCommun && (
                     <p className="text-xs text-fg-muted">« {selectedTaxo.nomCommun} »</p>
                   )}
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium uppercase">
+                  <span className="text-2xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium uppercase">
                     {selectedTaxo.niveau}
                   </span>
                 </div>
@@ -160,7 +160,7 @@ export default function NouvelHote() {
                 <p className="text-xs font-medium text-fg">{selectedMethode.typeMethode?.nom}</p>
                 <p className="text-xs text-fg-muted mt-0.5">{selectedMethode.localite?.nom}</p>
                 {selectedMethode.localite?.mission?.ordreMission && (
-                  <p className="text-[10px] font-mono text-fg-subtle mt-1">{selectedMethode.localite.mission.ordreMission}</p>
+                  <p className="text-2xs font-mono text-fg-subtle mt-1">{selectedMethode.localite.mission.ordreMission}</p>
                 )}
               </Card>
             )}
@@ -169,7 +169,7 @@ export default function NouvelHote() {
               <p className="text-xs font-semibold text-fg mb-2 flex items-center gap-1.5">
                 <Info size={13} className="text-info" /> {t('nouvelHote.help')}
               </p>
-              <ul className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
+              <ul className="text-xs text-fg-muted space-y-1.5 leading-relaxed">
                 <li>• {t('nouvelHote.helpTaxoPrefix')} <strong>{t('nouvelHote.helpTaxoWord')}</strong> {t('nouvelHote.helpTaxoSuffix')}</li>
                 <li>• {t('nouvelHote.helpVernPrefix')} <strong>{t('nouvelHote.helpVernWord')}</strong> {t('nouvelHote.helpVernSuffix')}</li>
                 <li>• {t('nouvelHote.helpLinked')}</li>

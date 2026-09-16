@@ -63,7 +63,7 @@ function FilterSelect({ label, value, onChange, options }) {
           min-w-[200px] py-1.5
         ">
           {/* En-tête discret */}
-          <p className="px-3.5 pt-1 pb-2 text-[10px] font-bold uppercase tracking-widest text-fg-subtle border-b border-border mb-1">
+          <p className="px-3.5 pt-1 pb-2 text-2xs font-bold uppercase tracking-widest text-fg-subtle border-b border-border mb-1">
             {label}
           </p>
           {options.map((opt) => {
@@ -318,7 +318,7 @@ export default function LaboPage() {
         `}>
           <SlidersHorizontal size={13} />
           {activeCount > 0 && (
-            <span className="w-4 h-4 rounded-full bg-primary text-fg-on-primary text-[10px] flex items-center justify-center font-bold">
+            <span className="w-4 h-4 rounded-full bg-primary text-fg-on-primary text-2xs flex items-center justify-center font-bold">
               {activeCount}
             </span>
           )}

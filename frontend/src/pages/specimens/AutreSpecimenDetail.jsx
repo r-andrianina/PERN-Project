@@ -236,7 +236,7 @@ export default function AutreSpecimenDetail() {
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
                   {Object.entries(s.attributs).map(([k, v]) => (
                     <div key={k}>
-                      <dt className="text-[10px] text-fg-subtle uppercase tracking-wider">{k}</dt>
+                      <dt className="text-2xs text-fg-subtle uppercase tracking-wider">{k}</dt>
                       <dd className="text-sm text-fg font-medium">{String(v)}</dd>
                     </div>
                   ))}

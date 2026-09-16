@@ -419,7 +419,7 @@ export default function ProjetDetail() {
           {/* Actions */}
           {(canEdit || isAdmin) && (
             <Card padding="sm">
-              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('projetDetail.actions')}</p>
+              <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('projetDetail.actions')}</p>
               <div className="space-y-2">
                 {editing ? (
                   <>
@@ -471,7 +471,7 @@ export default function ProjetDetail() {
                   style={{ width: `${progress.pct}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-fg-subtle mt-1.5">
+              <div className="flex justify-between text-2xs text-fg-subtle mt-1.5">
                 <span>{new Date(projet.dateDebut).toLocaleDateString(t('common.locale'), { month: 'short', year: 'numeric' })}</span>
                 <span>{new Date(projet.dateFin).toLocaleDateString(t('common.locale'), { month: 'short', year: 'numeric' })}</span>
               </div>
@@ -487,11 +487,11 @@ export default function ProjetDetail() {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-surface-2 rounded-xl p-3 text-center">
                 <p className="text-xl font-bold text-fg">{totalMissions}</p>
-                <p className="text-[10px] text-fg-subtle mt-0.5">{t('projetDetail.missionsShort')}</p>
+                <p className="text-2xs text-fg-subtle mt-0.5">{t('projetDetail.missionsShort')}</p>
               </div>
               <div className="bg-surface-2 rounded-xl p-3 text-center">
                 <p className="text-xl font-bold text-fg">{totalLocalites}</p>
-                <p className="text-[10px] text-fg-subtle mt-0.5">{t('projetDetail.localitiesShort')}</p>
+                <p className="text-2xs text-fg-subtle mt-0.5">{t('projetDetail.localitiesShort')}</p>
               </div>
             </div>
           </Card>
@@ -534,7 +534,7 @@ export default function ProjetDetail() {
                     </div>
                   ))}
                 {specimenStats.totalIndividus > totalSpecimens && (
-                  <p className="text-[10px] text-fg-subtle border-t border-border pt-2 mt-1">
+                  <p className="text-2xs text-fg-subtle border-t border-border pt-2 mt-1">
                     {interpolate(t('projetDetail.totalIndividuals'), { n: specimenStats.totalIndividus })}
                   </p>
                 )}
@@ -552,7 +552,7 @@ export default function ProjetDetail() {
               <div className="space-y-2">
                 {specimenStats.topEspeces.slice(0, 5).map((e, i) => (
                   <div key={e.nom} className="flex items-center gap-2 text-xs">
-                    <span className="text-[10px] font-bold text-fg-subtle w-4 text-right flex-shrink-0">{i + 1}.</span>
+                    <span className="text-2xs font-bold text-fg-subtle w-4 text-right flex-shrink-0">{i + 1}.</span>
                     <span className="italic text-fg truncate flex-1">{e.nom}</span>
                     <span className="font-bold text-fg-muted tabular-nums flex-shrink-0">{e.count}</span>
                   </div>
@@ -586,13 +586,13 @@ export default function ProjetDetail() {
               ) : membres.map(m => (
                 <div key={m.userId} className="flex items-center gap-2.5 px-4 py-2.5 group">
                   <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <span className="text-[10px] font-bold text-primary">
+                    <span className="text-2xs font-bold text-primary">
                       {`${m.user?.prenom?.[0] ?? ''}${m.user?.nom?.[0] ?? ''}`.toUpperCase()}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-fg truncate">{m.user?.prenom} {m.user?.nom}</p>
-                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${ROLE_COLORS[m.user?.role] ?? 'bg-surface-3 text-fg-muted border-border'}`}>
+                    <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded-full border ${ROLE_COLORS[m.user?.role] ?? 'bg-surface-3 text-fg-muted border-border'}`}>
                       {m.user?.role ? roleLabel(m.user.role) : ''}
                     </span>
                   </div>

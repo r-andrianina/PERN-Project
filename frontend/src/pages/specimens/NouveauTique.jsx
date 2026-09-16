@@ -261,7 +261,7 @@ export default function NouveauTique() {
               </div>
               <div className="space-y-2.5">
                 <div>
-                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
+                  <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
                   {selectedTaxo ? (
                     <p className="text-sm font-semibold italic text-specimen-tique">
                       {selectedTaxo.parent?.nom ? `${selectedTaxo.parent.nom} ` : ''}{selectedTaxo.nom}
@@ -270,7 +270,7 @@ export default function NouveauTique() {
                 </div>
                 {form.idTerrain && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Tag size={9} /> {t('nouveauSpecimen.idTerrain')}</p>
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Tag size={9} /> {t('nouveauSpecimen.idTerrain')}</p>
                     <p className="text-sm font-mono font-bold text-primary">{form.idTerrain}</p>
                   </div>
                 )}
@@ -282,16 +282,16 @@ export default function NouveauTique() {
                 {form.gorge !== 'N' && <p className="text-xs text-danger font-medium">{t('nouveauSpecimen.statutSanguin')} : {formatGorgement(form.gorge)}</p>}
                 {selectedHote && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauTique.hoteLabel')}</p>
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauTique.hoteLabel')}</p>
                     <p className="text-xs font-medium text-fg italic">{selectedHote.taxonomieHote?.nom}</p>
-                    {form.partieCorpsHote && <p className="text-[10px] text-fg-subtle">{form.partieCorpsHote}</p>}
+                    {form.partieCorpsHote && <p className="text-2xs text-fg-subtle">{form.partieCorpsHote}</p>}
                   </div>
                 )}
               </div>
             </Card>
 
             <Card padding="sm">
-              <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
+              <p className="text-xs text-fg-muted space-y-1.5 leading-relaxed">
                 <span className="block font-semibold text-fg mb-1">{t('nouveauSpecimen.tips')}</span>
                 <span className="block">• {t('nouveauTique.helpTiqueTaxonomiePrefix')} <strong>{t('nouveauTique.helpTiqueTaxonomieWord')}</strong> {t('nouveauTique.helpTiqueTaxonomieSuffix')}</span>
                 <span className="block">• {t('nouveauTique.helpMaleAdultePrefix')} <strong>{t('nouveauTique.helpMaleAdulteWord')}</strong> {t('nouveauTique.helpMaleAdulteSuffix')}</span>

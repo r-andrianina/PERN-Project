@@ -123,13 +123,13 @@ export default function AuditLogsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
         <div>
           <p className="font-semibold text-fg-muted mb-1.5">{t('auditLogsPage.before')}</p>
-          <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-[11px] text-fg-muted max-h-48">
+          <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-xs text-fg-muted max-h-48">
             {it.oldValues ? JSON.stringify(it.oldValues, null, 2) : '—'}
           </pre>
         </div>
         <div>
           <p className="font-semibold text-fg-muted mb-1.5">{t('auditLogsPage.after')}</p>
-          <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-[11px] text-fg-muted max-h-48">
+          <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-xs text-fg-muted max-h-48">
             {it.newValues ? JSON.stringify(it.newValues, null, 2) : '—'}
           </pre>
         </div>

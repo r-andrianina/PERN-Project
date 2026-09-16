@@ -132,7 +132,7 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
         {/* En-tête colonnes */}
         <div className="flex items-center gap-1 ml-7 mb-1">
           {Array.from({ length: cols }, (_, i) => (
-            <div key={i} className={`${cellSize} flex items-center justify-center text-[10px] font-semibold text-fg-subtle`}>
+            <div key={i} className={`${cellSize} flex items-center justify-center text-2xs font-semibold text-fg-subtle`}>
               {i + 1}
             </div>
           ))}
@@ -141,7 +141,7 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
         {/* Lignes */}
         {rows.map((r) => (
           <div key={r} className="flex items-center gap-1 mb-1">
-            <div className="w-6 text-[10px] font-semibold text-fg-subtle text-right pr-1">{r}</div>
+            <div className="w-6 text-2xs font-semibold text-fg-subtle text-right pr-1">{r}</div>
             {Array.from({ length: cols }, (_, i) => {
               const pos = isPlaque ? `${r}${i + 1}` : `${r}-${i + 1}`;
               const occ = isOccupied(pos);
@@ -155,7 +155,7 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
                   onClick={() => !occ && !tem && onSelect(pos)}
                   disabled={occ || tem}
                   title={tem ? t('containerSelector.controlWell') : occ ? `${pos} : ${occupied.get(pos).map((s) => s.idTerrain || `#${s.id}`).join(', ')}` : pos}
-                  className={`${cellSize} rounded-md text-[9px] font-mono transition-all border
+                  className={`${cellSize} rounded-md text-2xs font-mono transition-all border
                     ${tem
                       ? 'bg-amber-100 text-amber-700 border-amber-300 cursor-not-allowed'
                       : occ
@@ -181,7 +181,7 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
         {/* Position sélectionnée */}
         {selectedPosition && (
           <div>
-            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-1">{t('containerSelector.chosenPosition')}</p>
+            <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider mb-1">{t('containerSelector.chosenPosition')}</p>
             <p className="text-3xl font-bold font-mono" style={{ color: 'rgb(var(--primary))' }}>{selectedPosition}</p>
           </div>
         )}
@@ -189,12 +189,12 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
         {/* Auto-positions (mode split) */}
         {autoPositions.length > 0 && (
           <div>
-            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2">
+            <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider mb-2">
               {t('containerSelector.autoAssigned')} ({autoPositions.length})
             </p>
             <div className="flex flex-wrap gap-1">
               {autoPositions.map(p => (
-                <span key={p} className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono rounded border border-emerald-300">
+                <span key={p} className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-2xs font-mono rounded border border-emerald-300">
                   {p}
                 </span>
               ))}
@@ -204,7 +204,7 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
 
         {/* Occupation */}
         <div>
-          <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2">{t('containerSelector.occupation')}</p>
+          <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider mb-2">{t('containerSelector.occupation')}</p>
           <div className="space-y-1.5 mb-3">
             <div className="flex justify-between items-center text-xs">
               <span className="text-fg-muted">{t('containerSelector.free')}</span>
@@ -225,28 +225,28 @@ function ContainerGrid({ type, occupied, selectedPosition, onSelect, autoPositio
               style={{ width: `${pct}%`, backgroundColor: 'rgb(var(--primary))' }}
             />
           </div>
-          <p className="text-[10px] text-fg-subtle mt-1.5">{interpolate(t('containerSelector.usedPct'), { pct })}</p>
+          <p className="text-2xs text-fg-subtle mt-1.5">{interpolate(t('containerSelector.usedPct'), { pct })}</p>
         </div>
 
         {/* Légende */}
         <div className="mt-auto border-t border-border-strong/40 pt-3 space-y-1.5">
-          <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2">{t('containerSelector.legend')}</p>
-          <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
+          <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider mb-2">{t('containerSelector.legend')}</p>
+          <span className="flex items-center gap-1.5 text-2xs text-fg-subtle">
             <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-surface border border-border-strong inline-block" /> {t('containerSelector.legendFree')}
           </span>
-          <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
+          <span className="flex items-center gap-1.5 text-2xs text-fg-subtle">
             <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-primary-600 border border-primary-700 inline-block" /> {t('containerSelector.legendSelected')}
           </span>
           {autoPositions.length > 0 && (
-            <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
+            <span className="flex items-center gap-1.5 text-2xs text-fg-subtle">
               <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-emerald-200 border border-emerald-400 inline-block" /> {t('containerSelector.legendAuto')} ({autoPositions.length})
             </span>
           )}
-          <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
+          <span className="flex items-center gap-1.5 text-2xs text-fg-subtle">
             <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-gray-300 border border-gray-400 inline-block" /> {t('containerSelector.legendOccupied')}
           </span>
           {isPlaque && (
-            <span className="flex items-center gap-1.5 text-[10px] text-fg-subtle">
+            <span className="flex items-center gap-1.5 text-2xs text-fg-subtle">
               <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-amber-100 border border-amber-300 inline-block" /> {t('containerSelector.legendControlWell')}
             </span>
           )}

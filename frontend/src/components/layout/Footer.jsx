@@ -13,7 +13,7 @@ export default function Footer() {
         <div />
 
         {/* Centre — copyright */}
-        <p className="text-[11px] text-fg-subtle text-center whitespace-nowrap">
+        <p className="text-xs text-fg-subtle text-center whitespace-nowrap">
           © {YEAR} Henintsoa Andrianina
         </p>
 
@@ -22,7 +22,7 @@ export default function Footer() {
           <div className="flex items-center gap-1 bg-surface border border-border rounded-lg p-0.5">
             <button
               onClick={() => setLang('fr')}
-              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all ${
+              className={`px-2 py-0.5 rounded-md text-xs font-semibold transition-all ${
                 lang === 'fr' ? 'bg-primary text-fg-on-primary shadow-sm' : 'text-fg-muted hover:text-fg'
               }`}
             >
@@ -30,7 +30,7 @@ export default function Footer() {
             </button>
             <button
               onClick={() => setLang('en')}
-              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all ${
+              className={`px-2 py-0.5 rounded-md text-xs font-semibold transition-all ${
                 lang === 'en' ? 'bg-primary text-fg-on-primary shadow-sm' : 'text-fg-muted hover:text-fg'
               }`}
             >

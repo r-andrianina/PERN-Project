@@ -113,7 +113,7 @@ function HierarchyInfoPanel() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
             {niveaux.map((n) => (
               <div key={n.value} className="flex items-start gap-2.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle w-24 flex-shrink-0 pt-0.5">
+                <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle w-24 flex-shrink-0 pt-0.5">
                   {n.label}
                 </span>
                 <span className="text-xs text-fg-muted leading-relaxed">{niveauDesc[n.value]}</span>
@@ -158,7 +158,7 @@ function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, can
           {hasChildren ? (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : null}
         </button>
 
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle w-20 flex-shrink-0">
+        <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle w-20 flex-shrink-0">
           {niveauLabel[node.niveau]}
         </span>
 
@@ -171,7 +171,7 @@ function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, can
         )}
 
         {node.type && depth === 0 && (
-          <span className={`badge text-[10px] border ${TYPE_COLOR[node.type] || 'bg-surface-2 text-fg-muted border-border-strong'}`}>
+          <span className={`badge text-2xs border ${TYPE_COLOR[node.type] || 'bg-surface-2 text-fg-muted border-border-strong'}`}>
             {t(`specimenTypes.${node.type}`)}
           </span>
         )}
@@ -375,7 +375,7 @@ export default function TaxonomieSpecimensPage() {
   const tableColumns = [
     {
       key: 'niveau', label: t('taxonomieHotesPage.niveauLabel'), sortable: true, width: '100px',
-      render: (row) => <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">{niveauLabel[row.niveau]}</span>,
+      render: (row) => <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">{niveauLabel[row.niveau]}</span>,
     },
     {
       key: 'nom', label: t('taxonomieHotesPage.nomLabel'), sortable: true,
@@ -385,9 +385,9 @@ export default function TaxonomieSpecimensPage() {
             <span className={`text-sm font-medium text-fg ${ITALIC_LEVELS.includes(row.niveau) ? 'italic' : ''}`}>{row.nom}</span>
             {row.auteur && <span className="text-xs text-fg-subtle">{row.auteur}{row.annee ? `, ${row.annee}` : ''}</span>}
           </div>
-          {row.lignee && <div className="text-[11px] text-fg-subtle mt-0.5 truncate max-w-xs">{row.lignee}</div>}
+          {row.lignee && <div className="text-xs text-fg-subtle mt-0.5 truncate max-w-xs">{row.lignee}</div>}
           {row.synonymes?.length > 0 && (
-            <div className="text-[11px] text-fg-subtle mt-0.5 italic truncate max-w-xs">
+            <div className="text-xs text-fg-subtle mt-0.5 italic truncate max-w-xs">
               {t('taxonomieSpecimensPage.synonymesLabel')} {row.synonymes.map((s) => s.nom).join(', ')}
             </div>
           )}
@@ -401,7 +401,7 @@ export default function TaxonomieSpecimensPage() {
     {
       key: 'type', label: t('taxonomieSpecimensPage.typeSpecimenLabel'), width: '110px',
       render: (row) => row.type
-        ? <span className={`badge text-[10px] border ${TYPE_COLOR[row.type] || 'bg-surface-2 text-fg-muted border-border-strong'}`}>{t(`specimenTypes.${row.type}`)}</span>
+        ? <span className={`badge text-2xs border ${TYPE_COLOR[row.type] || 'bg-surface-2 text-fg-muted border-border-strong'}`}>{t(`specimenTypes.${row.type}`)}</span>
         : <span className="text-fg-subtle">—</span>,
     },
     {
@@ -596,7 +596,7 @@ export default function TaxonomieSpecimensPage() {
                     {editing.id ? t('taxonomieHotesPage.modifierTaxonomie') : t('taxonomieSpecimensPage.nouvelleEntreeTaxonomique')}
                   </h2>
                   {editing.parentLabel && (
-                    <p className="text-[10px] text-fg-subtle mt-0.5">
+                    <p className="text-2xs text-fg-subtle mt-0.5">
                       {t('taxonomieSpecimensPage.childOfPrefix')} <span className="font-semibold text-fg">{editing.parentLabel}</span>
                     </p>
                   )}
@@ -615,7 +615,7 @@ export default function TaxonomieSpecimensPage() {
 
               {/* Section Classification */}
               <div className="space-y-3">
-                <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-widest">{t('taxonomieSpecimensPage.classification')}</p>
+                <p className="text-2xs font-bold text-fg-subtle uppercase tracking-widest">{t('taxonomieSpecimensPage.classification')}</p>
                 <div className="grid grid-cols-2 gap-3">
                   <FormField
                     label={t('taxonomieHotesPage.niveauLabel')} name="niveau" type="select"
@@ -636,7 +636,7 @@ export default function TaxonomieSpecimensPage() {
 
               {/* Section Nom scientifique */}
               <div className="space-y-3">
-                <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-widest">{t('taxonomieSpecimensPage.nomenclature')}</p>
+                <p className="text-2xs font-bold text-fg-subtle uppercase tracking-widest">{t('taxonomieSpecimensPage.nomenclature')}</p>
                 <FormField
                   label={t('taxonomieSpecimensPage.nomScientifiqueLabel')} name="nom" required
                   value={editing.nom}
@@ -648,7 +648,7 @@ export default function TaxonomieSpecimensPage() {
                 {/* Preview */}
                 {editing.nom && (
                   <div className="px-3 py-2 bg-surface-2 border border-border rounded-xl text-xs text-fg-muted">
-                    <span className="text-[10px] uppercase tracking-wide text-fg-subtle mr-2">{niveauLabel[editing.niveau]}</span>
+                    <span className="text-2xs uppercase tracking-wide text-fg-subtle mr-2">{niveauLabel[editing.niveau]}</span>
                     <span className={['genre', 'sous_genre', 'espece', 'sous_espece'].includes(editing.niveau) ? 'italic font-semibold text-fg' : 'font-semibold text-fg'}>
                       {editing.nom}
                     </span>
@@ -688,7 +688,7 @@ export default function TaxonomieSpecimensPage() {
 
                 {editing.synonymes?.length > 0 && (
                   <div className="px-3 py-2.5 bg-surface-2 border border-border rounded-xl text-xs text-fg-muted">
-                    <span className="text-[10px] uppercase tracking-wide text-fg-subtle mr-2">{t('taxonomieSpecimensPage.synonymesLabel')}</span>
+                    <span className="text-2xs uppercase tracking-wide text-fg-subtle mr-2">{t('taxonomieSpecimensPage.synonymesLabel')}</span>
                     {editing.synonymes.map((s, i) => (
                       <span key={s.id} className="italic">
                         {i > 0 && ', '}{s.nom}{s.auteur ? ` (${s.auteur}${s.annee ? `, ${s.annee}` : ''})` : ''}

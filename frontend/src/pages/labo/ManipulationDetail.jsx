@@ -63,7 +63,7 @@ function InfoRow({ label, children }) {
 function Section({ title, children, accent }) {
   return (
     <div>
-      <p className={`text-[11px] font-bold uppercase tracking-wider mb-3 ${accent || 'text-fg-subtle'}`}>{title}</p>
+      <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${accent || 'text-fg-subtle'}`}>{title}</p>
       <div>{children}</div>
     </div>
   );
@@ -515,7 +515,7 @@ export default function ManipulationDetail() {
           {/* Upload fichiers */}
           {(needsGel || needsFichier || needsMicro) && (
             <Card padding="lg">
-              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-4">{t('manipDetail.filesAttachedTitle')}</p>
+              <p className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-4">{t('manipDetail.filesAttachedTitle')}</p>
               <div className="flex items-center gap-3 flex-wrap">
                 {needsGel && (
                   <>
@@ -554,7 +554,7 @@ export default function ManipulationDetail() {
           {/* Notes */}
           {manip.notes && (
             <Card padding="lg">
-              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('common.notes')}</p>
+              <p className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('common.notes')}</p>
               <p className="text-sm text-fg whitespace-pre-wrap">{manip.notes}</p>
             </Card>
           )}
@@ -562,7 +562,7 @@ export default function ManipulationDetail() {
           {/* Timeline événements */}
           {manip.events?.length > 0 && (
             <Card padding="lg">
-              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-4">{t('manipDetail.historiqueTitle')}</p>
+              <p className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-4">{t('manipDetail.historiqueTitle')}</p>
               <div className="space-y-3">
                 {manip.events.map((ev) => {
                   const evCfg = getEventIcons(t)[ev.typeEvent] ?? { label: ev.typeEvent, color: 'bg-fg-muted' };
@@ -572,10 +572,10 @@ export default function ManipulationDetail() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 flex-wrap">
                           <span className="text-xs font-semibold text-fg">{evCfg.label}</span>
-                          <span className="text-[11px] text-fg-subtle">
+                          <span className="text-xs text-fg-subtle">
                             {t('manipDetail.parPrefix')} {ev.operateur?.prenom} {ev.operateur?.nom}
                           </span>
-                          <span className="text-[11px] text-fg-subtle ml-auto">
+                          <span className="text-xs text-fg-subtle ml-auto">
                             {new Date(ev.dateHeure).toLocaleString(t('common.locale'))}
                           </span>
                         </div>
@@ -591,7 +591,7 @@ export default function ManipulationDetail() {
         {/* ── Sidebar sticky ── */}
         <div className="xl:sticky xl:top-5 space-y-4">
           <Card padding="md">
-            <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('manipDetail.informationsTitle')}</p>
+            <p className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('manipDetail.informationsTitle')}</p>
             <InfoRow label={t('manipDetail.protocoleSopLabel')}>{manip.protocole}</InfoRow>
             <InfoRow label={t('manipDetail.dateDebutLabel')}>{new Date(manip.dateDebut).toLocaleString(t('common.locale'))}</InfoRow>
             {manip.dateFin && (
@@ -600,7 +600,7 @@ export default function ManipulationDetail() {
           </Card>
 
           <Card padding="md">
-            <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('manipDetail.tracabiliteTitle')}</p>
+            <p className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('manipDetail.tracabiliteTitle')}</p>
             <InfoRow label={t('laboPage.colOperateur')}>
               <span className="flex items-center gap-1.5">
                 <User size={12} className="text-fg-subtle" />
@@ -613,7 +613,7 @@ export default function ManipulationDetail() {
                   <ShieldCheck size={12} />
                   {manip.validePar?.prenom} {manip.validePar?.nom}
                   {manip.valideLe && (
-                    <span className="text-fg-subtle font-normal text-[10px] ml-1">
+                    <span className="text-fg-subtle font-normal text-2xs ml-1">
                       {new Date(manip.valideLe).toLocaleDateString(t('common.locale'))}
                     </span>
                   )}

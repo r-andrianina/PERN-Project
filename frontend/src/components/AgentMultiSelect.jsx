@@ -42,7 +42,7 @@ export default function AgentMultiSelect({ value = [], onChange, users = [], max
     <div className="space-y-1.5 relative">
       <div className="flex items-center justify-between">
         <label className="block text-xs font-semibold text-fg-muted tracking-wide">{label}</label>
-        <span className={`text-[10px] font-medium ${isMax ? 'text-warning' : 'text-fg-subtle'}`}>
+        <span className={`text-2xs font-medium ${isMax ? 'text-warning' : 'text-fg-subtle'}`}>
           {value.length} / {max}
         </span>
       </div>
@@ -54,7 +54,7 @@ export default function AgentMultiSelect({ value = [], onChange, users = [], max
             key={u.id}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted border-border-strong'}`}
           >
-            <span className="w-4 h-4 rounded-full bg-surface/70 flex items-center justify-center text-[9px] font-bold">
+            <span className="w-4 h-4 rounded-full bg-surface/70 flex items-center justify-center text-2xs font-bold">
               {u.prenom?.[0]}{u.nom?.[0]}
             </span>
             {u.prenom} {u.nom}
@@ -106,14 +106,14 @@ export default function AgentMultiSelect({ value = [], onChange, users = [], max
                   onClick={() => add(u.id)}
                   className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-primary/10 transition-colors"
                 >
-                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted'}`}>
+                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-2xs font-bold flex-shrink-0 ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted'}`}>
                     {u.prenom?.[0]}{u.nom?.[0]}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-fg truncate">{u.prenom} {u.nom}</p>
-                    <p className="text-[10px] text-fg-subtle truncate">{u.email}</p>
+                    <p className="text-2xs text-fg-subtle truncate">{u.email}</p>
                   </div>
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted border-border-strong'}`}>
+                  <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded border ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted border-border-strong'}`}>
                     {u.role}
                   </span>
                 </button>

@@ -144,7 +144,7 @@ const getResultColumns = (t) => {
         <div>
           <div className="text-xs text-fg-muted leading-tight">{label}</div>
           {loc?.nom && (
-            <div className="text-[10px] text-fg-subtle mt-0.5 italic">{loc.nom}</div>
+            <div className="text-2xs text-fg-subtle mt-0.5 italic">{loc.nom}</div>
           )}
         </div>
       );
@@ -312,7 +312,7 @@ export default function RecherchePage() {
               <SlidersHorizontal size={13} />
               {t('recherchePage.filtresLabel')}
               {filterCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-white text-2xs font-bold flex items-center justify-center">
                   {filterCount}
                 </span>
               )}
@@ -345,7 +345,7 @@ export default function RecherchePage() {
           >
             {/* Badge filtre actif visible quand panel fermé */}
             {!sidebarOpen && filterCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-white text-[8px] font-bold flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-white text-2xs font-bold flex items-center justify-center">
                 {filterCount}
               </span>
             )}
@@ -367,7 +367,7 @@ export default function RecherchePage() {
                   <SlidersHorizontal size={13} className="text-fg-subtle" />
                   <span className="text-sm font-semibold text-fg">{t('recherchePage.filtresLabel')}</span>
                   {filterCount > 0 && (
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-2xs font-bold">
                       {filterCount}
                     </span>
                   )}
@@ -577,7 +577,7 @@ export default function RecherchePage() {
                 <SlidersHorizontal size={13} className="text-fg-subtle" />
                 <span className="text-sm font-semibold text-fg">{t('recherchePage.filtresLabel')}</span>
                 {filterCount > 0 && (
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-2xs font-bold">
                     {filterCount}
                   </span>
                 )}
@@ -644,7 +644,7 @@ export default function RecherchePage() {
                   {stats.topEspeces.slice(0, 3).map((e, i) => (
                     <div key={e.nom} className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[10px] font-bold text-fg-subtle w-4 text-right flex-shrink-0">
+                        <span className="text-2xs font-bold text-fg-subtle w-4 text-right flex-shrink-0">
                           {i + 1}.
                         </span>
                         <span className="italic text-xs text-fg truncate">{e.nom}</span>
