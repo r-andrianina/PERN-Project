@@ -6,6 +6,7 @@ const prisma     = require('../config/prisma');
 const sseManager = require('../utils/sseManager');
 const { logAudit, ACTIONS } = require('../utils/audit');
 const { invalidateSpecimenCache, invalidateUserStatus } = require('../middlewares/auth.middleware');
+const { ROLE_ORDER } = require('../config/rbac');
 
 const USER_SELECT = {
   id: true, nom: true, prenom: true, email: true,
@@ -158,15 +159,96 @@ const me = async (req, res) => {
 //  LIST USERS
 // =============================================================
 
+const TRI_UTILISATEURS = [{ actif: 'asc' }, { createdAt: 'desc' }];
+
+/**
+ * Liste des comptes — paginée À LA DEMANDE.
+ *
+ * Deux formes de réponse, et c'est délibéré (2026-09-16) : cette route sert
+ * DEUX besoins opposés.
+ *
+ *   sans `page`  → forme historique { total, en_attente, actifs }.
+ *     Cinq écrans l'utilisent pour remplir une liste déroulante (ajout d'agents
+ *     à une mission, de membres à un projet) et ont besoin de TOUS les comptes
+ *     actifs. Paginer par défaut les aurait cassés en silence : ils auraient
+ *     affiché les 25 premiers sans que rien ne signale les autres.
+ *
+ *   avec `page`  → { items, total, page, pages, limit, compteurs, en_attente }.
+ *     La page d'administration, qui filtre et pagine.
+ *
+ * `compteurs` porte sur TOUTE la base, indépendamment des filtres : ce sont les
+ * cartes de statistiques en tête de page, elles doivent rester stables quand on
+ * tape dans la recherche.
+ *
+ * `en_attente` reste une liste COMPLÈTE et non paginée, même en mode paginé :
+ * c'est une file d'action qu'un admin doit vider, pas un catalogue à parcourir.
+ * Elle est bornée par construction — un compte en attente ne le reste pas.
+ */
 const listUsers = async (req, res) => {
-  const users = await prisma.user.findMany({
-    select: USER_SELECT,
-    orderBy: [{ actif: 'asc' }, { createdAt: 'desc' }],
-  });
+  const { page, limit, search, role, statut } = req.query;
+
+  if (page === undefined) {
+    const users = await prisma.user.findMany({ select: USER_SELECT, orderBy: TRI_UTILISATEURS });
+    return res.json({
+      total:      users.length,
+      en_attente: users.filter(u => !u.actif),
+      actifs:     users.filter(u => u.actif),
+    });
+  }
+
+  // Une valeur absurde est traitée comme ABSENTE, pas ramenée à la borne la
+  // plus proche : `limit=-5` ramené à 1 renverrait une page d'un seul compte,
+  // ce qui ressemble à une perte de données. Le défaut est plus lisible.
+  const pageBrut  = parseInt(page, 10);
+  const limitBrut = parseInt(limit, 10);
+  const p = Number.isInteger(pageBrut)  && pageBrut  > 0 ? pageBrut : 1;
+  const l = Number.isInteger(limitBrut) && limitBrut > 0 ? Math.min(200, limitBrut) : 25;
+
+  const where = {};
+  if (statut === 'actifs')  where.actif = true;
+  if (statut === 'attente') where.actif = false;
+  // Un rôle inconnu est IGNORÉ plutôt que transmis à Prisma, qui lèverait sur
+  // une valeur hors énumération — une faute de frappe dans l'URL ne doit pas
+  // produire un 500.
+  if (role && ROLE_ORDER.includes(role)) where.role = role;
+  if (search && search.trim()) {
+    const s = search.trim();
+    where.OR = [
+      { nom:    { contains: s, mode: 'insensitive' } },
+      { prenom: { contains: s, mode: 'insensitive' } },
+      { email:  { contains: s, mode: 'insensitive' } },
+    ];
+  }
+
+  const [items, total, parRole, parStatut, enAttente] = await Promise.all([
+    prisma.user.findMany({ where, select: USER_SELECT, orderBy: TRI_UTILISATEURS, skip: (p - 1) * l, take: l }),
+    prisma.user.count({ where }),
+    prisma.user.groupBy({ by: ['role'],  _count: { _all: true } }),
+    prisma.user.groupBy({ by: ['actif'], _count: { _all: true } }),
+    prisma.user.findMany({ where: { actif: false }, select: USER_SELECT, orderBy: { createdAt: 'desc' } }),
+  ]);
+
+  const nombreParRole = Object.fromEntries(parRole.map(r => [r.role, r._count._all]));
+  const actifs        = parStatut.find(s => s.actif === true)?._count._all  ?? 0;
+  const inactifs      = parStatut.find(s => s.actif === false)?._count._all ?? 0;
+
   return res.json({
-    total:      users.length,
-    en_attente: users.filter(u => !u.actif),
-    actifs:     users.filter(u => u.actif),
+    items,
+    total,
+    page:  p,
+    limit: l,
+    pages: Math.max(1, Math.ceil(total / l)),
+    compteurs: {
+      total:        actifs + inactifs,
+      actifs,
+      enAttente:    inactifs,
+      admins:       nombreParRole.admin       ?? 0,
+      superviseurs: nombreParRole.superviseur ?? 0,
+      chercheurs:   nombreParRole.chercheur   ?? 0,
+      techniciens:  nombreParRole.technicien  ?? 0,
+      lecteurs:     nombreParRole.lecteur     ?? 0,
+    },
+    en_attente: enAttente,
   });
 };
 
