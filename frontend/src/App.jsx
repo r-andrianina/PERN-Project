@@ -1,3 +1,20 @@
+// ⚠️ CE FICHIER NE FAIT PAS PARTIE DE L'APPLICATION.
+//
+// C'est le composant de démonstration généré par `npm create vite` — compteur,
+// logos React et Vite. Personne ne l'importe : `main.jsx` monte directement
+// <RouterProvider router={router} />, et les écrans sont déclarés dans
+// src/router/index.jsx. Ses quatre ressources (App.css, assets/hero.png,
+// assets/react.svg, assets/vite.svg) ne servent qu'ici et ne sont pas livrées —
+// Vite les élague du build.
+//
+// ➜ Le point d'entrée réel est src/main.jsx, les routes sont dans
+//   src/router/index.jsx.
+//
+// Conservé volontairement comme référence de scaffolding (décision du
+// 2026-09-16). Cette note existe parce que le nom « App.jsx » à la racine de
+// src/ annonce le début de l'application : chercher les routes ici fait perdre
+// du temps, ce qui est déjà arrivé.
+
 import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
