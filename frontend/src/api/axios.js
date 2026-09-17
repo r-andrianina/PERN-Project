@@ -32,6 +32,13 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    // Une requête ANNULÉE par l'appelant n'est pas un échec (2026-09-17).
+    // Elle n'a pas de `response` et tomberait donc dans la branche « panne
+    // réseau » ci-dessous, qui lèverait le bandeau « serveur injoignable ».
+    // Depuis que la recherche annule la requête précédente à chaque frappe,
+    // cela afficherait une panne par caractère tapé.
+    if (axios.isCancel(error)) return Promise.reject(error);
+
     const status  = error.response?.status;
     const message = error.response?.data?.error;
 
