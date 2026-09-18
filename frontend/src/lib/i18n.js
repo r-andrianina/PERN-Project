@@ -2,6 +2,7 @@
 // Dictionnaire FR/EN + hook useT()
 // Usage : const t = useT(); t('nav.dashboard') → 'Tableau de bord' | 'Dashboard'
 
+import { useMemo } from 'react';
 import useLangStore from '../store/languageStore';
 
 export const translations = {
@@ -3963,14 +3964,33 @@ export const translations = {
 };
 
 // Hook principal
+/**
+ * Fonction de traduction, MÉMOÏSÉE sur la langue (2026-09-18).
+ *
+ * Elle renvoyait une nouvelle fonction à chaque rendu. `t` apparaissant dans
+ * 28 tableaux de dépendances répartis sur 18 fichiers, tous étaient invalidés
+ * à chaque rendu — les `useCallback` ne mémoïsaient plus rien, et surtout les
+ * `useEffect` se démontaient et se remontaient en continu.
+ *
+ * Le cas grave était l'effet SSE de NotificationBell : ses trois gestionnaires
+ * dépendent de `t`, donc l'effet se rejouait à chaque rendu. Chaque passage
+ * fermait la connexion EventSource, en ouvrait une neuve et rappelait
+ * /notifications — ce qui posait de l'état, donc provoquait un rendu, donc un
+ * nouveau passage. Les journaux du serveur montraient une dizaine
+ * d'ouvertures de flux et quinze appels par seconde, en boucle, et cela pour
+ * CHAQUE onglet ouvert.
+ *
+ * `useMemo` et non `useCallback` : la valeur retournée est la fonction
+ * elle-même, pas un rappel passé à un enfant. Elle ne capture que `lang`.
+ */
 export function useT() {
   const { lang } = useLangStore();
-  return (key) => {
+  return useMemo(() => (key) => {
     const parts = key.split('.');
     let val = translations[lang] ?? translations.en;
     for (const part of parts) val = val?.[part];
     return val ?? key;
-  };
+  }, [lang]);
 }
 
 // Utilitaire hors composant (pour les modules non-React)
