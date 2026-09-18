@@ -39,6 +39,9 @@ export const translations = {
       projets:   'Projets',
       pressEsc:  'Appuyez sur Échap pour fermer',
     },
+    unsavedChanges: {
+      confirmLeave: 'Vous avez des modifications non sauvegardées. Quitter quand même ?',
+    },
     common: {
       add:       'Ajouter',
       edit:      'Modifier',
@@ -2017,6 +2020,9 @@ export const translations = {
       missions:  'Missions',
       projets:   'Projects',
       pressEsc:  'Press Escape to close',
+    },
+    unsavedChanges: {
+      confirmLeave: 'You have unsaved changes. Leave anyway?',
     },
     common: {
       add:       'Add',
