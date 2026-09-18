@@ -44,36 +44,50 @@ function MiniBar({ value, max, colorClass = 'bg-primary' }) {
 }
 
 // ── Modal ajout de membre ──────────────────────────────────────
+
+// Plafond d'affichage. Il existait déjà, mais tronquait EN SILENCE : au-delà
+// de huit candidats, les suivants disparaissaient sans que rien ne l'indique.
+// Le reste est désormais annoncé sous la liste.
+const MAX_RESULTATS = 8;
+
 function AddMembreModal({ projetId, currentMembres, onClose, onAdded }) {
   const t = useT();
   const [query,    setQuery]    = useState('');
   const [users,    setUsers]    = useState([]);
-  const [loading,  setLoading]  = useState(false);
+  const [loading,  setLoading]  = useState(true);
   const [adding,   setAdding]   = useState(null);
   const [error,    setError]    = useState(null);
 
+  // Le catalogue des comptes est chargé UNE SEULE FOIS, à l'ouverture de la
+  // modale (2026-09-18). Chaque frappe relançait auparavant un GET /auth/users
+  // complet — toute la table des comptes retraversait le réseau pour un
+  // filtrage que le navigateur faisait ensuite lui-même, en mémoire.
   useEffect(() => {
-    let cancelled = false;
-    const search = async () => {
-      if (query.length < 2) { setUsers([]); return; }
-      setLoading(true);
-      try {
-        const r = await api.get('/auth/users');
-        const all = [...(r.data.actifs || []), ...(r.data.en_attente || [])];
-        const q = query.toLowerCase();
-        const currentIds = new Set(currentMembres.map(m => m.userId));
-        if (!cancelled) setUsers(
-          all.filter(u =>
-            !currentIds.has(u.id) &&
-            `${u.prenom} ${u.nom} ${u.email}`.toLowerCase().includes(q)
-          ).slice(0, 8)
-        );
-      } catch { if (!cancelled) setError(t('projetDetail.loadUsersError')); }
-      finally { if (!cancelled) setLoading(false); }
-    };
-    const tid = setTimeout(search, 250);
-    return () => { cancelled = true; clearTimeout(tid); };
-  }, [query, currentMembres, t]);
+    let annule = false;
+    api.get('/auth/users')
+      .then((r) => { if (!annule) setUsers([...(r.data.actifs || []), ...(r.data.en_attente || [])]); })
+      .catch(() => { if (!annule) setError(t('projetDetail.loadUsersError')); })
+      .finally(() => { if (!annule) setLoading(false); });
+    return () => { annule = true; };
+  }, [t]);
+
+  // Filtrage local, donc instantané — plus de temporisation à attendre.
+  //
+  // Le seuil de deux caractères a disparu : il n'affichait RIEN avant qu'on
+  // tape, ce qui obligeait à deviner un nom. L'institut compte trois comptes —
+  // la liste des candidats est plus courte que la phrase qui demandait de la
+  // chercher. La recherche reste là pour le jour où ils seront cinquante.
+  const disponibles = useMemo(() => {
+    const dejaMembres = new Set(currentMembres.map((m) => m.userId));
+    const q = query.trim().toLowerCase();
+    return users.filter((u) =>
+      !dejaMembres.has(u.id)
+      && (!q || `${u.prenom} ${u.nom} ${u.email}`.toLowerCase().includes(q))
+    );
+  }, [users, currentMembres, query]);
+
+  const affiches = disponibles.slice(0, MAX_RESULTATS);
+  const restants = disponibles.length - affiches.length;
 
   const addMembre = async (userId) => {
     setAdding(userId); setError(null);
@@ -109,13 +123,16 @@ function AddMembreModal({ projetId, currentMembres, onClose, onAdded }) {
           </div>
           <div className="max-h-52 overflow-y-auto divide-y divide-border rounded-xl border border-border">
             {loading && <p className="text-xs text-fg-subtle text-center py-4"><Loader2 size={14} className="animate-spin inline mr-1" />{t('common.loading')}</p>}
-            {!loading && query.length >= 2 && users.length === 0 && (
-              <p className="text-xs text-fg-subtle text-center py-4">{t('projetDetail.noUserFound')}</p>
+            {!loading && disponibles.length === 0 && (
+              <p className="text-xs text-fg-subtle text-center py-4">
+                {/* Deux causes bien distinctes pour une liste vide : la
+                    recherche ne donne rien, ou il n'y a plus personne à
+                    ajouter. Les confondre laissait croire à une recherche
+                    infructueuse alors que le projet avait déjà tout le monde. */}
+                {query.trim() ? t('projetDetail.noUserFound') : t('projetDetail.tousDejaMembres')}
+              </p>
             )}
-            {!loading && query.length < 2 && (
-              <p className="text-xs text-fg-subtle text-center py-4">{t('projetDetail.typeAtLeast2')}</p>
-            )}
-            {users.map(u => (
+            {affiches.map(u => (
               <div key={u.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-surface-2 transition-colors">
                 <div>
                   <p className="text-sm font-medium text-fg">{u.prenom} {u.nom}</p>
@@ -131,6 +148,11 @@ function AddMembreModal({ projetId, currentMembres, onClose, onAdded }) {
                 </button>
               </div>
             ))}
+            {restants > 0 && (
+              <p className="text-2xs text-fg-subtle text-center py-2 bg-surface-2">
+                {interpolate(t('projetDetail.etNAutres'), { n: restants })}
+              </p>
+            )}
           </div>
         </div>
       </div>
