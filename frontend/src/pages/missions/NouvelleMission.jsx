@@ -199,7 +199,9 @@ export default function NouvelleMission() {
     Promise.all([api.get('/projets'), api.get('/auth/users')])
       .then(([pRes, uRes]) => {
         setProjets(pRes.data.projets);
-        setUsers(uRes.data.actifs);
+        // Repli explicite : sans lui, une réponse inattendue poserait
+        // `undefined` dans l'état et le premier `.map` ferait tomber l'écran.
+        setUsers(uRes.data.actifs || []);
       }).catch(() => toast.error(t('nouvelleMission.loadRefsError')));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -70,7 +70,17 @@ function MissionModal({ mission, onClose, onSaved }) {
 
   useEffect(() => {
     api.get('/auth/users')
-      .then((r) => setUsers(r.data.users || r.data.items || []))
+      // `actifs`, et non `users` ni `items` (corrigé le 2026-09-18). La route
+      // n'a jamais renvoyé de clé `users` : sa forme est { total, en_attente,
+      // actifs }. Cet écran lisait donc une clé inexistante et retombait sur
+      // un tableau vide — le sélecteur de chef de mission ET celui des agents
+      // étaient vides depuis f40a331, sans aucun message d'erreur puisque la
+      // requête, elle, réussissait.
+      //
+      // Seuls les comptes ACTIFS : un compte en attente de validation ne doit
+      // pas pouvoir être affecté à une mission. Même choix que l'écran de
+      // création (NouvelleMission), qui porte les mêmes sélecteurs.
+      .then((r) => setUsers(r.data.actifs || []))
       .catch(() => toast.error(t('missionDetail.usersLoadError')));
   }, [t]);
 

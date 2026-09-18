@@ -106,6 +106,7 @@ export const translations = {
       externalHint:  'Ou continuez à taper pour saisir un porteur externe (non utilisateur)',
     },
     agentMultiSelect: {
+      compteIntrouvable:  'Compte #{id} indisponible',
       defaultLabel:    'Agents de terrain',
       addAgent:        'Ajouter un agent',
       searchUser:      'Rechercher un utilisateur…',
@@ -2083,6 +2084,7 @@ export const translations = {
       externalHint:  'Or keep typing to enter an external carrier (not a user)',
     },
     agentMultiSelect: {
+      compteIntrouvable:  'Account #{id} unavailable',
       defaultLabel:    'Field agents',
       addAgent:        'Add an agent',
       searchUser:      'Search a user…',

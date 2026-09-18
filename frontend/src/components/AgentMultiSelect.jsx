@@ -6,7 +6,7 @@
 
 import { useState, useMemo } from 'react';
 import { X, UserPlus, Search } from 'lucide-react';
-import { useT } from '../lib/i18n';
+import { useT, interpolate } from '../lib/i18n';
 
 const ROLE_COLOR = {
   admin:     'bg-purple-100 text-purple-700 border-purple-200',
@@ -22,7 +22,22 @@ export default function AgentMultiSelect({ value = [], onChange, users = [], max
   const [showDropdown, setShowDropdown] = useState(false);
 
   const selectedSet = useMemo(() => new Set(value.map((v) => parseInt(v))), [value]);
-  const selectedUsers = users.filter((u) => selectedSet.has(u.id));
+  const parId       = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+
+  // Les pastilles se construisent depuis `value` — la sélection fait foi — et
+  // non depuis `users`, qui n'est que le catalogue des comptes choisissables
+  // (2026-09-18).
+  //
+  // Partir du catalogue faisait disparaître de l'affichage un agent dont le
+  // compte a été désactivé après son affectation, alors qu'il restait compté
+  // par le « n / max » juste au-dessus et toujours enregistré sur la mission.
+  // Un compteur qui annonce 3 au-dessus de 2 pastilles est le genre d'écart
+  // qu'on met longtemps à comprendre. L'agent non résolu apparaît donc en
+  // pastille neutre, et reste retirable.
+  const selectedUsers = useMemo(() => [...selectedSet].map(
+    (id) => parId.get(id) ?? { id, introuvable: true },
+  ), [selectedSet, parId]);
+
   const available = users.filter((u) => !selectedSet.has(u.id));
   const filtered = available.filter((u) =>
     !search || `${u.prenom} ${u.nom} ${u.email}`.toLowerCase().includes(search.toLowerCase())
@@ -55,9 +70,11 @@ export default function AgentMultiSelect({ value = [], onChange, users = [], max
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted border-border-strong'}`}
           >
             <span className="w-4 h-4 rounded-full bg-surface/70 flex items-center justify-center text-2xs font-bold">
-              {u.prenom?.[0]}{u.nom?.[0]}
+              {u.introuvable ? '?' : `${u.prenom?.[0] ?? ''}${u.nom?.[0] ?? ''}`}
             </span>
-            {u.prenom} {u.nom}
+            {u.introuvable
+              ? <span className="italic">{interpolate(t('agentMultiSelect.compteIntrouvable'), { id: u.id })}</span>
+              : `${u.prenom} ${u.nom}`}
             <button
               type="button"
               onClick={() => remove(u.id)}
