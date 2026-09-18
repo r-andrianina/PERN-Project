@@ -6,6 +6,7 @@ const prisma = require('../config/prisma');
 const { BYPASS_ROLES } = require('../config/rbac');
 const { Prisma } = require('@prisma/client');
 const { getAccessibleProjetIds, projetScopeWhere } = require('../utils/access');
+const { libelleTaxonomie, TAXONOMIE_INCLUDE } = require('../utils/taxonomyResolve');
 
 // Génère les 6 derniers mois (du plus ancien au plus récent)
 function derniersMois(n = 6) {
@@ -206,16 +207,27 @@ const getStats = async (req, res) => {
 
   const topRaw = (await Promise.all(topQueries)).flat();
 
-  // Enrichir avec les noms de taxonomie
+  // Enrichir avec les noms de taxonomie.
+  //
+  // Via l'implémentation partagée (corrigé le 2026-09-18). Cette copie locale
+  // prenait le PARENT DIRECT pour le genre :
+  //
+  //     t.parent?.nom ? `${t.parent.nom} ${t.nom}` : t.nom
+  //
+  // Or le parent direct d'une espèce est souvent un SOUS-GENRE. Le top des
+  // espèces affichait donc « Stegomyia aegypti » au lieu d'Aedes aegypti, et
+  // « Cellia gambiae » au lieu d'Anopheles gambiae — vu à l'écran sur les
+  // données de dev. `libelleTaxonomie` remonte l'arbre jusqu'au genre, ce qui
+  // exige l'include profond de TAXONOMIE_INCLUDE.
+  //
+  // Exactement le défaut que carte.controller.js avait déjà corrigé de son
+  // côté ; c'était la dernière copie locale de cette règle.
   const taxoIds = [...new Set(topRaw.map(r => r.taxonomieId))];
   const taxos   = await prisma.taxonomieSpecimen.findMany({
     where: { id: { in: taxoIds } },
-    select: { id: true, nom: true, parent: { select: { nom: true } } },
+    ...TAXONOMIE_INCLUDE,
   });
-  const taxoMap = Object.fromEntries(taxos.map(t => [
-    t.id,
-    t.parent?.nom ? `${t.parent.nom} ${t.nom}` : t.nom,
-  ]));
+  const taxoMap = Object.fromEntries(taxos.map(t => [t.id, libelleTaxonomie(t)]));
 
   const topEspeces = topRaw
     .map(r => ({ nom: taxoMap[r.taxonomieId] || `#${r.taxonomieId}`, total: r.total, type: r.type }))
