@@ -37,7 +37,7 @@ export default function NouveauPuce() {
   // Garde contre la perte d'une saisie en cours. Elle n'existait que sur
   // NouveauMoustique : les trois autres formulaires laissaient partir une
   // fiche a moitie remplie sans un mot.
-  useUnsavedChanges(isDirty);
+  const desarmerGarde = useUnsavedChanges(isDirty);
 
   useEffect(() => {
     Promise.all([
@@ -97,7 +97,11 @@ export default function NouveauPuce() {
         nombre:       parseInt(form.nombre),
         dateCollecte: form.dateCollecte || null,
       });
-      setIsDirty(false);
+      // Désarmement SYNCHRONE avant de quitter : setIsDirty(false) est une
+      // mise à jour d'état, elle ne serait pas encore appliquée quand useBlocker
+      // évalue la navigation — la garde se déclenchait donc APRÈS un
+      // enregistrement réussi (corrigé le 2026-09-21).
+      desarmerGarde();
       navigate('/specimens/puces');
     } catch (err) {
       setErrors({ submit: err.response?.data?.error || t('nouveauSpecimen.creationError') });

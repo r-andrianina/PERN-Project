@@ -48,7 +48,7 @@ export default function NouveauMoustique() {
   const [errors,     setErrors]     = useState({});
   const [isDirty,    setIsDirty]    = useState(false);
 
-  useUnsavedChanges(isDirty);
+  const desarmerGarde = useUnsavedChanges(isDirty);
 
   useEffect(() => {
     Promise.all([
@@ -129,7 +129,11 @@ export default function NouveauMoustique() {
         dateCollecte: form.dateCollecte || null,
       };
       await api.post('/moustiques', payload);
-      setIsDirty(false);
+      // Désarmement SYNCHRONE avant de quitter : setIsDirty(false) est une
+      // mise à jour d'état, elle ne serait pas encore appliquée quand useBlocker
+      // évalue la navigation — la garde se déclenchait donc APRÈS un
+      // enregistrement réussi (corrigé le 2026-09-21).
+      desarmerGarde();
       navigate('/specimens/moustiques');
     } catch (err) {
       setErrors({ submit: err.response?.data?.error || t('nouveauSpecimen.creationError') });
