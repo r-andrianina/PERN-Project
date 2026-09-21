@@ -5,6 +5,7 @@
 const prisma = require('../config/prisma');
 const { BYPASS_ROLES } = require('../config/rbac');
 const { libelleTaxonomie, TAXONOMIE_INCLUDE } = require('../utils/taxonomyResolve');
+const { getAccessibleProjetIds, projetScopeWhere } = require('../utils/access');
 
 // Utilise l'implémentation partagée : cette copie locale prenait le parent
 // direct pour le genre et affichait donc le SOUS-GENRE sur les points de carte
@@ -19,11 +20,24 @@ const getSpecimens = async (req, res) => {
 
   if (autorises.length === 0) return res.json({ points: [] });
 
+  // Cloisonnement par projet (2026-09-16).
+  //
+  // La carte ne filtrait que par TYPE de spécimen : un chercheur affecté à un
+  // seul projet voyait les coordonnées GPS de tous les pièges de l'institut.
+  // Pour des sites de terrain, une position de piège n'est pas une donnée
+  // anodine — elle désigne un lieu physique qu'on peut aller visiter.
+  //
+  // Le filtre porte sur les MÉTHODES seules : les spécimens sont ensuite
+  // cherchés par `methodeId in methodeIds`, donc ils héritent du périmètre
+  // sans qu'il faille répéter la clause sur les trois requêtes qui suivent.
+  const projetIds = await getAccessibleProjetIds(req.user.id, req.user.role);
+
   // Récupérer toutes les méthodes géolocalisées
   const methodes = await prisma.methodeCollecte.findMany({
     where: {
       latitude:  { not: null },
       longitude: { not: null },
+      ...projetScopeWhere(['localite', 'mission'], projetIds),
     },
     include: {
       localite: {
@@ -98,7 +112,11 @@ const getSpecimens = async (req, res) => {
       methodeId:      m.id,
       latitude:       m.latitude,
       longitude:      m.longitude,
-      dateCollecte:   m.datePose ? m.datePose.toISOString().split('T')[0] : null,
+      // Depuis « 1 methode = 1 nuit-piege » (2026-09-16), dateReleve EST le
+      // matin de collecte, commun a tous les specimens du point. Auparavant on
+      // exposait datePose sous ce nom : la carte affichait alors une date
+      // differente de la fiche du specimen pour 313 moustiques sur 756.
+      dateCollecte:   m.dateReleve ? m.dateReleve.toISOString().split('T')[0] : null,
       typeMethode:    m.typeMethode,
       localite:       m.localite,
       specimens,

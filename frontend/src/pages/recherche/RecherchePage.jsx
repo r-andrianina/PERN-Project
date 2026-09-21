@@ -8,7 +8,9 @@ import {
   Bug, Calendar, MapPin, Layers, RotateCcw, FlaskConical, PawPrint,
   TrendingUp, Hash, SlidersHorizontal,
 } from 'lucide-react';
+import axios from 'axios';
 import api from '../../api/axios';
+import { useFiltreTemporise } from '../../hooks/useFiltreTemporise';
 import { Card, Badge, Button, EmptyState, PageHeader, Select, DataTable, DatePicker } from '../../components/ui';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS } from '../../utils/gorgement';
@@ -144,7 +146,7 @@ const getResultColumns = (t) => {
         <div>
           <div className="text-xs text-fg-muted leading-tight">{label}</div>
           {loc?.nom && (
-            <div className="text-[10px] text-fg-subtle mt-0.5 italic">{loc.nom}</div>
+            <div className="text-2xs text-fg-subtle mt-0.5 italic">{loc.nom}</div>
           )}
         </div>
       );
@@ -180,6 +182,7 @@ const getResultColumns = (t) => {
   },
   ];
 };
+
 
 // ── Page ──────────────────────────────────────────────────────
 export default function RecherchePage() {
@@ -235,14 +238,25 @@ export default function RecherchePage() {
 
   useEffect(() => {
     const params = Object.fromEntries(searchParams.entries());
+    // La requête précédente est annulée quand les filtres changent (2026-09-17).
+    // Sans cela, les réponses pouvaient revenir dans le désordre : celle de
+    // « Maro » arrivant après celle de « Marofandilia » écrasait le bon
+    // résultat par un plus ancien, sans que rien ne le signale.
+    const ctrl = new AbortController();
     setLoading(true);
-    api.get('/recherche/specimens', { params })
+    api.get('/recherche/specimens', { params, signal: ctrl.signal })
       .then((r) => {
         setItems(r.data.items.map((s) => ({ ...s, _key: `${s._type}-${s.id}` })));
         setStats(r.data.stats);
         setTotal(r.data.total);
+        setLoading(false);
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        // Une annulation n'est pas un échec : on laisse `loading` à true, la
+        // requête qui l'a remplacée est déjà en vol et le rendra à false.
+        if (!axios.isCancel(err)) setLoading(false);
+      });
+    return () => ctrl.abort();
   }, [searchParams]);
 
   const setFilter = (key, value) => {
@@ -256,6 +270,13 @@ export default function RecherchePage() {
   };
 
   const reset = () => setSearchParams({});
+
+  // Les trois champs LIBRES passent par la temporisation. Les listes
+  // déroulantes et les dates, elles, restent immédiates : un choix unique ne
+  // produit qu'une requête, il n'y a rien à regrouper.
+  const [texteRecherche, setTexteRecherche] = useFiltreTemporise(f.search,   (v) => setFilter('search', v));
+  const [texteRegion,    setTexteRegion]    = useFiltreTemporise(f.region,   (v) => setFilter('region', v));
+  const [texteDistrict,  setTexteDistrict]  = useFiltreTemporise(f.district, (v) => setFilter('district', v));
 
   const toggleType = (type) => {
     const current = (f.types || 'moustique,tique,puce').split(',');
@@ -312,7 +333,7 @@ export default function RecherchePage() {
               <SlidersHorizontal size={13} />
               {t('recherchePage.filtresLabel')}
               {filterCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-white text-2xs font-bold flex items-center justify-center">
                   {filterCount}
                 </span>
               )}
@@ -345,7 +366,7 @@ export default function RecherchePage() {
           >
             {/* Badge filtre actif visible quand panel fermé */}
             {!sidebarOpen && filterCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-white text-[8px] font-bold flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-white text-2xs font-bold flex items-center justify-center">
                 {filterCount}
               </span>
             )}
@@ -367,7 +388,7 @@ export default function RecherchePage() {
                   <SlidersHorizontal size={13} className="text-fg-subtle" />
                   <span className="text-sm font-semibold text-fg">{t('recherchePage.filtresLabel')}</span>
                   {filterCount > 0 && (
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-2xs font-bold">
                       {filterCount}
                     </span>
                   )}
@@ -405,7 +426,7 @@ export default function RecherchePage() {
 
           <FilterSection title={t('recherchePage.sectionRecherche')} icon={Search}>
             <input type="text" placeholder={t('recherchePage.searchNotesPlaceholder')}
-              value={f.search || ''} onChange={(e) => setFilter('search', e.target.value)}
+              value={texteRecherche} onChange={(e) => setTexteRecherche(e.target.value)}
               className={inputCls} />
           </FilterSection>
 
@@ -448,8 +469,8 @@ export default function RecherchePage() {
                 })),
               ]}
             />
-            <input className={inputCls} placeholder={t('recherchePage.regionPlaceholder')} value={f.region || ''} onChange={(e) => setFilter('region', e.target.value)} />
-            <input className={inputCls} placeholder={t('recherchePage.districtPlaceholder')} value={f.district || ''} onChange={(e) => setFilter('district', e.target.value)} />
+            <input className={inputCls} placeholder={t('recherchePage.regionPlaceholder')} value={texteRegion} onChange={(e) => setTexteRegion(e.target.value)} />
+            <input className={inputCls} placeholder={t('recherchePage.districtPlaceholder')} value={texteDistrict} onChange={(e) => setTexteDistrict(e.target.value)} />
           </FilterSection>
 
           <FilterSection title={t('recherchePage.sectionPeriode')} icon={Calendar}>
@@ -577,7 +598,7 @@ export default function RecherchePage() {
                 <SlidersHorizontal size={13} className="text-fg-subtle" />
                 <span className="text-sm font-semibold text-fg">{t('recherchePage.filtresLabel')}</span>
                 {filterCount > 0 && (
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-2xs font-bold">
                     {filterCount}
                   </span>
                 )}
@@ -644,7 +665,7 @@ export default function RecherchePage() {
                   {stats.topEspeces.slice(0, 3).map((e, i) => (
                     <div key={e.nom} className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[10px] font-bold text-fg-subtle w-4 text-right flex-shrink-0">
+                        <span className="text-2xs font-bold text-fg-subtle w-4 text-right flex-shrink-0">
                           {i + 1}.
                         </span>
                         <span className="italic text-xs text-fg truncate">{e.nom}</span>

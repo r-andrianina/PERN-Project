@@ -41,7 +41,7 @@ function UserAvatar({ user }) {
     ? AVATAR_COLORS[(user.id ?? 0) % AVATAR_COLORS.length]
     : 'bg-surface-3 text-fg-subtle';
   return (
-    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold ${colorCls}`}>
+    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-2xs font-bold ${colorCls}`}>
       {initials}
     </div>
   );
@@ -52,7 +52,7 @@ function ActionBadge({ action }) {
   const cfg = ACTION_CFG[action];
   if (!cfg) return null;
   return (
-    <span className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${cfg.cls}`}>
+    <span className={`inline-flex items-center text-2xs font-semibold px-1.5 py-0.5 rounded-full border ${cfg.cls}`}>
       {t(`notificationBell.actionLabels.${action}`)}
     </span>
   );
@@ -235,7 +235,7 @@ export default function NotificationBell() {
 
         {/* Pastille nombre non lus */}
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-danger text-[10px] font-bold leading-none text-white">
+          <span className="absolute top-1 right-1 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-danger text-2xs font-bold leading-none text-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -258,7 +258,7 @@ export default function NotificationBell() {
               <p className="text-sm font-semibold text-fg">{t('notificationBell.title')}</p>
               {/* ÉTAPE 4 : Indicateur SSE offline dans le header */}
               {sseStatus === 'offline' && (
-                <span className="flex items-center gap-1 text-[10px] text-warning font-medium">
+                <span className="flex items-center gap-1 text-2xs text-warning font-medium">
                   <WifiOff size={10} /> {t('notificationBell.realtimeOffline')}
                 </span>
               )}
@@ -303,7 +303,7 @@ export default function NotificationBell() {
                       <p className="text-xs text-fg leading-snug">{formatNotificationText(item)}</p>
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                         <ActionBadge action={item.action} />
-                        <span className="text-[10px] text-fg-subtle">{formatRelativeDate(item.createdAt)}</span>
+                        <span className="text-2xs text-fg-subtle">{formatRelativeDate(item.createdAt)}</span>
                       </div>
                     </div>
 

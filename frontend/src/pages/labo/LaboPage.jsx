@@ -1,34 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus, X, FlaskConical, ShieldCheck, ShieldAlert, FileEdit,
-  Dna, TestTube, Waves, Zap, GitBranch, Layers, Eye, Microscope, Activity,
+  Plus, X, FlaskConical,
   ChevronDown, Check, SlidersHorizontal,
 } from 'lucide-react';
 import { Card, Button, Badge, EmptyState, PageHeader, Spinner, Pagination, DataTable } from '../../components/ui';
 import { useApiQuery } from '../../hooks';
 import { useT } from '../../lib/i18n';
+import { getTypeConfig, getStatutConfig } from '../../utils/laboConfig';
 
 // ── Config ────────────────────────────────────────────────────
-
-const getTypeConfig = (t) => ({
-  identification_morpho: { label: t('laboPage.typeMorpho'),      Icon: Eye,          color: 'text-fg-muted'  },
-  broyage_pool:          { label: t('laboPage.typeBroyage'),     Icon: Layers,       color: 'text-info'      },
-  dessication:           { label: t('laboPage.typeDessication'), Icon: TestTube,     color: 'text-info'      },
-  extraction:            { label: t('laboPage.typeExtraction'),  Icon: Dna,          color: 'text-success'   },
-  amplification_pcr:     { label: t('laboPage.typePcr'),         Icon: Zap,          color: 'text-warning'   },
-  qpcr:                  { label: t('laboPage.typeQpcr'),        Icon: Activity,     color: 'text-primary'   },
-  nested_pcr:            { label: t('laboPage.typeNestedPcr'),   Icon: GitBranch,    color: 'text-warning'   },
-  sequencage:            { label: t('laboPage.typeSequencage'),  Icon: Waves,        color: 'text-primary'   },
-  microscopie:           { label: t('laboPage.typeMicroscopie'), Icon: Microscope,   color: 'text-danger'    },
-  autre:                 { label: t('laboPage.typeAutre'),       Icon: FlaskConical, color: 'text-fg-muted'  },
-});
-
-const getStatutConfig = (t) => ({
-  brut:     { label: t('laboPage.statutBrut'),     tone: 'default', Icon: FileEdit    },
-  valide:   { label: t('laboPage.statutValide'),   tone: 'success', Icon: ShieldCheck },
-  invalide: { label: t('laboPage.statutInvalide'), tone: 'danger',  Icon: ShieldAlert },
-});
 
 // ── FilterSelect — dropdown custom ───────────────────────────
 
@@ -82,7 +63,7 @@ function FilterSelect({ label, value, onChange, options }) {
           min-w-[200px] py-1.5
         ">
           {/* En-tête discret */}
-          <p className="px-3.5 pt-1 pb-2 text-[10px] font-bold uppercase tracking-widest text-fg-subtle border-b border-border mb-1">
+          <p className="px-3.5 pt-1 pb-2 text-2xs font-bold uppercase tracking-widest text-fg-subtle border-b border-border mb-1">
             {label}
           </p>
           {options.map((opt) => {
@@ -337,7 +318,7 @@ export default function LaboPage() {
         `}>
           <SlidersHorizontal size={13} />
           {activeCount > 0 && (
-            <span className="w-4 h-4 rounded-full bg-primary text-fg-on-primary text-[10px] flex items-center justify-center font-bold">
+            <span className="w-4 h-4 rounded-full bg-primary text-fg-on-primary text-2xs flex items-center justify-center font-bold">
               {activeCount}
             </span>
           )}

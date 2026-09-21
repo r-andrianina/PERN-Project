@@ -7,6 +7,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Map, Layers, Info } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+// Regroupement des marqueurs (2026-09-17). Seule la feuille de base est
+// importée : `MarkerCluster.Default.css` peindrait les pastilles vert/jaune/
+// rouge du plugin, qui n'ont rien à voir avec les jetons de l'application et
+// entreraient en collision avec le rouge « puce ». Les pastilles sont donc
+// dessinées ici, avec les couleurs des types.
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 import { Spinner } from '../../components/ui';
@@ -20,6 +27,48 @@ const getTypeCfg = (t) => ({
   tique:     { color: '#f59e0b', label: t('specimenTypes.tique'),     icon: '/icons/tick.png'     },
   puce:      { color: '#ef4444', label: t('specimenTypes.puce'),      icon: '/icons/flea.png'     },
 });
+
+// ── Pastille d'un regroupement ────────────────────────────────
+//
+// Dessinée ici plutôt que reprise du plugin : ses pastilles par défaut sont
+// vert / jaune / rouge selon la TAILLE du groupe, ce qui entrerait en conflit
+// direct avec le code couleur des types (vert moustique, orange tique, rouge
+// puce). Un gros groupe de moustiques apparaîtrait en rouge, donc « puce ».
+//
+// La couleur retenue est celle du type dominant du groupe ; la taille du disque
+// croît avec l'effectif, ce qui donne la densité au premier coup d'œil sans
+// réutiliser la couleur pour deux significations.
+function construireIconeCluster(cluster, typeCfg) {
+  const enfants = cluster.getAllChildMarkers();
+
+  const parType = {};
+  for (const m of enfants) {
+    const ty = m.options.typeDominant;
+    if (ty) parType[ty] = (parType[ty] || 0) + 1;
+  }
+  const dominant = Object.keys(parType).sort((a, b) => parType[b] - parType[a])[0];
+  const couleur  = typeCfg[dominant]?.color ?? '#6b7280';
+
+  const n       = enfants.length;
+  const taille  = n < 10 ? 34 : n < 50 ? 40 : 46;
+  const melange = Object.keys(parType).length > 1;
+
+  return L.divIcon({
+    className: 'specimen-cluster',
+    html: `
+      <div style="
+        width:${taille}px;height:${taille}px;border-radius:9999px;
+        background:${couleur};color:#fff;
+        display:flex;align-items:center;justify-content:center;
+        font-family:Inter,system-ui,sans-serif;font-weight:700;
+        font-size:${n < 100 ? 13 : 11}px;
+        box-shadow:0 2px 8px rgb(0 0 0 / .35);
+        border:2px solid rgb(255 255 255 / ${melange ? '.95' : '.75'});
+      ">${n}</div>`,
+    iconSize:   [taille, taille],
+    iconAnchor: [taille / 2, taille / 2],
+  });
+}
 
 // ── Construction HTML du marqueur (pin style, sans PNG) ───────
 // Les PNG Leaflet ignorent width/height HTML → on utilise des pastilles CSS.
@@ -145,7 +194,13 @@ export default function CartePage() {
 
   const mapRef      = useRef(null);  // div conteneur
   const instanceRef = useRef(null);  // instance L.Map
-  const groupsRef   = useRef({});    // { moustique: L.LayerGroup, ... }
+  const clusterRef  = useRef(null);  // L.MarkerClusterGroup — tous types confondus
+
+  // La carte n'est construite qu'une fois, mais `iconCreateFunction` est
+  // rappelée à chaque regroupement : elle doit lire les libellés et couleurs
+  // COURANTS, pas ceux figés au montage (la langue peut changer entre-temps).
+  const typeCfgRef = useRef(typeCfg);
+  useEffect(() => { typeCfgRef.current = typeCfg; });
 
   // ── Chargement données ─────────────────────────────────────
   useEffect(() => {
@@ -167,12 +222,27 @@ export default function CartePage() {
 
     createBaseLayer(L, 'satellite').addTo(map);
 
-    // Groupes par type (pour show/hide)
-    groupsRef.current = {
-      moustique: L.layerGroup().addTo(map),
-      tique:     L.layerGroup().addTo(map),
-      puce:      L.layerGroup().addTo(map),
-    };
+    // UN seul groupe pour les trois types, et non un par type : deux pièges
+    // voisins de types dominants différents produiraient sinon deux pastilles
+    // superposées au même endroit. Les groupes par type ne servaient d'ailleurs
+    // plus à l'affichage/masquage — celui-ci passe par la reconstruction des
+    // marqueurs à chaque changement de `visibleTypes`.
+    clusterRef.current = L.markerClusterGroup({
+      // L'enveloppe au survol ajoute un polygone qui brouille la lecture du
+      // terrain sur fond satellite.
+      showCoverageOnHover: false,
+      maxClusterRadius:    50,
+      // Le regroupement reste actif à TOUS les niveaux de zoom, et c'est
+      // délibéré. Depuis le modèle nuit-piège, un même piège relevé plusieurs
+      // matins donne plusieurs méthodes aux coordonnées IDENTIQUES : 47
+      // méthodes pour 20 positions sur la base de dev, jusqu'à 5 au même point.
+      // Le désactiver au zoom maximal remettrait ces marqueurs exactement l'un
+      // sur l'autre — le défaut que ce changement corrige. L'éclatement en
+      // corolle au clic est le seul moyen de les atteindre.
+      spiderfyOnMaxZoom:   true,
+      chunkedLoading:      true,
+      iconCreateFunction:  (cluster) => construireIconeCluster(cluster, typeCfgRef.current),
+    }).addTo(map);
 
     setTimeout(() => map.invalidateSize(), 80);
     return () => { map.remove(); instanceRef.current = null; };
@@ -183,12 +253,14 @@ export default function CartePage() {
     const map = instanceRef.current;
     if (!map || loading) return;
 
-    // Vider tous les groupes
-    Object.values(groupsRef.current).forEach(g => g.clearLayers());
+    const cluster = clusterRef.current;
+    if (!cluster) return;
+    cluster.clearLayers();
 
     if (points.length === 0) return;
 
-    const bounds = [];
+    const bounds    = [];
+    const marqueurs = [];
 
     points.forEach(point => {
       // Déterminer quels types sont visibles pour ce point
@@ -208,19 +280,25 @@ export default function CartePage() {
         popupAnchor:[0, -30],
       });
 
-      const marker = L.marker(latlng, { icon })
-        .bindPopup(buildPopupHtml(point, visibleTypes, typeCfg, t), {
-          maxWidth: 300,
-          className: 'specimen-popup',
-        });
-
-      // Ajouter dans le groupe du type dominant
+      // Type dominant du point : il donne sa couleur au marqueur ET pèse dans
+      // celle de la pastille de regroupement qui l'absorbe.
       const dominant = typesIci.reduce((best, ty) =>
         (point.specimens[ty]?.total || 0) > (point.specimens[best]?.total || 0) ? ty : best,
         typesIci[0]
       );
-      groupsRef.current[dominant]?.addLayer(marker);
+
+      marqueurs.push(
+        L.marker(latlng, { icon, typeDominant: dominant })
+          .bindPopup(buildPopupHtml(point, visibleTypes, typeCfg, t), {
+            maxWidth: 300,
+            className: 'specimen-popup',
+          })
+      );
     });
+
+    // Ajout en une fois : `addLayers` ne recalcule le regroupement qu'une seule
+    // fois, là où un `addLayer` par marqueur le referait à chaque insertion.
+    cluster.addLayers(marqueurs);
 
     // Ajuster la vue sur les données visibles
     if (bounds.length > 0) {

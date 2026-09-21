@@ -6,6 +6,7 @@ import api from '../../api/axios';
 import { toast } from '../../lib/toast';
 import FormField from '../../components/FormField';
 import MethodeCascade from '../../components/MethodeCascade';
+import DateCollecteField from '../../components/DateCollecteField';
 import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
 import { Card } from '../../components/ui';
@@ -47,7 +48,7 @@ export default function NouveauMoustique() {
   const [errors,     setErrors]     = useState({});
   const [isDirty,    setIsDirty]    = useState(false);
 
-  useUnsavedChanges(isDirty);
+  const desarmerGarde = useUnsavedChanges(isDirty);
 
   useEffect(() => {
     Promise.all([
@@ -128,7 +129,11 @@ export default function NouveauMoustique() {
         dateCollecte: form.dateCollecte || null,
       };
       await api.post('/moustiques', payload);
-      setIsDirty(false);
+      // Désarmement SYNCHRONE avant de quitter : setIsDirty(false) est une
+      // mise à jour d'état, elle ne serait pas encore appliquée quand useBlocker
+      // évalue la navigation — la garde se déclenchait donc APRÈS un
+      // enregistrement réussi (corrigé le 2026-09-21).
+      desarmerGarde();
       navigate('/specimens/moustiques');
     } catch (err) {
       setErrors({ submit: err.response?.data?.error || t('nouveauSpecimen.creationError') });
@@ -266,8 +271,7 @@ export default function NouveauMoustique() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
             <FormField label={t('nouveauSpecimen.solutionConservation')} name="solutionId" type="select"
               value={form.solutionId} onChange={handleChange} options={solutionOptions} />
-            <FormField label={t('nouveauSpecimen.dateCollecte')} name="dateCollecte" type="date"
-              value={form.dateCollecte} onChange={handleChange} />
+            <DateCollecteField methode={selectedMethode} value={form.dateCollecte} onChange={handleChange} />
           </div>
 
           <ContainerSelector
@@ -315,7 +319,7 @@ export default function NouveauMoustique() {
               </div>
               <div className="space-y-2.5">
                 <div>
-                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
+                  <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
                   {selectedTaxo ? (
                     <p className="text-sm font-semibold italic text-specimen-moustique">
                       {selectedTaxo.parent?.nom ? `${selectedTaxo.parent.nom} ` : ''}{selectedTaxo.nom}
@@ -326,7 +330,7 @@ export default function NouveauMoustique() {
                 </div>
                 {form.idTerrain && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1">
                       <Tag size={9} /> {t('nouveauSpecimen.idTerrain')}
                     </p>
                     <p className="text-sm font-mono font-bold text-primary">{form.idTerrain}</p>
@@ -376,12 +380,12 @@ export default function NouveauMoustique() {
 
             {/* Aide */}
             <Card padding="sm">
-              <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
+              <p className="text-xs text-fg-muted space-y-1.5 leading-relaxed">
                 <span className="block font-semibold text-fg mb-1">{t('nouveauSpecimen.tips')}</span>
                 <span className="block">• {t('nouveauSpecimen.helpTaxonomiePrefix')} <strong>{t('nouveauSpecimen.helpTaxonomieWord')}</strong> {t('nouveauSpecimen.helpTaxonomieSuffix')}</span>
                 <span className="block">• {t('nouveauSpecimen.helpStadePrefix')} <strong>{t('nouveauSpecimen.helpStadeWord')}</strong> {t('nouveauSpecimen.helpStadeSuffix')}</span>
                 <span className="block">• {t('nouveauSpecimen.helpMalePrefix')} <strong>{t('nouveauSpecimen.helpMaleWord')}</strong> {t('nouveauSpecimen.helpMaleSuffix')}</span>
-                <span className="block">• {t('nouveauSpecimen.helpIdTerrainPrefix')}<code className="font-mono text-[10px]">AKZ_n</code>{t('nouveauSpecimen.helpIdTerrainSuffix')}</span>
+                <span className="block">• {t('nouveauSpecimen.helpIdTerrainPrefix')}<code className="font-mono text-2xs">AKZ_n</code>{t('nouveauSpecimen.helpIdTerrainSuffix')}</span>
               </p>
             </Card>
           </aside>

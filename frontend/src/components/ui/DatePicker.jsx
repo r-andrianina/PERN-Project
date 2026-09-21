@@ -201,7 +201,7 @@ export default function DatePicker({
 
           <div className="grid grid-cols-7 gap-1 mb-1">
             {WEEKDAYS.map((w) => (
-              <span key={w} className="text-[10px] font-semibold text-fg-subtle text-center py-1 uppercase tracking-wide">
+              <span key={w} className="text-2xs font-semibold text-fg-subtle text-center py-1 uppercase tracking-wide">
                 {w}
               </span>
             ))}

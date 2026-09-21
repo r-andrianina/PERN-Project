@@ -12,10 +12,23 @@ const sseManager  = require('../utils/sseManager');
 
 // Une notification concerne les actions des AUTRES utilisateurs
 // (on ne se notifie pas soi-même de ses propres actions).
+// Entités d'audit qui ne sont PAS de l'activité à diffuser.
+// `Auth` porte les connexions et les tentatives échouées (2026-09-14) : ce sont
+// des données de sécurité, consultables par les admins via
+// /dictionnaire/audit-logs. Les laisser passer ici noierait le flux sous une
+// ligne par personne et par jour, et ferait fuiter vers tous les utilisateurs
+// les tentatives échouées sur les comptes de leurs collègues.
+const ENTITES_HORS_FLUX = ['Auth'];
+
 const othersWhere = (userId) => ({
-  OR: [
-    { userId: { not: userId } },
-    { userId: null },
+  AND: [
+    { entity: { notIn: ENTITES_HORS_FLUX } },
+    {
+      OR: [
+        { userId: { not: userId } },
+        { userId: null },
+      ],
+    },
   ],
 });
 
@@ -118,9 +131,26 @@ const stream = async (req, res) => {
     res.write(`event: init\ndata: ${JSON.stringify({ unreadCount })}\n\n`);
   } catch { /* non bloquant */ }
 
-  // Keep-alive : commentaire SSE toutes les 30s pour éviter les timeouts proxy
+  // Keep-alive : commentaire SSE toutes les 30 s pour éviter les timeouts proxy.
+  //
+  // Il sert AUSSI de faucheuse (2026-09-18). L'ancienne version se contentait
+  // d'arrêter l'intervalle quand l'écriture échouait : l'entrée restait au
+  // registre de sseManager, donc l'utilisateur apparaissait connecté
+  // indéfiniment sur la page de présence, avec un onglet fantôme. Seule une
+  // diffusion ultérieure pouvait la ramasser, et seulement si elle avait lieu.
+  //
+  // L'état de la réponse est testé explicitement plutôt que de compter sur une
+  // exception : `res.write()` sur une socket détruite renvoie `false` sans
+  // lever, donc le `catch` seul pouvait ne jamais se déclencher.
+  const libere = () => {
+    clearInterval(ping);
+    sseManager.removeClient(userId, res);
+    sseManager.broadcast(null, 'presence_update', {});
+  };
+
   const ping = setInterval(() => {
-    try { res.write(':ping\n\n'); } catch { clearInterval(ping); }
+    if (res.writableEnded || res.destroyed) return libere();
+    try { res.write(':ping\n\n'); } catch { libere(); }
   }, 30000);
 
   req.on('close', () => {

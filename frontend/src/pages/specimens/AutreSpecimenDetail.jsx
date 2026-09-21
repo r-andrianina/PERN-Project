@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Bug, FlaskConical, FileText, Pencil, Trash2, Save, X, MapPin, Beaker, Plus, Minus, Microscope } from 'lucide-react';
+import { Bug, FlaskConical, FileText, Pencil, Trash2, Save, X, MapPin, Plus, Minus, Microscope } from 'lucide-react';
 import api from '../../api/axios';
 import { Card, Badge, Button, PageHeader, Spinner, Breadcrumb, DatePicker } from '../../components/ui';
 import useAuthStore from '../../store/authStore';
@@ -8,26 +8,10 @@ import { taxoLabel } from '../../utils/taxoLabel';
 import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 import { useT, interpolate } from '../../lib/i18n';
+import { Field, SidebarRow } from '../../components/SpecimenDetailParts';
+import AnalysesLabo from '../../components/AnalysesLabo';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
-
-function Field({ label, children }) {
-  return (
-    <div>
-      <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-0.5">{label}</p>
-      <div className="text-sm text-fg">{children || <span className="text-fg-subtle">—</span>}</div>
-    </div>
-  );
-}
-
-function SidebarRow({ label, children }) {
-  return (
-    <div className="flex items-start justify-between gap-3 py-1.5 border-b border-border last:border-0">
-      <span className="text-[11px] text-fg-subtle shrink-0">{label}</span>
-      <span className="text-[11px] text-fg font-medium text-right leading-relaxed">{children || '—'}</span>
-    </div>
-  );
-}
 
 export default function AutreSpecimenDetail() {
   const t = useT();
@@ -147,6 +131,11 @@ export default function AutreSpecimenDetail() {
       <div className="grid grid-cols-1 xl:grid-cols-[1fr,300px] 2xl:grid-cols-[1fr,380px] gap-5 2xl:gap-8">
         {/* Contenu principal */}
         <div className="space-y-5">
+          {/* Analyses de laboratoire — en tete : c'est la question centrale
+              d'une fiche specimen pour un institut qui collecte des vecteurs
+              afin de les tester. */}
+          <AnalysesLabo specimenType="autre" specimenId={s.id} />
+
           {/* Identification */}
           <Card>
             <div className="p-5 border-b border-border">
@@ -247,7 +236,7 @@ export default function AutreSpecimenDetail() {
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
                   {Object.entries(s.attributs).map(([k, v]) => (
                     <div key={k}>
-                      <dt className="text-[10px] text-fg-subtle uppercase tracking-wider">{k}</dt>
+                      <dt className="text-2xs text-fg-subtle uppercase tracking-wider">{k}</dt>
                       <dd className="text-sm text-fg font-medium">{String(v)}</dd>
                     </div>
                   ))}
@@ -279,7 +268,7 @@ export default function AutreSpecimenDetail() {
 
         {/* Sidebar */}
         <div className="space-y-4">
-          <Card>
+          <Card level="secondary">
             <div className="p-4 border-b border-border">
               <h3 className="flex items-center gap-2 text-xs font-semibold text-fg-subtle uppercase tracking-wider">
                 <MapPin size={12} /> {t('autreSpecimenDetail.localisation')}
@@ -294,7 +283,7 @@ export default function AutreSpecimenDetail() {
             </div>
           </Card>
 
-          <Card>
+          <Card level="secondary">
             <div className="p-4 border-b border-border">
               <h3 className="flex items-center gap-2 text-xs font-semibold text-fg-subtle uppercase tracking-wider">
                 <FlaskConical size={12} /> {t('autreSpecimenDetail.conservation')}
@@ -305,16 +294,6 @@ export default function AutreSpecimenDetail() {
               <SidebarRow label={t('autreSpecimenDetail.container')}>{s.container?.code}</SidebarRow>
               <SidebarRow label={t('autreSpecimenDetail.position')}>{s.position}</SidebarRow>
             </div>
-          </Card>
-
-          <Card padding="sm">
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => navigate(`/labo/nouvelle?specimenType=autre&specimenId=${s.id}`)}
-            >
-              <Beaker size={14} /> {t('autreSpecimenDetail.createLaboManip')}
-            </Button>
           </Card>
         </div>
       </div>

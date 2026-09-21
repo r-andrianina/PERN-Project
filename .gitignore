@@ -54,3 +54,6 @@ fokontany/
 
 # Credentials de déploiement (ne jamais committer)
 deploy.env
+
+# Dumps locaux (ex. avant migration de donnees) — ne jamais commiter
+backend/backups/

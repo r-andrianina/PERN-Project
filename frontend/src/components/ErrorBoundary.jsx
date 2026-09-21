@@ -43,7 +43,7 @@ export default class ErrorBoundary extends Component {
             </p>
 
             {isDev && msg && (
-              <pre className="mt-4 text-left text-[11px] text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3 overflow-auto max-h-32 whitespace-pre-wrap break-all">
+              <pre className="mt-4 text-left text-xs text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3 overflow-auto max-h-32 whitespace-pre-wrap break-all">
                 {msg}
               </pre>
             )}

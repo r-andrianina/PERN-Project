@@ -67,7 +67,7 @@ function TreeNode({ node, depth = 0, onAddChild, onEdit, onToggle, onDelete, can
         <button onClick={toggle} className="w-5 h-5 flex items-center justify-center text-fg-subtle hover:text-fg">
           {hasChildren ? (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : null}
         </button>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle w-20 flex-shrink-0">
+        <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle w-20 flex-shrink-0">
           {niveauLabel[node.niveau]}
         </span>
         <span className={`text-sm text-fg font-medium ${node.niveau === 'genre' || node.niveau === 'espece' ? 'italic' : ''}`}>
@@ -231,14 +231,14 @@ export default function TaxonomieHotesPage() {
   const tableColumns = [
     {
       key: 'niveau', label: t('taxonomieHotesPage.niveauLabel'), sortable: true, width: '100px',
-      render: (row) => <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">{niveauLabel[row.niveau]}</span>,
+      render: (row) => <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">{niveauLabel[row.niveau]}</span>,
     },
     {
       key: 'nom', label: t('taxonomieHotesPage.nomLabel'), sortable: true,
       render: (row) => (
         <div className={!row.actif ? 'opacity-50' : ''}>
           <span className={`text-sm font-medium text-fg ${ITALIC_LEVELS.includes(row.niveau) ? 'italic' : ''}`}>{row.nom}</span>
-          {row.lignee && <div className="text-[11px] text-fg-subtle mt-0.5 truncate max-w-xs">{row.lignee}</div>}
+          {row.lignee && <div className="text-xs text-fg-subtle mt-0.5 truncate max-w-xs">{row.lignee}</div>}
         </div>
       ),
     },

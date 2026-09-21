@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ChevronLeft, FlaskConical, ShieldCheck, ShieldAlert, FileEdit,
-  TestTube, Dna, Zap, Waves, User, AlertTriangle,
-  Upload, Check, X, Eye, Layers, GitBranch, Microscope, Activity,
+  ChevronLeft, ShieldCheck, ShieldAlert,
+  User, AlertTriangle,
+  Upload, Check, X,
 } from 'lucide-react';
 import { Card, Button, Badge, Spinner } from '../../components/ui';
 import AuthImg, { downloadAuthFile } from '../../components/AuthImg';
@@ -13,27 +13,17 @@ import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
 import { dialog } from '../../lib/dialog';
 import { useT } from '../../lib/i18n';
+import { getTypeConfig as getTypeConfigBase, getStatutConfig } from '../../utils/laboConfig';
+// Libelles plus explicites que ceux du tableau : cette page a la place de les
+// afficher en entier. Le reste (icone, couleur, fond) vient de la table commune.
+const SURCHARGES_LIBELLES = {
+  identification_morpho: 'manipDetail.typeIdentificationMorpho',
+  nested_pcr:            'manipDetail.typeNestedPcrFull',
+};
+const getTypeConfig = (t) => getTypeConfigBase(t, SURCHARGES_LIBELLES);
+
 
 // ── Config ────────────────────────────────────────────────────
-
-const getTypeConfig = (t) => ({
-  identification_morpho: { label: t('manipDetail.typeIdentificationMorpho'), Icon: Eye,          color: 'text-fg-muted',  bg: 'bg-surface-2'   },
-  broyage_pool:          { label: t('laboPage.typeBroyage'),      Icon: Layers,       color: 'text-info',      bg: 'bg-info/10'     },
-  dessication:           { label: t('laboPage.typeDessication'),  Icon: TestTube,     color: 'text-info',      bg: 'bg-info/10'     },
-  extraction:            { label: t('laboPage.typeExtraction'),   Icon: Dna,          color: 'text-success',   bg: 'bg-success/10'  },
-  amplification_pcr:     { label: t('laboPage.typePcr'),          Icon: Zap,          color: 'text-warning',   bg: 'bg-warning/10'  },
-  qpcr:                  { label: t('laboPage.typeQpcr'),         Icon: Activity,     color: 'text-primary',   bg: 'bg-primary/10'  },
-  nested_pcr:            { label: t('manipDetail.typeNestedPcrFull'), Icon: GitBranch,    color: 'text-warning',   bg: 'bg-warning/10'  },
-  sequencage:            { label: t('laboPage.typeSequencage'),   Icon: Waves,        color: 'text-primary',   bg: 'bg-primary/10'  },
-  microscopie:           { label: t('laboPage.typeMicroscopie'),  Icon: Microscope,   color: 'text-danger',    bg: 'bg-danger/10'   },
-  autre:                 { label: t('laboPage.typeAutre'),        Icon: FlaskConical, color: 'text-fg-muted',  bg: 'bg-surface-2'   },
-});
-
-const getStatutConfig = (t) => ({
-  brut:     { label: t('laboPage.statutBrut'),     tone: 'default', Icon: FileEdit    },
-  valide:   { label: t('laboPage.statutValide'),   tone: 'success', Icon: ShieldCheck },
-  invalide: { label: t('laboPage.statutInvalide'), tone: 'danger',  Icon: ShieldAlert },
-});
 
 const getEventIcons = (t) => ({
   CREATION:       { label: t('manipDetail.eventCreated'),       color: 'bg-primary' },
@@ -73,7 +63,7 @@ function InfoRow({ label, children }) {
 function Section({ title, children, accent }) {
   return (
     <div>
-      <p className={`text-[11px] font-bold uppercase tracking-wider mb-3 ${accent || 'text-fg-subtle'}`}>{title}</p>
+      <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${accent || 'text-fg-subtle'}`}>{title}</p>
       <div>{children}</div>
     </div>
   );
@@ -525,7 +515,7 @@ export default function ManipulationDetail() {
           {/* Upload fichiers */}
           {(needsGel || needsFichier || needsMicro) && (
             <Card padding="lg">
-              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-4">{t('manipDetail.filesAttachedTitle')}</p>
+              <p className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-4">{t('manipDetail.filesAttachedTitle')}</p>
               <div className="flex items-center gap-3 flex-wrap">
                 {needsGel && (
                   <>
@@ -564,7 +554,7 @@ export default function ManipulationDetail() {
           {/* Notes */}
           {manip.notes && (
             <Card padding="lg">
-              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('common.notes')}</p>
+              <p className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('common.notes')}</p>
               <p className="text-sm text-fg whitespace-pre-wrap">{manip.notes}</p>
             </Card>
           )}
@@ -572,7 +562,7 @@ export default function ManipulationDetail() {
           {/* Timeline événements */}
           {manip.events?.length > 0 && (
             <Card padding="lg">
-              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-4">{t('manipDetail.historiqueTitle')}</p>
+              <p className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-4">{t('manipDetail.historiqueTitle')}</p>
               <div className="space-y-3">
                 {manip.events.map((ev) => {
                   const evCfg = getEventIcons(t)[ev.typeEvent] ?? { label: ev.typeEvent, color: 'bg-fg-muted' };
@@ -582,10 +572,10 @@ export default function ManipulationDetail() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 flex-wrap">
                           <span className="text-xs font-semibold text-fg">{evCfg.label}</span>
-                          <span className="text-[11px] text-fg-subtle">
+                          <span className="text-xs text-fg-subtle">
                             {t('manipDetail.parPrefix')} {ev.operateur?.prenom} {ev.operateur?.nom}
                           </span>
-                          <span className="text-[11px] text-fg-subtle ml-auto">
+                          <span className="text-xs text-fg-subtle ml-auto">
                             {new Date(ev.dateHeure).toLocaleString(t('common.locale'))}
                           </span>
                         </div>
@@ -601,7 +591,7 @@ export default function ManipulationDetail() {
         {/* ── Sidebar sticky ── */}
         <div className="xl:sticky xl:top-5 space-y-4">
           <Card padding="md">
-            <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('manipDetail.informationsTitle')}</p>
+            <p className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('manipDetail.informationsTitle')}</p>
             <InfoRow label={t('manipDetail.protocoleSopLabel')}>{manip.protocole}</InfoRow>
             <InfoRow label={t('manipDetail.dateDebutLabel')}>{new Date(manip.dateDebut).toLocaleString(t('common.locale'))}</InfoRow>
             {manip.dateFin && (
@@ -610,7 +600,7 @@ export default function ManipulationDetail() {
           </Card>
 
           <Card padding="md">
-            <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('manipDetail.tracabiliteTitle')}</p>
+            <p className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-3">{t('manipDetail.tracabiliteTitle')}</p>
             <InfoRow label={t('laboPage.colOperateur')}>
               <span className="flex items-center gap-1.5">
                 <User size={12} className="text-fg-subtle" />
@@ -623,7 +613,7 @@ export default function ManipulationDetail() {
                   <ShieldCheck size={12} />
                   {manip.validePar?.prenom} {manip.validePar?.nom}
                   {manip.valideLe && (
-                    <span className="text-fg-subtle font-normal text-[10px] ml-1">
+                    <span className="text-fg-subtle font-normal text-2xs ml-1">
                       {new Date(manip.valideLe).toLocaleDateString(t('common.locale'))}
                     </span>
                   )}

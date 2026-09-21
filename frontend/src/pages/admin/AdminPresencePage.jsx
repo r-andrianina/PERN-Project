@@ -64,7 +64,7 @@ function MetricCard({ label, value, icon: Icon, iconColor, iconBg, accent = '', 
           ? <Skeleton className="h-7 w-14 mb-1" />
           : <p className="text-2xl font-bold text-fg tabular-nums leading-none">{value ?? '—'}</p>
         }
-        <p className="text-[11px] text-fg-muted mt-1 truncate">{label}</p>
+        <p className="text-xs text-fg-muted mt-1 truncate">{label}</p>
       </div>
     </div>
   );
@@ -89,17 +89,17 @@ function UserCard({ user, isMe, kicking, onKick }) {
         <div className="flex items-center gap-1.5 flex-wrap">
           <p className="text-sm font-semibold text-fg truncate">{user.prenom} {user.nom}</p>
           {isMe && (
-            <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">
+            <span className="text-2xs bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">
               {t('adminPresencePage.you')}
             </span>
           )}
         </div>
         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${role.pill}`}>
+          <span className={`text-2xs font-semibold px-2 py-0.5 rounded-full ${role.pill}`}>
             {roleLabel(user.role)}
           </span>
           {user.tabCount > 1 && (
-            <span className="text-[10px] text-fg-subtle">{user.tabCount} {t('adminPresencePage.tabsSuffix')}</span>
+            <span className="text-2xs text-fg-subtle">{user.tabCount} {t('adminPresencePage.tabsSuffix')}</span>
           )}
         </div>
       </div>
@@ -135,10 +135,10 @@ function ActivityItem({ log, fresh }) {
       {/* Corps */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${cfg.cls}`}>
+          <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-full border ${cfg.cls}`}>
             {cfg.label}
           </span>
-          <span className="text-[10px] text-fg-subtle font-mono bg-surface-2 px-1.5 py-0.5 rounded">
+          <span className="text-2xs text-fg-subtle font-mono bg-surface-2 px-1.5 py-0.5 rounded">
             {log.entity}
           </span>
         </div>
@@ -148,7 +148,7 @@ function ActivityItem({ log, fresh }) {
       </div>
 
       {/* Temps */}
-      <time className="text-[10px] text-fg-subtle whitespace-nowrap flex-shrink-0 mt-0.5 tabular-nums">
+      <time className="text-2xs text-fg-subtle whitespace-nowrap flex-shrink-0 mt-0.5 tabular-nums">
         {formatRelativeDate(log.createdAt)}
       </time>
     </div>
@@ -176,7 +176,7 @@ function UserStatRow({ entry, maxSaisies, barsVisible, rank }) {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-fg truncate">{user.prenom} {user.nom}</p>
-            <span className={`text-[10px] font-medium px-1.5 py-px rounded-full ${role.pill}`}>
+            <span className={`text-2xs font-medium px-1.5 py-px rounded-full ${role.pill}`}>
               {roleLabel(user.role)}
             </span>
           </div>
@@ -385,7 +385,7 @@ export default function AdminPresencePage() {
                       {(totaux[s.key] ?? 0).toLocaleString(t('common.locale'))}
                     </p>
                 }
-                <p className="text-[11px] text-fg-muted mt-0.5">{s.label} {t('adminPresencePage.totalSuffix')}</p>
+                <p className="text-xs text-fg-muted mt-0.5">{s.label} {t('adminPresencePage.totalSuffix')}</p>
               </div>
               <BarChart2 size={24} className={`${s.color} opacity-40 flex-shrink-0`} />
             </div>
@@ -442,7 +442,7 @@ export default function AdminPresencePage() {
             </div>
           )}
 
-          <p className="text-[10px] text-fg-subtle px-1 leading-relaxed">
+          <p className="text-2xs text-fg-subtle px-1 leading-relaxed">
             {t('adminPresencePage.kickHintPrefix')} <WifiOff size={9} className="inline" /> {t('adminPresencePage.kickHintSuffix')}
           </p>
         </div>
@@ -452,7 +452,7 @@ export default function AdminPresencePage() {
           <div className="flex items-center gap-2 mb-3">
             <Activity size={15} className="text-primary flex-shrink-0" />
             <h2 className="text-sm font-semibold text-fg">{t('adminPresencePage.activityFeed')}</h2>
-            <div className={`ml-auto flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+            <div className={`ml-auto flex items-center gap-1 text-2xs font-medium px-2 py-0.5 rounded-full border ${
               sseOk ? 'text-success border-success/20 bg-success/5' : 'text-fg-subtle border-border'
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${sseOk ? 'bg-success animate-pulse' : 'bg-fg-subtle'}`} />
@@ -563,7 +563,7 @@ export default function AdminPresencePage() {
           )}
         </div>
 
-        <p className="text-[10px] text-fg-subtle mt-2 px-1">
+        <p className="text-2xs text-fg-subtle mt-2 px-1">
           {t('adminPresencePage.entriesFootnotePrefix')}{' '}
           <span className="inline-flex items-center gap-0.5 text-warning align-middle">
             <AlertTriangle size={9} /> {t('adminPresencePage.inactiveOverOneDay')}

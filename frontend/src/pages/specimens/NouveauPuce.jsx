@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { ChevronLeft, Microscope, FlaskConical, FileText, PawPrint, Check, Loader2, Info, Tag } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from '../../lib/toast';
 import FormField from '../../components/FormField';
 import MethodeCascade from '../../components/MethodeCascade';
+import DateCollecteField from '../../components/DateCollecteField';
 import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
 import { Card } from '../../components/ui';
@@ -24,11 +26,18 @@ export default function NouveauPuce() {
     dateCollecte: '', notes: '',
   });
   const [missionId, setMissionId] = useState(null);
+  const [selectedMethode, setSelectedMethode] = useState(null);
   const [hotes,      setHotes]      = useState([]);
   const [taxonomies, setTaxonomies] = useState([]);
   const [solutions,  setSolutions]  = useState([]);
   const [isLoading,  setIsLoading]  = useState(false);
   const [errors,     setErrors]     = useState({});
+  const [isDirty,    setIsDirty]    = useState(false);
+
+  // Garde contre la perte d'une saisie en cours. Elle n'existait que sur
+  // NouveauMoustique : les trois autres formulaires laissaient partir une
+  // fiche a moitie remplie sans un mot.
+  const desarmerGarde = useUnsavedChanges(isDirty);
 
   useEffect(() => {
     Promise.all([
@@ -46,6 +55,7 @@ export default function NouveauPuce() {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setErrors({ ...errors, [name]: null });
+    setIsDirty(true);
     setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
   };
 
@@ -87,6 +97,11 @@ export default function NouveauPuce() {
         nombre:       parseInt(form.nombre),
         dateCollecte: form.dateCollecte || null,
       });
+      // Désarmement SYNCHRONE avant de quitter : setIsDirty(false) est une
+      // mise à jour d'état, elle ne serait pas encore appliquée quand useBlocker
+      // évalue la navigation — la garde se déclenchait donc APRÈS un
+      // enregistrement réussi (corrigé le 2026-09-21).
+      desarmerGarde();
       navigate('/specimens/puces');
     } catch (err) {
       setErrors({ submit: err.response?.data?.error || t('nouveauSpecimen.creationError') });
@@ -132,6 +147,7 @@ export default function NouveauPuce() {
               methodeId={form.methodeId}
               onChange={(id) => { setErrors((e) => ({ ...e, methodeId: null })); setForm((f) => ({ ...f, methodeId: id, containerId: '', position: '' })); }}
               onMissionChange={setMissionId}
+              onMethodeObjectChange={setSelectedMethode}
               error={errors.methodeId}
             />
             <IdTerrainField
@@ -186,7 +202,7 @@ export default function NouveauPuce() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
             <FormField label={t('nouveauSpecimen.solutionConservation')} name="solutionId" type="select" value={form.solutionId} onChange={handleChange} options={solutionOptions} />
-            <FormField label={t('nouveauSpecimen.dateCollecte')} name="dateCollecte" type="date" value={form.dateCollecte} onChange={handleChange} />
+            <DateCollecteField methode={selectedMethode} value={form.dateCollecte} onChange={handleChange} />
           </div>
           <ContainerSelector
             missionId={missionId}
@@ -225,7 +241,7 @@ export default function NouveauPuce() {
               </div>
               <div className="space-y-2.5">
                 <div>
-                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
+                  <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
                   {selectedTaxo ? (
                     <p className="text-sm font-semibold italic text-specimen-puce">
                       {selectedTaxo.parent?.nom ? `${selectedTaxo.parent.nom} ` : ''}{selectedTaxo.nom}
@@ -234,7 +250,7 @@ export default function NouveauPuce() {
                 </div>
                 {form.idTerrain && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Tag size={9} /> {t('nouveauSpecimen.idTerrain')}</p>
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Tag size={9} /> {t('nouveauSpecimen.idTerrain')}</p>
                     <p className="text-sm font-mono font-bold text-primary">{form.idTerrain}</p>
                   </div>
                 )}
@@ -245,7 +261,7 @@ export default function NouveauPuce() {
                 </div>
                 {selectedHote && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauTique.hoteLabel')}</p>
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauTique.hoteLabel')}</p>
                     <p className="text-xs font-medium text-fg italic">{selectedHote.taxonomieHote?.nom}</p>
                   </div>
                 )}
@@ -253,7 +269,7 @@ export default function NouveauPuce() {
             </Card>
 
             <Card padding="sm">
-              <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
+              <p className="text-xs text-fg-muted space-y-1.5 leading-relaxed">
                 <span className="block font-semibold text-fg mb-1">{t('nouveauSpecimen.tips')}</span>
                 <span className="block">• {t('nouveauTique.helpTiqueTaxonomiePrefix')} <strong>{t('nouveauTique.helpTiqueTaxonomieWord')}</strong> {t('nouveauTique.helpTiqueTaxonomieSuffix')}</span>
                 <span className="block">• {t('nouveauPuce.helpRongeurPrefix')} <strong>{t('nouveauPuce.helpRongeurWord')}</strong>{t('nouveauPuce.helpRongeurSuffix')}</span>

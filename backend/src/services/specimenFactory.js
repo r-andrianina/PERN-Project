@@ -139,6 +139,13 @@ function createSpecimenService(config) {
     if (!methode) throw AppError.notFound('Méthode introuvable');
     await assertMethodeAccessible(methode.localite.mission.projetId, user);
 
+    // Une methode = une nuit-piege (2026-09-16) : la date de collecte d'un
+    // specimen EST le matin de releve de sa methode, elle ne se saisit plus.
+    // Le champ libre du formulaire avait produit 313 specimens dates autrement
+    // que leur methode, dont 10 avec un an d'ecart qu'aucun controle n'a vus.
+    // Repli sur la valeur transmise uniquement si la methode n'a pas de releve.
+    const dateNuit = methode.dateReleve ?? (dateCollecte ? new Date(dateCollecte) : null);
+
     if (taxonomieId) {
       const taxo = await prisma.taxonomieSpecimen.findUnique({ where: { id: parseInt(taxonomieId) } });
       if (!taxo) throw AppError.notFound('Taxonomie introuvable');
@@ -179,7 +186,7 @@ function createSpecimenService(config) {
         nombre: 1,
         solutionId: body.solutionId ? parseInt(body.solutionId) : null,
         containerId: cId,
-        dateCollecte: dateCollecte ? new Date(dateCollecte) : null,
+        dateCollecte: dateNuit,
         notes: notes || null,
       };
       const data = positions.map((p, i) => ({ ...baseData, position: p, idTerrain: ids[i] }));
@@ -221,7 +228,7 @@ function createSpecimenService(config) {
         solutionId: body.solutionId ? parseInt(body.solutionId) : null,
         containerId: cId,
         position: position || null,
-        dateCollecte: dateCollecte ? new Date(dateCollecte) : null,
+        dateCollecte: dateNuit,
         notes: notes || null,
       },
       include: includeBase,
@@ -257,7 +264,9 @@ function createSpecimenService(config) {
     if (body.solutionId !== undefined) data.solutionId = body.solutionId ? parseInt(body.solutionId) : null;
     if (containerId !== undefined) data.containerId = containerId ? parseInt(containerId) : null;
     if (position !== undefined) data.position = position;
-    if (dateCollecte !== undefined) data.dateCollecte = dateCollecte ? new Date(dateCollecte) : null;
+    // dateCollecte n'est pas modifiable : elle decoule de la methode, et
+    // methodeId est exclu des schemas de mise a jour. Validee plus bas, une
+    // fois la methode chargee — refusee explicitement plutot qu'ignoree.
     if (notes !== undefined) data.notes = notes;
 
     const before = await db().findUnique({ where: { id } });
@@ -265,9 +274,21 @@ function createSpecimenService(config) {
 
     const methode = await prisma.methodeCollecte.findUnique({
       where: { id: before.methodeId },
-      select: { localite: { select: { mission: { select: { projetId: true } } } } },
+      select: { dateReleve: true, localite: { select: { mission: { select: { projetId: true } } } } },
     });
     await assertMethodeAccessible(methode.localite.mission.projetId, user);
+
+    if (dateCollecte !== undefined && methode.dateReleve) {
+      const demandee = dateCollecte ? new Date(dateCollecte) : null;
+      const nuit     = methode.dateReleve;
+      if (!demandee || demandee.toISOString().slice(0, 10) !== nuit.toISOString().slice(0, 10)) {
+        throw AppError.badRequest(
+          'La date de collecte decoule de la nuit-piege de la methode '
+          + `(relevee le ${nuit.toISOString().slice(0, 10)}) et ne peut pas etre modifiee ici. `
+          + 'Corrigez la date de relevé de la méthode, ou rattachez le spécimen à une autre méthode.',
+        );
+      }
+    }
 
     const item = await db().update({ where: { id }, data, include: includeBase });
     return { before, item };

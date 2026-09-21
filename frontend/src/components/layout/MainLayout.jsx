@@ -126,7 +126,7 @@ export default function MainLayout() {
               <p className="text-base font-bold text-fg leading-tight tracking-tight">
                 Spécimen<span className="text-primary">Manager</span>
               </p>
-              <p className="text-[10px] text-fg-subtle leading-tight">{t('sidebar.subtitle')}</p>
+              <p className="text-2xs text-fg-subtle leading-tight">{t('sidebar.subtitle')}</p>
             </div>
           </div>
           <button onClick={closeSidebar} className="lg:hidden p-1 rounded-md text-fg-subtle hover:text-fg-muted hover:bg-surface-2">

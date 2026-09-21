@@ -267,7 +267,7 @@ export default function LocaliteFieldsForm({ value, onChange, errors = {}, exclu
           {geoLocked && <Lock size={11} className="text-fg-subtle" />}
         </p>
         {existingPoints.length > 0 && (
-          <p className="text-[11px] text-fg-subtle mb-1.5">
+          <p className="text-xs text-fg-subtle mb-1.5">
             {t('localiteForm.existingPointsHint')}
           </p>
         )}

@@ -5,7 +5,7 @@ import {
   Pencil, Trash2, Save, X, MapPin, Beaker, Bird,
 } from 'lucide-react';
 import api from '../../api/axios';
-import { Card, Badge, Button, PageHeader, Spinner, Select, Breadcrumb, DatePicker } from '../../components/ui';
+import { Card, Badge, Button, PageHeader, Spinner, Breadcrumb, DatePicker } from '../../components/ui';
 import SpecimenIcon from '../../components/SpecimenIcon';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
@@ -14,53 +14,11 @@ import { STADE_OPTIONS_TIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS, formatGorgement } from '../../utils/gorgement';
 import { taxoLabel as _taxoLabel } from '../../utils/taxoLabel';
 import { useT, interpolate } from '../../lib/i18n';
+import { Field, SidebarRow, SidebarSection, EditSelect } from '../../components/SpecimenDetailParts';
+import AnalysesLabo from '../../components/AnalysesLabo';
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const taxoLabel  = (tx) => tx ? _taxoLabel(tx) : '—';
-
-function Field({ label, children }) {
-  return (
-    <div>
-      <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-0.5">{label}</p>
-      <div className="text-sm text-fg">{children}</div>
-    </div>
-  );
-}
-
-function SidebarRow({ label, children }) {
-  return (
-    <div className="flex items-start justify-between gap-3 py-1.5 border-b border-border last:border-0">
-      <span className="text-[11px] text-fg-subtle shrink-0">{label}</span>
-      <span className="text-[11px] text-fg font-medium text-right leading-relaxed">{children}</span>
-    </div>
-  );
-}
-
-function SidebarSection({ icon: Icon, iconClass, label, children }) {
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-2">
-        {Icon && <Icon size={12} className={iconClass ?? 'text-fg-subtle'} />}
-        <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">{label}</p>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function EditSelect({ label, value, onChange, options, disabled }) {
-  return (
-    <div>
-      <label className="text-xs text-fg-subtle font-medium block mb-1">{label}</label>
-      <Select
-        value={value}
-        onChange={(val) => onChange({ target: { value: val } })}
-        disabled={disabled}
-        options={options}
-      />
-    </div>
-  );
-}
 
 export default function TiqueDetail() {
   const t = useT();
@@ -193,6 +151,11 @@ export default function TiqueDetail() {
         {/* ══ Colonne principale ══ */}
         <div className="space-y-4">
 
+          {/* Analyses de laboratoire — en tete : c'est la question centrale
+              d'une fiche specimen pour un institut qui collecte des vecteurs
+              afin de les tester. */}
+          <AnalysesLabo specimenType="tique" specimenId={tq.id} />
+
           {/* Identification */}
           <Card>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
@@ -312,8 +275,8 @@ export default function TiqueDetail() {
         <aside className="space-y-3 xl:sticky xl:top-4 self-start">
 
           {/* Actions */}
-          <Card padding="sm">
-            <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('specimenDetail.actions')}</p>
+          <Card padding="sm" level="secondary">
+            <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('specimenDetail.actions')}</p>
             <div className="space-y-2">
               {editing ? (
                 <>
@@ -338,15 +301,15 @@ export default function TiqueDetail() {
           {/* ID terrain */}
           {tq.idTerrain && (
             <Card padding="sm" tone="primary">
-              <p className="text-[10px] text-fg-subtle uppercase tracking-wider font-medium mb-1">{t('specimenDetail.idTerrain')}</p>
+              <p className="text-2xs text-fg-subtle uppercase tracking-wider font-medium mb-1">{t('specimenDetail.idTerrain')}</p>
               <p className="font-mono font-bold text-primary text-sm">{tq.idTerrain}</p>
             </Card>
           )}
 
           {/* Localisation */}
-          <Card padding="sm">
+          <Card padding="sm" level="secondary">
             <SidebarSection icon={MapPin} iconClass="text-danger" label={t('specimenDetail.localisation')}>
-              <div className="flex flex-wrap items-center gap-1 text-[11px] text-fg-muted mb-2">
+              <div className="flex flex-wrap items-center gap-1 text-xs text-fg-muted mb-2">
                 <span className="font-semibold text-fg">
                   {loc?.mission?.projet?.nom || loc?.mission?.projet?.code || '—'}
                 </span>
@@ -355,14 +318,14 @@ export default function TiqueDetail() {
                 <span className="text-fg-subtle">›</span>
                 <span className="font-semibold text-fg">{loc?.fokontany || loc?.nom || '—'}</span>
               </div>
-              {geoLabel && <p className="text-[11px] text-fg-subtle mb-3">{geoLabel}</p>}
+              {geoLabel && <p className="text-xs text-fg-subtle mb-3">{geoLabel}</p>}
             </SidebarSection>
 
             <div className="border-t border-border my-2.5" />
 
             <SidebarSection icon={Beaker} iconClass="text-info" label={t('specimenDetail.methodeCollecte')}>
               {tq.methode?.typeMethode ? (
-                <div className="text-[11px] text-fg font-medium">
+                <div className="text-xs text-fg font-medium">
                   <span>{tq.methode.typeMethode.nom}</span>
                   {methodeIdentifiant && (
                     <>
@@ -372,13 +335,13 @@ export default function TiqueDetail() {
                   )}
                 </div>
               ) : (
-                <span className="text-[11px] text-fg-subtle">—</span>
+                <span className="text-xs text-fg-subtle">—</span>
               )}
             </SidebarSection>
           </Card>
 
           {/* Conservation */}
-          <Card padding="sm">
+          <Card padding="sm" level="secondary">
             <SidebarSection icon={FlaskConical} iconClass="text-purple-500" label={t('specimenDetail.conservation')}>
               <SidebarRow label={t('specimenDetail.solution')}>
                 {tq.solution?.nom || <span className="text-fg-subtle">—</span>}

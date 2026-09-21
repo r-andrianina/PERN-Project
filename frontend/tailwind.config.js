@@ -96,6 +96,17 @@ module.exports = {
         'card-md':'0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.04)',
         'card-lg':'0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05)',
       },
+      // Échelle typographique — 10 / 12 / 14 / 16, plus les tailles de titre
+      // héritées de Tailwind. Posée le 2026-09-16 : la config n'étendait pas
+      // fontSize, et 236 valeurs arbitraires s'étaient accumulées sur HUIT
+      // tailles distinctes (8, 9, 10, 11, 13 px en plus de xs/sm/base), qui se
+      // propageaient par copier-coller d'une page à l'autre.
+      //
+      // Un seul palier est ajouté ici : 2xs, le plancher. Le remonter un jour
+      // (10 → 11 px) se fait désormais sur CETTE ligne, plus dans 35 fichiers.
+      fontSize: {
+        '2xs': ['0.625rem', { lineHeight: '0.875rem' }],  // 10px — libellés, pastilles
+      },
       borderRadius: {
         // Échelle uniforme — ne plus utiliser rounded-md ou rounded-3xl
         token: '0.625rem',  // 10px

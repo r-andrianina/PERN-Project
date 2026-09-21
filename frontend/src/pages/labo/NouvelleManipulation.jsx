@@ -80,7 +80,7 @@ function SectionTitle({ icon: Icon, iconClass = 'text-primary', children, sub })
       </div>
       <div>
         <h2 className="text-sm font-bold text-fg tracking-tight">{children}</h2>
-        {sub && <p className="text-[11px] text-fg-subtle mt-0.5">{sub}</p>}
+        {sub && <p className="text-xs text-fg-subtle mt-0.5">{sub}</p>}
       </div>
     </div>
   );
@@ -89,8 +89,8 @@ function SectionTitle({ icon: Icon, iconClass = 'text-primary', children, sub })
 function SummaryRow({ label, children }) {
   return (
     <div className="flex items-center justify-between gap-2 py-1 border-b border-border last:border-0">
-      <span className="text-[11px] text-fg-subtle">{label}</span>
-      <span className="text-[11px] text-fg font-medium text-right">{children || '—'}</span>
+      <span className="text-xs text-fg-subtle">{label}</span>
+      <span className="text-xs text-fg font-medium text-right">{children || '—'}</span>
     </div>
   );
 }
@@ -107,7 +107,7 @@ function Divider({ label }) {
   return (
     <div className="flex items-center gap-3 my-4">
       <hr className="flex-1 border-border" />
-      <span className="text-[10px] font-bold text-fg-subtle uppercase tracking-wider px-1">{label}</span>
+      <span className="text-2xs font-bold text-fg-subtle uppercase tracking-wider px-1">{label}</span>
       <hr className="flex-1 border-border" />
     </div>
   );
@@ -753,7 +753,7 @@ export default function NouvelleManipulation() {
                     </div>
                     <div className="min-w-0">
                       <p className={`text-xs font-bold leading-tight ${moduleType === value ? color : 'text-fg'}`}>{label}</p>
-                      <p className="text-[10px] text-fg-subtle mt-0.5 leading-tight">{desc}</p>
+                      <p className="text-2xs text-fg-subtle mt-0.5 leading-tight">{desc}</p>
                     </div>
                   </button>
                 ))}
@@ -796,7 +796,7 @@ export default function NouvelleManipulation() {
                 <div className="p-4 bg-surface-2 rounded-xl border border-border space-y-3">
                   <div className="flex items-center gap-2">
                     <Timer size={12} className="text-fg-subtle" />
-                    <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-widest">{t('nouvelleManip.plageHoraireLabel')}</p>
+                    <p className="text-2xs font-bold text-fg-subtle uppercase tracking-widest">{t('nouvelleManip.plageHoraireLabel')}</p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-[1fr_28px_1fr] gap-2 items-end">
                     <DateTimeField
@@ -820,7 +820,7 @@ export default function NouvelleManipulation() {
                     <DurationBadge start={dateDebut} end={dateFin} />
                   )}
                   {!dateFin && (
-                    <p className="text-[11px] text-fg-subtle">{t('nouvelleManip.plageHoraireHint')}</p>
+                    <p className="text-xs text-fg-subtle">{t('nouvelleManip.plageHoraireHint')}</p>
                   )}
                 </div>
 
@@ -850,7 +850,7 @@ export default function NouvelleManipulation() {
               <h3 className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-4">{t('nouvelleManip.recapitulatifTitle')}</h3>
               <div className="space-y-2.5">
                 <SummaryRow label={t('nouvelleManip.summarySpecimen')}>
-                  {specimenId ? <span className="text-success font-mono text-[11px]">{specimenLabel || `#${specimenId}`}</span> : null}
+                  {specimenId ? <span className="text-success font-mono text-xs">{specimenLabel || `#${specimenId}`}</span> : null}
                 </SummaryRow>
                 <SummaryRow label={t('nouvelleManip.summaryModule')}>
                   {selectedModule && (
@@ -872,12 +872,12 @@ export default function NouvelleManipulation() {
             </div>
 
             <div className="card p-4">
-              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-2">{t('nouvelleManip.statutInitialTitle')}</p>
+              <p className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-2">{t('nouvelleManip.statutInitialTitle')}</p>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-fg-subtle flex-shrink-0" />
                 <span className="text-xs text-fg"><strong>{t('nouvelleManip.statutInitialBrut')}</strong> {t('nouvelleManip.statutInitialDataEditable')}</span>
               </div>
-              <p className="text-[10px] text-fg-subtle mt-1.5 leading-relaxed">{t('nouvelleManip.statutInitialHint')}</p>
+              <p className="text-2xs text-fg-subtle mt-1.5 leading-relaxed">{t('nouvelleManip.statutInitialHint')}</p>
             </div>
           </div>
         </div>

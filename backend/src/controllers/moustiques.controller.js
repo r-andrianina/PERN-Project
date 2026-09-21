@@ -135,8 +135,13 @@ const importExcel = async (req, res) => {
     const dateRaw       = row.getCell(9).value;
     const notes         = row.getCell(10).value?.toString().trim() || null;
 
-    let dateCollecte = null;
-    if (dateRaw) {
+    // Une methode = une nuit-piege (2026-09-16) : tous les specimens importes
+    // sur une methode partagent son matin de releve. La colonne date du fichier
+    // n'est plus lue pour dater le specimen — c'est elle qui, en se desynchronisant
+    // de la methode, avait produit des specimens dates d'un an avant leur piege.
+    // Repli sur la colonne uniquement si la methode n'a pas de date de releve.
+    let dateCollecte = methode.dateReleve ?? null;
+    if (!dateCollecte && dateRaw) {
       const parsed = new Date(dateRaw);
       if (!isNaN(parsed.getTime())) dateCollecte = parsed;
     }

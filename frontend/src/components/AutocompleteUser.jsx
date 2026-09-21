@@ -73,7 +73,7 @@ export default function AutocompleteUser({
       {open && filtered.length > 0 && (
         <div className="absolute z-30 w-full mt-1 bg-surface rounded-xl shadow-xl border border-border-strong overflow-hidden">
           <div className="px-3 py-1.5 bg-surface-2 border-b border-border">
-            <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wider">
+            <p className="text-2xs font-semibold text-fg-muted uppercase tracking-wider">
               {t('autocompleteUser.suggestions')} ({filtered.length} {filtered.length > 1 ? t('autocompleteUser.users') : t('autocompleteUser.user')})
             </p>
           </div>
@@ -88,20 +88,20 @@ export default function AutocompleteUser({
                   i === hover ? 'bg-primary/10' : 'hover:bg-surface-2'
                 }`}
               >
-                <span className="w-7 h-7 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                <span className="w-7 h-7 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center text-2xs font-bold flex-shrink-0">
                   {u.prenom?.[0]}{u.nom?.[0]}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-fg truncate">{u.prenom} {u.nom}</p>
-                  <p className="text-[10px] text-fg-subtle truncate">{u.email}</p>
+                  <p className="text-2xs text-fg-subtle truncate">{u.email}</p>
                 </div>
-                <span className="text-[10px] font-medium text-fg-subtle capitalize">{u.role}</span>
+                <span className="text-2xs font-medium text-fg-subtle capitalize">{u.role}</span>
                 {value && `${u.prenom} ${u.nom}` === value && <Check size={12} className="text-primary" />}
               </button>
             ))}
           </div>
           <div className="px-3 py-1.5 bg-surface-2 border-t border-border">
-            <p className="text-[10px] text-fg-subtle italic">
+            <p className="text-2xs text-fg-subtle italic">
               {t('autocompleteUser.externalHint')}
             </p>
           </div>

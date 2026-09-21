@@ -19,33 +19,20 @@ cd C:/Users/Andrianina/Desktop/SpecimenManager/frontend
 npm run build
 ```
 
-### Étape 2 — Transférer via tar pipe (Git Bash)
+### Étapes 2 à 4 — voir `/deploy-nas`
 
-```bash
-KEY="$USERPROFILE/.ssh/nas_deploy"
-NAS="Henintsoa_DEV@192.168.64.18"
-DST="/volume1/docker/specimenmanager"
-SRC="C:/Users/Andrianina/Desktop/SpecimenManager"
+**Ne recopiez pas la commande de transfert ici.** La liste des fichiers, les
+vérifications qui l'entourent (migrations à exclure, `prisma.config.ts`
+résiduel) et les étapes de rebuild vivent dans `deploy-nas.md`, section
+« Mise à jour ». C'est la seule copie du dépôt, et volontairement.
 
-cd "$SRC"
-tar czf - backend/src frontend/src frontend/dist \
-  | ssh -i "$KEY" "$NAS" "tar xzf - -C $DST/"
-```
-
-### Étape 3 — Rebuilder et redémarrer sur le NAS
-
-```bash
-ssh -i "$KEY" "$NAS" \
-  "echo 'MOT_DE_PASSE' | sudo -S /usr/local/bin/docker compose \
-  -f $DST/docker-compose.prod.yml up -d --build"
-```
-
-### Étape 4 — Vérifier
-
-```bash
-ssh -i "$KEY" "$NAS" "curl -s http://localhost:8080/api/health"
-# {"status":"ok","app":"SpécimenManager API","version":"1.0.0"}
-```
+> **Pourquoi.** Ce fichier portait jusqu'au 2026-09-21 sa propre version de la
+> commande : `tar czf - backend/src frontend/src frontend/dist`. Elle omettait
+> `backend/prisma` — l'oubli que `deploy-nas.md` interdit noir sur blanc trois
+> lignes durant — ainsi que `package.json` et tout le backend hors de `src/`.
+> Les deux procédures ont divergé sans que rien ne le signale, et c'est
+> exactement ce qui était arrivé à `configs.md` § 6.2. La duplication est la
+> cause, pas le symptôme : une seule liste, ailleurs, et un renvoi ici.
 
 ---
 

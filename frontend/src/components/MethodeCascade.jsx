@@ -8,6 +8,7 @@ import api from '../api/axios';
 import { Select } from './ui';
 import { toast } from '../lib/toast';
 import { useT } from '../lib/i18n';
+import { libelleMethode } from '../utils/methodeLabel';
 
 export default function MethodeCascade({ methodeId, onChange, onMissionChange, onMethodeObjectChange, error }) {
   const t = useT();
@@ -139,7 +140,11 @@ export default function MethodeCascade({ methodeId, onChange, onMissionChange, o
               { value: '', label: `— ${t('common.select')} —` },
               ...methodes.map((m) => ({
                 value: m.id,
-                label: `${m.typeMethode?.code ? `[${m.typeMethode.code}] ` : ''}${m.typeMethode?.nom || `${t('methodeCascade.methodFallback')} #${m.id}`}${m.datePose ? ` — ${new Date(m.datePose).toLocaleDateString(t('common.locale'))}` : ''}`,
+                // Étiquetée par le RELEVÉ, comme partout ailleurs dans
+                // l'application (cf. utils/methodeLabel.js). Elle portait la
+                // date de POSE, soit un jour d'écart avec le champ « date de
+                // collecte » affiché juste en dessous sur le même formulaire.
+                label: libelleMethode(m, t('common.locale'), `${t('methodeCascade.methodFallback')} #${m.id}`),
               })),
             ]}
           />

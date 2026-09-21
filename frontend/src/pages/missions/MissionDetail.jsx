@@ -14,6 +14,7 @@ import MethodeFieldsForm from '../../components/MethodeFieldsForm';
 import useAuthStore from '../../store/authStore';
 import { useApiQuery } from '../../hooks';
 import { useT, interpolate } from '../../lib/i18n';
+import { dateNuitPiegeFormatee } from '../../utils/methodeLabel';
 import { roleLabel } from '../../lib/roles';
 
 const TYPE_COLOR = {
@@ -70,7 +71,17 @@ function MissionModal({ mission, onClose, onSaved }) {
 
   useEffect(() => {
     api.get('/auth/users')
-      .then((r) => setUsers(r.data.users || r.data.items || []))
+      // `actifs`, et non `users` ni `items` (corrigé le 2026-09-18). La route
+      // n'a jamais renvoyé de clé `users` : sa forme est { total, en_attente,
+      // actifs }. Cet écran lisait donc une clé inexistante et retombait sur
+      // un tableau vide — le sélecteur de chef de mission ET celui des agents
+      // étaient vides depuis f40a331, sans aucun message d'erreur puisque la
+      // requête, elle, réussissait.
+      //
+      // Seuls les comptes ACTIFS : un compte en attente de validation ne doit
+      // pas pouvoir être affecté à une mission. Même choix que l'écran de
+      // création (NouvelleMission), qui porte les mêmes sélecteurs.
+      .then((r) => setUsers(r.data.actifs || []))
       .catch(() => toast.error(t('missionDetail.usersLoadError')));
   }, [t]);
 
@@ -630,7 +641,7 @@ export default function MissionDetail() {
                       : mission.chefMissionNom}
                   </p>
                   {mission.chefMissionNom && !mission.chefMission && (
-                    <p className="text-[10px] text-fg-subtle mt-0.5">{t('missionDetail.externalPerson')}</p>
+                    <p className="text-2xs text-fg-subtle mt-0.5">{t('missionDetail.externalPerson')}</p>
                   )}
                 </div>
               )}
@@ -714,7 +725,7 @@ export default function MissionDetail() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-sm font-semibold text-fg">{l.nom}</p>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-info/10 text-info border border-info/20 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                            <span className="inline-flex items-center gap-1 text-2xs font-semibold bg-info/10 text-info border border-info/20 px-1.5 py-0.5 rounded-full flex-shrink-0">
                               <Beaker size={9} /> {l.methodes?.length ?? 0} {t('missionDetail.methodCount')}
                             </span>
                           </div>
@@ -744,20 +755,20 @@ export default function MissionDetail() {
                         groupées sous cette localité, pas juste listées en dessous */}
                     <div className="mt-3 pl-2.5 pr-2 py-2.5 rounded-xl border border-border bg-surface-2/30">
                       <div className="flex items-center justify-between mb-1.5">
-                        <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider flex items-center gap-1">
+                        <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider flex items-center gap-1">
                           <Beaker size={10} /> {t('missionDetail.methods')} ({l.methodes?.length ?? 0})
                         </p>
                         {canEdit && (
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setBulkModal({ localite: l })}
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-fg-subtle hover:text-primary-600 transition-colors"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-fg-subtle hover:text-primary-600 transition-colors"
                             >
                               <Layers size={11} /> {t('missionDetail.series')}
                             </button>
                             <button
                               onClick={() => setMethodeModal({ localite: l })}
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary-600 transition-colors"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-600 transition-colors"
                             >
                               <Plus size={11} /> {t('missionDetail.add')}
                             </button>
@@ -785,9 +796,10 @@ export default function MissionDetail() {
                                       m.interieurExterieur === 'interieur' ? t('methodeForm.interieur') : m.interieurExterieur === 'exterieur' ? t('methodeForm.exterieur') : null,
                                     ].filter(Boolean).join(' · ')}
                                   </span>
-                                  {m.datePose && (
+                                  {/* Le RELEVÉ, pas la pose — cf. utils/methodeLabel.js */}
+                                  {dateNuitPiegeFormatee(m, t('common.locale')) && (
                                     <span className="text-fg-subtle whitespace-nowrap">
-                                      {new Date(m.datePose).toLocaleDateString(t('common.locale'))}
+                                      {dateNuitPiegeFormatee(m, t('common.locale'))}
                                     </span>
                                   )}
                                   {lat != null && lng != null && (
@@ -803,7 +815,7 @@ export default function MissionDetail() {
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                   {specimensTotal > 0 && (
-                                    <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5">
+                                    <span className="text-2xs font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5">
                                       {specimensTotal}
                                     </span>
                                   )}
@@ -863,7 +875,7 @@ export default function MissionDetail() {
                   style={{ width: `${progress.pct}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-fg-subtle mt-1.5">
+              <div className="flex justify-between text-2xs text-fg-subtle mt-1.5">
                 <span>{new Date(mission.dateDebut).toLocaleDateString(t('common.locale'), { month: 'short', year: 'numeric' })}</span>
                 {mission.dateFin && (
                   <span>{new Date(mission.dateFin).toLocaleDateString(t('common.locale'), { month: 'short', year: 'numeric' })}</span>
@@ -881,11 +893,11 @@ export default function MissionDetail() {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-surface-2 rounded-xl p-3 text-center">
                 <p className="text-xl font-bold text-fg">{mission.localites?.length ?? 0}</p>
-                <p className="text-[10px] text-fg-subtle mt-0.5">{t('missionDetail.localitiesShort')}</p>
+                <p className="text-2xs text-fg-subtle mt-0.5">{t('missionDetail.localitiesShort')}</p>
               </div>
               <div className="bg-surface-2 rounded-xl p-3 text-center">
                 <p className="text-xl font-bold text-fg">{totalMethodes}</p>
-                <p className="text-[10px] text-fg-subtle mt-0.5">{t('missionDetail.methodsShort')}</p>
+                <p className="text-2xs text-fg-subtle mt-0.5">{t('missionDetail.methodsShort')}</p>
               </div>
             </div>
           </Card>
@@ -930,11 +942,11 @@ export default function MissionDetail() {
                   <div className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg bg-primary/5 border border-primary/10">
                     <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                       {mission.chefMission ? (
-                        <span className="text-[10px] font-bold text-primary">
+                        <span className="text-2xs font-bold text-primary">
                           {mission.chefMission.prenom?.[0]}{mission.chefMission.nom?.[0]}
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold text-primary">
+                        <span className="text-2xs font-bold text-primary">
                           {mission.chefMissionNom?.split(' ').map((w) => w[0]).slice(0, 2).join('')}
                         </span>
                       )}
@@ -945,7 +957,7 @@ export default function MissionDetail() {
                           ? `${mission.chefMission.prenom} ${mission.chefMission.nom}`
                           : mission.chefMissionNom}
                       </p>
-                      <p className="text-[10px] text-primary">
+                      <p className="text-2xs text-primary">
                         {t('missionDetail.missionLead')}{mission.chefMissionNom && !mission.chefMission ? t('missionDetail.externalSuffix') : ''}
                       </p>
                     </div>
@@ -954,13 +966,13 @@ export default function MissionDetail() {
                 {agents.map(a => (
                   <div key={a.id} className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg hover:bg-surface-2 transition-colors">
                     <div className="w-7 h-7 rounded-full bg-surface-3 flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-bold text-fg-muted">
+                      <span className="text-2xs font-bold text-fg-muted">
                         {a.prenom?.[0]}{a.nom?.[0]}
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-medium text-fg truncate">{a.prenom} {a.nom}</p>
-                      <p className="text-[10px] text-fg-subtle">{a.role ? roleLabel(a.role) : ''}</p>
+                      <p className="text-2xs text-fg-subtle">{a.role ? roleLabel(a.role) : ''}</p>
                     </div>
                   </div>
                 ))}

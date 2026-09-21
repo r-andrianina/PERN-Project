@@ -12,6 +12,7 @@ import MethodeFieldsForm from '../../components/MethodeFieldsForm';
 import AgentMultiSelect from '../../components/AgentMultiSelect';
 import { useApiQuery } from '../../hooks';
 import { useT, interpolate } from '../../lib/i18n';
+import { dateNuitPiegeFormatee } from '../../utils/methodeLabel';
 
 const defaultLocalite = () => ({
   nom: '', pays: 'Madagascar',
@@ -199,7 +200,9 @@ export default function NouvelleMission() {
     Promise.all([api.get('/projets'), api.get('/auth/users')])
       .then(([pRes, uRes]) => {
         setProjets(pRes.data.projets);
-        setUsers(uRes.data.actifs);
+        // Repli explicite : sans lui, une réponse inattendue poserait
+        // `undefined` dans l'état et le premier `.map` ferait tomber l'écran.
+        setUsers(uRes.data.actifs || []);
       }).catch(() => toast.error(t('nouvelleMission.loadRefsError')));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -527,7 +530,7 @@ export default function NouvelleMission() {
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     {interpolate(t('nouvelleMission.localityN'), { n: index + 1 })}{loc.nom ? ` — ${loc.nom}` : ''}
                   </p>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-info/10 text-info border border-info/20 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                  <span className="inline-flex items-center gap-1 text-2xs font-semibold bg-info/10 text-info border border-info/20 px-1.5 py-0.5 rounded-full flex-shrink-0">
                     <Beaker size={9} /> {loc.methodes?.length ?? 0} {t('nouvelleMission.methodCount')}
                   </span>
                 </div>
@@ -600,9 +603,10 @@ export default function NouvelleMission() {
                                 m.interieurExterieur === 'interieur' ? t('methodeForm.interieur') : m.interieurExterieur === 'exterieur' ? t('methodeForm.exterieur') : null,
                               ].filter(Boolean).join(' · ')}
                             </span>
-                            {m.datePose && (
+                            {/* Le RELEVÉ, pas la pose — cf. utils/methodeLabel.js */}
+                            {dateNuitPiegeFormatee(m, t('common.locale')) && (
                               <span className="text-fg-subtle whitespace-nowrap">
-                                {new Date(m.datePose).toLocaleDateString(t('common.locale'))}
+                                {dateNuitPiegeFormatee(m, t('common.locale'))}
                               </span>
                             )}
                             {!Number.isNaN(lat) && !Number.isNaN(lng) && (
@@ -666,20 +670,20 @@ export default function NouvelleMission() {
               </p>
               <div className="space-y-3">
                 <div>
-                  <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouvelleMission.ordreMission')}</p>
+                  <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouvelleMission.ordreMission')}</p>
                   <p className="text-sm font-mono font-bold text-primary">
                     {mission.ordreMission || <span className="text-fg-subtle font-normal italic">{t('nouvelleMission.undefined')}</span>}
                   </p>
                 </div>
                 {selectedProjet && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouvelleMission.projet')}</p>
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouvelleMission.projet')}</p>
                     <p className="text-xs font-medium text-fg">{selectedProjet.nom}{selectedProjet.porteur ? ` / ${selectedProjet.porteur}` : ''}</p>
                   </div>
                 )}
                 {(mission.dateDebut || mission.dateFin) && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Calendar size={9} /> {t('nouvelleMission.period')}</p>
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1"><Calendar size={9} /> {t('nouvelleMission.period')}</p>
                     <p className="text-xs text-fg">
                       {mission.dateDebut ? new Date(mission.dateDebut).toLocaleDateString(t('common.locale')) : '?'}
                       {' → '}
@@ -689,7 +693,7 @@ export default function NouvelleMission() {
                 )}
                 {chefLabel && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1">
                       <User size={9} /> {t('nouvelleMission.lead')}
                       {chefMode === 'externe' && <span className="ml-1 text-warning">{t('nouvelleMission.external')}</span>}
                     </p>
@@ -698,10 +702,10 @@ export default function NouvelleMission() {
                 )}
                 {selectedAgents.length > 0 && (
                   <div>
-                    <p className="text-[10px] text-fg-subtle uppercase tracking-wider mb-1.5">{interpolate(t('nouvelleMission.agentsCount'), { n: selectedAgents.length })}</p>
+                    <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-1.5">{interpolate(t('nouvelleMission.agentsCount'), { n: selectedAgents.length })}</p>
                     <div className="flex flex-wrap gap-1">
                       {selectedAgents.map((u) => (
-                        <span key={u.id} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                        <span key={u.id} className="text-2xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
                           {u.prenom} {u.nom?.[0]}.
                         </span>
                       ))}
@@ -719,9 +723,9 @@ export default function NouvelleMission() {
               <div className="space-y-1.5">
                 {localites.map((l, i) => (
                   <div key={i} className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg ${i === activeLocalite ? 'bg-primary/10 text-primary' : 'text-fg-muted'}`}>
-                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0">{i + 1}</span>
+                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-2xs font-bold flex-shrink-0">{i + 1}</span>
                     <span className="truncate">{l.nom || <span className="italic text-fg-subtle">{t('nouvelleMission.unnamed')}</span>}</span>
-                    {l.code && <span className="font-mono text-[10px] ml-auto">{l.code}</span>}
+                    {l.code && <span className="font-mono text-2xs ml-auto">{l.code}</span>}
                   </div>
                 ))}
               </div>
@@ -729,7 +733,7 @@ export default function NouvelleMission() {
 
             {/* Aide */}
             <div className="card p-4">
-              <p className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
+              <p className="text-xs text-fg-muted space-y-1.5 leading-relaxed">
                 <span className="block">• {t('nouvelleMission.helpOrdrePrefix')} <strong>{t('nouvelleMission.helpOrdreWord')}</strong> {t('nouvelleMission.helpOrdreSuffix')}</span>
                 <span className="block">• {t('nouvelleMission.helpCodePrefix')} <strong>{t('nouvelleMission.helpCodeWord')}</strong> {t('nouvelleMission.helpCodeSuffix')}</span>
                 <span className="block">• {t('nouvelleMission.helpMapPrefix')} <strong>{t('nouvelleMission.helpMapWord')}</strong> {t('nouvelleMission.helpMapSuffix')}</span>

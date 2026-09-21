@@ -7,6 +7,7 @@ const prisma = require('../config/prisma');
 const { logAudit, ACTIONS } = require('../utils/audit');
 const { UPLOADS_ROOT }      = require('../middlewares/upload.middleware');
 const { getAccessibleProjetIds, canBypass, projetScopeWhere, assertProjetAccessible } = require('../utils/access');
+const AppError = require('../utils/AppError');
 
 const SPECIMEN_MODELS = {
   moustique: 'moustique',
@@ -575,8 +576,98 @@ const uploadFichierRaw = async (req, res) => {
   return res.json({ message: 'Fichier raw uploadé', path: relativePath });
 };
 
+// =============================================================
+//  HISTORIQUE D'ANALYSES D'UN SPÉCIMEN
+// =============================================================
+
+/**
+ * Renvoie tout ce que le laboratoire a fait d'un spécimen donné.
+ *
+ * Deux chemins, et c'est tout l'intérêt de cet endpoint : une manipulation
+ * cible SOIT un spécimen individuel, SOIT un pool. Un moustique broyé dans un
+ * pool est donc analysé sans qu'aucune ligne ne porte son `specimenId` — le
+ * filtre `?specimenId=` de `listManipulations` ne le voit pas. Chercher
+ * seulement les manipulations directes donnerait « aucune analyse » sur un
+ * spécimen pourtant passé en PCR.
+ *
+ * Portée du résultat : un résultat de pool vaut pour le POOL, pas pour
+ * l'individu — un pool positif signifie « au moins un des N individus est
+ * positif ». Chaque entrée porte donc son `origine` pour que l'interface ne
+ * puisse pas présenter les deux comme équivalents.
+ */
+const getAnalysesSpecimen = async (req, res) => {
+  const { specimenType } = req.params;
+  const specimenId = parseInt(req.params.specimenId);
+
+  if (!SPECIMEN_MODELS[specimenType]) {
+    throw AppError.badRequest(
+      `Type de spécimen inconnu : « ${specimenType} ». Attendu : ${Object.keys(SPECIMEN_MODELS).join(', ')}.`,
+    );
+  }
+  if (!Number.isInteger(specimenId)) throw AppError.badRequest('Identifiant de spécimen invalide');
+  if (!(await specimenExists(specimenType, specimenId))) throw AppError.notFound('Spécimen introuvable');
+
+  // Cloisonnement projet : on le fait porter par le SPÉCIMEN une fois pour
+  // toutes. Inutile de le revérifier manipulation par manipulation — elles
+  // portent toutes sur ce même spécimen, directement ou via un de ses pools.
+  if (req.user && !canBypass(req.user.role)) {
+    const ids = await getAccessibleProjetIds(req.user.id, req.user.role);
+    assertProjetAccessible(await getSpecimenProjetId(specimenType, specimenId), ids);
+  }
+
+  const appartenances = await prisma.poolMembre.findMany({
+    where:  { specimenType, specimenId },
+    select: { poolId: true },
+  });
+  const poolIds = appartenances.map((m) => m.poolId);
+
+  const [directes, viaPools] = await Promise.all([
+    prisma.manipulationLabo.findMany({
+      where:   { specimenType, specimenId },
+      include: includeManip,
+      orderBy: { dateDebut: 'desc' },
+    }),
+    poolIds.length
+      ? prisma.manipulationLabo.findMany({
+          where:   { poolId: { in: poolIds } },
+          include: includeManip,
+          orderBy: { dateDebut: 'desc' },
+        })
+      : [],
+  ]);
+
+  const analyses = [
+    ...directes.map((m) => ({ ...m, origine: 'directe' })),
+    ...viaPools.map((m) => ({ ...m, origine: 'pool' })),
+  ].sort((a, b) => new Date(b.dateDebut) - new Date(a.dateDebut));
+
+  // Un résumé calculé côté serveur : les quatre pages de détail des spécimens
+  // afficheraient sinon la même logique, recopiée — exactement la duplication
+  // qu'on vient de retirer du frontend.
+  const pathogenes = new Map();
+  for (const m of analyses) {
+    for (const module of [m.pcr, m.qpcr, m.nestedPcr]) {
+      const cible = module?.pathogeneCible;
+      if (cible && !pathogenes.has(cible.id)) pathogenes.set(cible.id, { id: cible.id, code: cible.code, nom: cible.nom });
+    }
+  }
+
+  return res.json({
+    analyses,
+    resume: {
+      total:            analyses.length,
+      directes:         directes.length,
+      viaPools:         viaPools.length,
+      // `brut` = résultat saisi mais pas encore validé par un chercheur.
+      enAttenteValidation: analyses.filter((m) => m.statut === 'brut').length,
+      pathogenesRecherches: [...pathogenes.values()],
+    },
+  });
+};
+
 module.exports = {
   listManipulations, getManipulation, createManipulation, updateManipulation,
   validerManipulation, invaliderManipulation, deleteManipulation,
   uploadImage, uploadFichierRaw,
+  getAnalysesSpecimen,
 };

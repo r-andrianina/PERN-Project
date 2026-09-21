@@ -6,17 +6,24 @@ import { Card, Badge, PageHeader, Spinner, Select, Pagination, DataTable } from 
 import { useT, interpolate } from '../../lib/i18n';
 
 const ACTION_TONE = {
-  CREATE:     'success',
-  UPDATE:     'info',
-  DELETE:     'danger',
-  ACTIVATE:   'primary',
-  DEACTIVATE: 'default',
-  READ:       'default',
+  CREATE:       'success',
+  UPDATE:       'info',
+  DELETE:       'danger',
+  ACTIVATE:     'primary',
+  DEACTIVATE:   'default',
+  READ:         'default',
+  // Authentification. Une tentative échouée est un signal de sécurité : elle
+  // doit ressortir visuellement autant qu'une suppression.
+  LOGIN:        'primary',
+  LOGIN_FAILED: 'danger',
 };
 
 const ENTITIES = [
   '', 'Moustique', 'Tique', 'Puce', 'Localite', 'MethodeCollecte',
   'ImportMoustiques',
+  // Connexions et tentatives échouées. Cet écran est le SEUL endroit où elles
+  // sont consultables : elles sont exclues du centre de notifications.
+  'Auth',
   'TaxonomieSpecimen', 'TaxonomieHote',
   'TypeMethodeCollecte', 'SolutionConservation', 'TypeEnvironnement', 'TypeHabitat',
 ];
@@ -116,13 +123,13 @@ export default function AuditLogsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
         <div>
           <p className="font-semibold text-fg-muted mb-1.5">{t('auditLogsPage.before')}</p>
-          <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-[11px] text-fg-muted max-h-48">
+          <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-xs text-fg-muted max-h-48">
             {it.oldValues ? JSON.stringify(it.oldValues, null, 2) : '—'}
           </pre>
         </div>
         <div>
           <p className="font-semibold text-fg-muted mb-1.5">{t('auditLogsPage.after')}</p>
-          <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-[11px] text-fg-muted max-h-48">
+          <pre className="bg-surface p-2.5 rounded-xl border border-border overflow-auto text-xs text-fg-muted max-h-48">
             {it.newValues ? JSON.stringify(it.newValues, null, 2) : '—'}
           </pre>
         </div>

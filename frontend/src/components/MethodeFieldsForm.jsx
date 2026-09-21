@@ -201,7 +201,7 @@ export default function MethodeFieldsForm({ value, onChange, localiteCoords, exc
         {mapOpen ? (
           <>
             {legendTypes.length > 0 && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2 text-[10px] text-fg-subtle">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2 text-2xs text-fg-subtle">
                 <span className="flex items-center gap-1 font-medium"><MapPin size={10} /> {t('methodeForm.existingTraps')}</span>
                 {legendTypes.map(([code, color]) => (
                   <span key={code} className="flex items-center gap-1">
@@ -223,11 +223,11 @@ export default function MethodeFieldsForm({ value, onChange, localiteCoords, exc
             </div>
             <div className="grid grid-cols-3 gap-3 mt-3">
               <div>
-                <p className="text-[10px] text-fg-subtle uppercase tracking-wide mb-0.5">{t('localiteForm.latitude')}</p>
+                <p className="text-2xs text-fg-subtle uppercase tracking-wide mb-0.5">{t('localiteForm.latitude')}</p>
                 <p className="text-sm font-mono text-fg">{value.latitude || '—'}</p>
               </div>
               <div>
-                <p className="text-[10px] text-fg-subtle uppercase tracking-wide mb-0.5">{t('localiteForm.longitude')}</p>
+                <p className="text-2xs text-fg-subtle uppercase tracking-wide mb-0.5">{t('localiteForm.longitude')}</p>
                 <p className="text-sm font-mono text-fg">{value.longitude || '—'}</p>
               </div>
               <FormField label={t('localiteForm.altitude')} name="altitudeM" type="number"

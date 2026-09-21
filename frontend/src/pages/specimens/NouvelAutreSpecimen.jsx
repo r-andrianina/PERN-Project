@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { ChevronLeft, Bug, FlaskConical, FileText, Plus, Minus, Microscope, Tag } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from '../../lib/toast';
 import FormField from '../../components/FormField';
 import MethodeCascade from '../../components/MethodeCascade';
+import DateCollecteField from '../../components/DateCollecteField';
 import IdTerrainField from '../../components/IdTerrainField';
 import ContainerSelector from '../../components/ContainerSelector';
 import { useT } from '../../lib/i18n';
@@ -17,7 +19,7 @@ function SectionTitle({ icon: Icon, iconClass = 'text-primary', children, sub })
       </div>
       <div>
         <h2 className="text-sm font-bold text-fg tracking-tight">{children}</h2>
-        {sub && <p className="text-[11px] text-fg-subtle mt-0.5">{sub}</p>}
+        {sub && <p className="text-xs text-fg-subtle mt-0.5">{sub}</p>}
       </div>
     </div>
   );
@@ -61,11 +63,18 @@ export default function NouvelAutreSpecimen() {
   });
   const [attributs, setAttributs] = useState([{ cle: '', valeur: '' }]);
   const [missionId,  setMissionId]  = useState(null);
+  const [selectedMethode, setSelectedMethode] = useState(null);
   const [typesSpec,  setTypesSpec]  = useState([]);
   const [taxonomies, setTaxonomies] = useState([]);
   const [solutions,  setSolutions]  = useState([]);
   const [isLoading,  setIsLoading]  = useState(false);
   const [errors,     setErrors]     = useState({});
+  const [isDirty,    setIsDirty]    = useState(false);
+
+  // Garde contre la perte d'une saisie en cours. Elle n'existait que sur
+  // NouveauMoustique : les trois autres formulaires laissaient partir une
+  // fiche a moitie remplie sans un mot.
+  const desarmerGarde = useUnsavedChanges(isDirty);
 
   useEffect(() => {
     Promise.all([
@@ -83,6 +92,7 @@ export default function NouvelAutreSpecimen() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setErrors((p) => ({ ...p, [name]: null }));
+    setIsDirty(true);
     setForm((f) => ({ ...f, [name]: value }));
   };
 
@@ -124,6 +134,11 @@ export default function NouvelAutreSpecimen() {
         attributs:      Object.keys(attrsObj).length ? attrsObj : null,
       };
       await api.post('/autres-specimens', payload);
+      // Désarmement SYNCHRONE avant de quitter : setIsDirty(false) est une
+      // mise à jour d'état, elle ne serait pas encore appliquée quand useBlocker
+      // évalue la navigation — la garde se déclenchait donc APRÈS un
+      // enregistrement réussi (corrigé le 2026-09-21).
+      desarmerGarde();
       navigate('/specimens/autres');
     } catch (err) {
       setErrors({ submit: err.response?.data?.error || t('nouveauSpecimen.creationError') });
@@ -194,6 +209,7 @@ export default function NouvelAutreSpecimen() {
                     setForm((f) => ({ ...f, methodeId: id, containerId: '', position: '' }));
                   }}
                   onMissionChange={setMissionId}
+                  onMethodeObjectChange={setSelectedMethode}
                   error={errors.methodeId}
                 />
 
@@ -251,10 +267,7 @@ export default function NouvelAutreSpecimen() {
                   value={form.sexe} onChange={handleChange}
                   options={SEXE_OPTIONS}
                 />
-                <FormField
-                  label={t('nouveauSpecimen.dateCollecte')} name="dateCollecte" type="date"
-                  value={form.dateCollecte} onChange={handleChange}
-                />
+                <DateCollecteField methode={selectedMethode} value={form.dateCollecte} onChange={handleChange} />
               </div>
             </div>
 
@@ -367,7 +380,7 @@ export default function NouvelAutreSpecimen() {
               )}
             </button>
 
-            <p className="text-[11px] text-fg-subtle text-center leading-relaxed">
+            <p className="text-xs text-fg-subtle text-center leading-relaxed">
               {t('nouvelAutreSpecimen.idTerrainAutoHint')}<br />{t('nouvelAutreSpecimen.idTerrainAutoHint2')}
             </p>
           </div>

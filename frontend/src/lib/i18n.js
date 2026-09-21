@@ -2,6 +2,7 @@
 // Dictionnaire FR/EN + hook useT()
 // Usage : const t = useT(); t('nav.dashboard') → 'Tableau de bord' | 'Dashboard'
 
+import { useMemo } from 'react';
 import useLangStore from '../store/languageStore';
 
 export const translations = {
@@ -38,6 +39,9 @@ export const translations = {
       projets:   'Projets',
       pressEsc:  'Appuyez sur Échap pour fermer',
     },
+    unsavedChanges: {
+      confirmLeave: 'Vous avez des modifications non sauvegardées. Quitter quand même ?',
+    },
     common: {
       add:       'Ajouter',
       edit:      'Modifier',
@@ -45,6 +49,7 @@ export const translations = {
       save:      'Enregistrer',
       cancel:    'Annuler',
       loading:   'Chargement…',
+      notSet:    'non renseigné',
       logout:    'Déconnexion',
       export:    'Export',
       seeAll:    'Voir tout',
@@ -105,6 +110,7 @@ export const translations = {
       externalHint:  'Ou continuez à taper pour saisir un porteur externe (non utilisateur)',
     },
     agentMultiSelect: {
+      compteIntrouvable:  'Compte #{id} indisponible',
       defaultLabel:    'Agents de terrain',
       addAgent:        'Ajouter un agent',
       searchUser:      'Rechercher un utilisateur…',
@@ -306,7 +312,8 @@ export const translations = {
       loadUsersError:   'Impossible de charger les utilisateurs',
       searchByNameOrEmail: 'Rechercher par nom ou email…',
       noUserFound:      'Aucun utilisateur trouvé',
-      typeAtLeast2:      'Tapez au moins 2 caractères',
+      tousDejaMembres:   'Tous les comptes sont déjà membres de ce projet',
+      etNAutres:         'et {n} autre(s) — précisez la recherche',
       add:              'Ajouter',
       updateSuccess:    'Projet mis à jour avec succès.',
       saveError:        'Erreur lors de la sauvegarde',
@@ -448,6 +455,8 @@ export const translations = {
       conservation:     'Conservation',
       solutionConservation: 'Solution de conservation',
       dateCollecte:     'Date de collecte',
+      dateDeriveeNuitPiege: 'Déterminée par la nuit-piège de la méthode (matin de relevé)',
+      dateSansReleve:   'Cette méthode n’a pas de date de relevé — saisissez la date de collecte',
       notesObservations: 'Notes et observations',
       notesPlaceholder: 'Conditions de collecte, état du spécimen, observations particulières...',
       saving:           'Enregistrement…',
@@ -641,6 +650,30 @@ export const translations = {
       helpVernWord:     'nom vernaculaire',
       helpVernSuffix:   'est le nom local malgache.',
       helpLinked:       'Les tiques et puces collectées sur cet animal seront liées à cet hôte.',
+    },
+    analysesLabo: {
+      titre:                'Analyses de laboratoire',
+      nManipulations:       '{n} manipulation(s)',
+      creerManipulation:    'Créer une manipulation',
+      aucuneAnalyse:        'Aucune analyse de laboratoire pour ce spécimen',
+      colManipulation:      'Manipulation',
+      colDate:              'Date',
+      colPortee:            'Portée',
+      colResultat:          'Résultat',
+      colStatut:            'Statut',
+      porteeIndividuelle:   'Individuelle',
+      porteePoolIndividus:  '{n} individus',
+      analyseIndividuelle:  'Analyse individuelle',
+      // Un pool positif dit « au moins un des N » : la formulation doit rester
+      // explicite, c'est elle qui empêche de lire un résultat de groupe comme
+      // un résultat d'individu.
+      resultatDePool:       'Résultat de pool · au moins 1 des {n} individus',
+      enAttenteValidation:  '{n} résultat(s) en attente de validation',
+      nonConfirme:          'non confirmé par un chercheur',
+      resultat_positif:     'Positif',
+      resultat_negatif:     'Négatif',
+      resultat_inconclusif: 'Inconclusif',
+      ct:                   'Ct {v}',
     },
     laboPage: {
       title:            'Laboratoire',
@@ -1636,7 +1669,6 @@ export const translations = {
       solution:         'Solution',
       container:        'Container',
       position:         'Position',
-      createLaboManip:  'Créer une manipulation labo',
     },
     autresSpecimensPage: {
       title:            'Autres spécimens',
@@ -1989,6 +2021,9 @@ export const translations = {
       projets:   'Projects',
       pressEsc:  'Press Escape to close',
     },
+    unsavedChanges: {
+      confirmLeave: 'You have unsaved changes. Leave anyway?',
+    },
     common: {
       add:       'Add',
       edit:      'Edit',
@@ -1996,6 +2031,7 @@ export const translations = {
       save:      'Save',
       cancel:    'Cancel',
       loading:   'Loading…',
+      notSet:    'not recorded',
       logout:    'Logout',
       export:    'Export',
       seeAll:    'See all',
@@ -2056,6 +2092,7 @@ export const translations = {
       externalHint:  'Or keep typing to enter an external carrier (not a user)',
     },
     agentMultiSelect: {
+      compteIntrouvable:  'Account #{id} unavailable',
       defaultLabel:    'Field agents',
       addAgent:        'Add an agent',
       searchUser:      'Search a user…',
@@ -2257,7 +2294,8 @@ export const translations = {
       loadUsersError:   'Unable to load users',
       searchByNameOrEmail: 'Search by name or email…',
       noUserFound:      'No user found',
-      typeAtLeast2:      'Type at least 2 characters',
+      tousDejaMembres:   'Every account is already a member of this project',
+      etNAutres:         'and {n} more — narrow the search',
       add:              'Add',
       updateSuccess:    'Project updated successfully.',
       saveError:        'Error while saving',
@@ -2399,6 +2437,8 @@ export const translations = {
       conservation:     'Conservation',
       solutionConservation: 'Conservation solution',
       dateCollecte:     'Collection date',
+      dateDeriveeNuitPiege: 'Set by the method’s trap-night (morning of collection)',
+      dateSansReleve:   'This method has no collection date — enter it manually',
       notesObservations: 'Notes and observations',
       notesPlaceholder: 'Collection conditions, specimen condition, specific observations...',
       saving:           'Saving…',
@@ -2592,6 +2632,27 @@ export const translations = {
       helpVernWord:     'vernacular name',
       helpVernSuffix:   'is the local Malagasy name.',
       helpLinked:       'Ticks and fleas collected on this animal will be linked to this host.',
+    },
+    analysesLabo: {
+      titre:                'Laboratory analyses',
+      nManipulations:       '{n} manipulation(s)',
+      creerManipulation:    'New manipulation',
+      aucuneAnalyse:        'No laboratory analysis for this specimen',
+      colManipulation:      'Manipulation',
+      colDate:              'Date',
+      colPortee:            'Scope',
+      colResultat:          'Result',
+      colStatut:            'Status',
+      porteeIndividuelle:   'Individual',
+      porteePoolIndividus:  '{n} individuals',
+      analyseIndividuelle:  'Individual analysis',
+      resultatDePool:       'Pool result · at least 1 of {n} individuals',
+      enAttenteValidation:  '{n} result(s) awaiting validation',
+      nonConfirme:          'not confirmed by a researcher',
+      resultat_positif:     'Positive',
+      resultat_negatif:     'Negative',
+      resultat_inconclusif: 'Inconclusive',
+      ct:                   'Ct {v}',
     },
     laboPage: {
       title:            'Laboratory',
@@ -3587,7 +3648,6 @@ export const translations = {
       solution:         'Solution',
       container:        'Container',
       position:         'Position',
-      createLaboManip:  'Create a lab procedure',
     },
     autresSpecimensPage: {
       title:            'Other specimens',
@@ -3910,14 +3970,33 @@ export const translations = {
 };
 
 // Hook principal
+/**
+ * Fonction de traduction, MÉMOÏSÉE sur la langue (2026-09-18).
+ *
+ * Elle renvoyait une nouvelle fonction à chaque rendu. `t` apparaissant dans
+ * 28 tableaux de dépendances répartis sur 18 fichiers, tous étaient invalidés
+ * à chaque rendu — les `useCallback` ne mémoïsaient plus rien, et surtout les
+ * `useEffect` se démontaient et se remontaient en continu.
+ *
+ * Le cas grave était l'effet SSE de NotificationBell : ses trois gestionnaires
+ * dépendent de `t`, donc l'effet se rejouait à chaque rendu. Chaque passage
+ * fermait la connexion EventSource, en ouvrait une neuve et rappelait
+ * /notifications — ce qui posait de l'état, donc provoquait un rendu, donc un
+ * nouveau passage. Les journaux du serveur montraient une dizaine
+ * d'ouvertures de flux et quinze appels par seconde, en boucle, et cela pour
+ * CHAQUE onglet ouvert.
+ *
+ * `useMemo` et non `useCallback` : la valeur retournée est la fonction
+ * elle-même, pas un rappel passé à un enfant. Elle ne capture que `lang`.
+ */
 export function useT() {
   const { lang } = useLangStore();
-  return (key) => {
+  return useMemo(() => (key) => {
     const parts = key.split('.');
     let val = translations[lang] ?? translations.en;
     for (const part of parts) val = val?.[part];
     return val ?? key;
-  };
+  }, [lang]);
 }
 
 // Utilitaire hors composant (pour les modules non-React)

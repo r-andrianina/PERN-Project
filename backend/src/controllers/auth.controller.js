@@ -6,6 +6,7 @@ const prisma     = require('../config/prisma');
 const sseManager = require('../utils/sseManager');
 const { logAudit, ACTIONS } = require('../utils/audit');
 const { invalidateSpecimenCache, invalidateUserStatus } = require('../middlewares/auth.middleware');
+const { ROLE_ORDER } = require('../config/rbac');
 
 const USER_SELECT = {
   id: true, nom: true, prenom: true, email: true,
@@ -57,18 +58,78 @@ const register = async (req, res) => {
 //  LOGIN
 // =============================================================
 
+// Entité sous laquelle vivent les événements d'authentification. Elle est
+// EXCLUE du centre de notifications (cf. notifications.controller.js) : une
+// connexion n'est pas de l'activité à diffuser aux collègues, et sans cette
+// exclusion le flux serait noyé sous une ligne par personne et par jour.
+const ENTITE_AUTH = 'Auth';
+
+// `audit_logs.entity_id` est NOT NULL. Une tentative sur un email inconnu ne
+// désigne aucun utilisateur : on pose 0, qui ne peut correspondre à aucun id
+// (la séquence PostgreSQL commence à 1).
+const AUCUN_UTILISATEUR = 0;
+
+/**
+ * Journalise une tentative de connexion échouée.
+ *
+ * Le `motif` distingue en interne des cas que la RÉPONSE HTTP confond
+ * volontairement : l'API renvoie le même « Email ou mot de passe incorrect »
+ * pour un email inconnu et un mot de passe faux, afin de ne pas révéler
+ * quels comptes existent. Le journal, lui, est réservé aux admins
+ * (`/dictionnaire/audit-logs`) et peut faire la différence — c'est
+ * précisément ce qui permet de distinguer un utilisateur qui se trompe de
+ * mot de passe d'un balayage d'adresses.
+ *
+ * Le mot de passe soumis n'est JAMAIS journalisé, même haché.
+ *
+ * Volume borné par `loginLimiter` (5 tentatives / 15 min, les connexions
+ * réussies ne consomment pas le quota) : un balayage ne peut pas gonfler
+ * `audit_logs` indéfiniment.
+ */
+const logTentative = (req, userId, email, motif) =>
+  logAudit({
+    req,
+    action:    ACTIONS.LOGIN_FAILED,
+    entity:    ENTITE_AUTH,
+    entityId:  userId ?? AUCUN_UTILISATEUR,
+    userId,                       // absent de req.user : aucun token à ce stade
+    newValues: { email, motif },
+    notify:    false,             // sécurité, pas activité — cf. ENTITE_AUTH
+  });
+
 const login = async (req, res) => {
   // req.body déjà validé (email/password requis, email en minuscules) par Zod
   const { email, password } = req.body;
 
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user)      return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
-  if (!user.actif) return res.status(403).json({ error: 'Votre compte est en attente de validation par un administrateur.' });
+  if (!user) {
+    await logTentative(req, null, email, 'EMAIL_INCONNU');
+    return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+  }
+  if (!user.actif) {
+    await logTentative(req, user.id, email, 'COMPTE_INACTIF');
+    return res.status(403).json({ error: 'Votre compte est en attente de validation par un administrateur.' });
+  }
 
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+  if (!ok) {
+    await logTentative(req, user.id, email, 'MOT_DE_PASSE_INVALIDE');
+    return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+  }
 
   const token = signToken(user);
+
+  // Connexion réussie. `logAudit` avale ses propres erreurs : l'audit ne doit
+  // jamais empêcher un utilisateur légitime de se connecter.
+  await logAudit({
+    req,
+    action:    ACTIONS.LOGIN,
+    entity:    ENTITE_AUTH,
+    entityId:  user.id,
+    userId:    user.id,           // absent de req.user : aucun token à ce stade
+    newValues: { email: user.email, role: user.role },
+    notify:    false,             // sécurité, pas activité — cf. ENTITE_AUTH
+  });
 
   return res.json({
     message: 'Connexion réussie',
@@ -98,15 +159,96 @@ const me = async (req, res) => {
 //  LIST USERS
 // =============================================================
 
+const TRI_UTILISATEURS = [{ actif: 'asc' }, { createdAt: 'desc' }];
+
+/**
+ * Liste des comptes — paginée À LA DEMANDE.
+ *
+ * Deux formes de réponse, et c'est délibéré (2026-09-16) : cette route sert
+ * DEUX besoins opposés.
+ *
+ *   sans `page`  → forme historique { total, en_attente, actifs }.
+ *     Cinq écrans l'utilisent pour remplir une liste déroulante (ajout d'agents
+ *     à une mission, de membres à un projet) et ont besoin de TOUS les comptes
+ *     actifs. Paginer par défaut les aurait cassés en silence : ils auraient
+ *     affiché les 25 premiers sans que rien ne signale les autres.
+ *
+ *   avec `page`  → { items, total, page, pages, limit, compteurs, en_attente }.
+ *     La page d'administration, qui filtre et pagine.
+ *
+ * `compteurs` porte sur TOUTE la base, indépendamment des filtres : ce sont les
+ * cartes de statistiques en tête de page, elles doivent rester stables quand on
+ * tape dans la recherche.
+ *
+ * `en_attente` reste une liste COMPLÈTE et non paginée, même en mode paginé :
+ * c'est une file d'action qu'un admin doit vider, pas un catalogue à parcourir.
+ * Elle est bornée par construction — un compte en attente ne le reste pas.
+ */
 const listUsers = async (req, res) => {
-  const users = await prisma.user.findMany({
-    select: USER_SELECT,
-    orderBy: [{ actif: 'asc' }, { createdAt: 'desc' }],
-  });
+  const { page, limit, search, role, statut } = req.query;
+
+  if (page === undefined) {
+    const users = await prisma.user.findMany({ select: USER_SELECT, orderBy: TRI_UTILISATEURS });
+    return res.json({
+      total:      users.length,
+      en_attente: users.filter(u => !u.actif),
+      actifs:     users.filter(u => u.actif),
+    });
+  }
+
+  // Une valeur absurde est traitée comme ABSENTE, pas ramenée à la borne la
+  // plus proche : `limit=-5` ramené à 1 renverrait une page d'un seul compte,
+  // ce qui ressemble à une perte de données. Le défaut est plus lisible.
+  const pageBrut  = parseInt(page, 10);
+  const limitBrut = parseInt(limit, 10);
+  const p = Number.isInteger(pageBrut)  && pageBrut  > 0 ? pageBrut : 1;
+  const l = Number.isInteger(limitBrut) && limitBrut > 0 ? Math.min(200, limitBrut) : 25;
+
+  const where = {};
+  if (statut === 'actifs')  where.actif = true;
+  if (statut === 'attente') where.actif = false;
+  // Un rôle inconnu est IGNORÉ plutôt que transmis à Prisma, qui lèverait sur
+  // une valeur hors énumération — une faute de frappe dans l'URL ne doit pas
+  // produire un 500.
+  if (role && ROLE_ORDER.includes(role)) where.role = role;
+  if (search && search.trim()) {
+    const s = search.trim();
+    where.OR = [
+      { nom:    { contains: s, mode: 'insensitive' } },
+      { prenom: { contains: s, mode: 'insensitive' } },
+      { email:  { contains: s, mode: 'insensitive' } },
+    ];
+  }
+
+  const [items, total, parRole, parStatut, enAttente] = await Promise.all([
+    prisma.user.findMany({ where, select: USER_SELECT, orderBy: TRI_UTILISATEURS, skip: (p - 1) * l, take: l }),
+    prisma.user.count({ where }),
+    prisma.user.groupBy({ by: ['role'],  _count: { _all: true } }),
+    prisma.user.groupBy({ by: ['actif'], _count: { _all: true } }),
+    prisma.user.findMany({ where: { actif: false }, select: USER_SELECT, orderBy: { createdAt: 'desc' } }),
+  ]);
+
+  const nombreParRole = Object.fromEntries(parRole.map(r => [r.role, r._count._all]));
+  const actifs        = parStatut.find(s => s.actif === true)?._count._all  ?? 0;
+  const inactifs      = parStatut.find(s => s.actif === false)?._count._all ?? 0;
+
   return res.json({
-    total:      users.length,
-    en_attente: users.filter(u => !u.actif),
-    actifs:     users.filter(u => u.actif),
+    items,
+    total,
+    page:  p,
+    limit: l,
+    pages: Math.max(1, Math.ceil(total / l)),
+    compteurs: {
+      total:        actifs + inactifs,
+      actifs,
+      enAttente:    inactifs,
+      admins:       nombreParRole.admin       ?? 0,
+      superviseurs: nombreParRole.superviseur ?? 0,
+      chercheurs:   nombreParRole.chercheur   ?? 0,
+      techniciens:  nombreParRole.technicien  ?? 0,
+      lecteurs:     nombreParRole.lecteur     ?? 0,
+    },
+    en_attente: enAttente,
   });
 };
 
@@ -177,6 +319,18 @@ const activateUser = async (req, res) => {
 
   if (id === req.user.id && actif === false)
     return res.status(400).json({ error: 'Vous ne pouvez pas désactiver votre propre compte' });
+
+  // Même garde que updateUser (2026-09-16) : cette route accepte aussi un rôle,
+  // et rien n'empêchait un admin de se rétrograder par ici. Ce n'est pas une
+  // escalade — on ne peut que descendre — mais un VERROUILLAGE : le dernier
+  // admin qui perd ses droits laisse l'institut sans administration, et la
+  // récupération passe par un accès direct à la base.
+  //
+  // L'interface désactive déjà le sélecteur de rôle sur sa propre ligne, mais
+  // c'était la SEULE protection : un invariant de ce genre n'appartient pas au
+  // client.
+  if (id === req.user.id && role && role !== req.user.role)
+    return res.status(400).json({ error: 'Vous ne pouvez pas modifier votre propre rôle' });
 
   const data = {};
   if (typeof actif === 'boolean') data.actif = actif;

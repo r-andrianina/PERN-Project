@@ -194,7 +194,7 @@ function NotifItem({ item, onRead, onNavigate }) {
           <Badge tone={ACTION_TONE[item.action] ?? 'default'} size="xs">
             {actionLabel[item.action] ?? item.action}
           </Badge>
-          <span className="flex items-center gap-1 text-[10px] text-fg-subtle">
+          <span className="flex items-center gap-1 text-2xs text-fg-subtle">
             <Clock size={9} />
             {formatRelativeDate(item.createdAt)}
           </span>
@@ -213,7 +213,7 @@ function NotifItem({ item, onRead, onNavigate }) {
 function DateDivider({ label }) {
   return (
     <div className="flex items-center gap-3 px-5 py-2 bg-surface-2/60 border-b border-border sticky top-0 z-10 backdrop-blur-sm">
-      <span className="text-[11px] font-semibold text-fg-subtle uppercase tracking-widest">{label}</span>
+      <span className="text-xs font-semibold text-fg-subtle uppercase tracking-widest">{label}</span>
     </div>
   );
 }
@@ -267,7 +267,7 @@ function StatsPanel({ items, loading }) {
 
       {topActions.length > 0 && (
         <div className="card p-4">
-          <h3 className="flex items-center gap-2 text-[11px] font-semibold text-fg-subtle uppercase tracking-wider mb-4">
+          <h3 className="flex items-center gap-2 text-xs font-semibold text-fg-subtle uppercase tracking-wider mb-4">
             <Layers size={12} />
             {t('notificationsPage.byAction')}
           </h3>
@@ -297,7 +297,7 @@ function StatsPanel({ items, loading }) {
 
       {topEntities.length > 0 && (
         <div className="card p-4">
-          <h3 className="flex items-center gap-2 text-[11px] font-semibold text-fg-subtle uppercase tracking-wider mb-4">
+          <h3 className="flex items-center gap-2 text-xs font-semibold text-fg-subtle uppercase tracking-wider mb-4">
             <Inbox size={12} />
             {t('notificationsPage.concernedEntities')}
           </h3>
@@ -314,7 +314,7 @@ function StatsPanel({ items, loading }) {
 
       {topActors.length > 0 && (
         <div className="card p-4">
-          <h3 className="flex items-center gap-2 text-[11px] font-semibold text-fg-subtle uppercase tracking-wider mb-4">
+          <h3 className="flex items-center gap-2 text-xs font-semibold text-fg-subtle uppercase tracking-wider mb-4">
             <Users size={12} />
             {t('notificationsPage.actors')}
           </h3>
@@ -326,7 +326,7 @@ function StatsPanel({ items, loading }) {
                   <p className="text-xs font-medium text-fg truncate">
                     {user.prenom} {user.nom}
                   </p>
-                  <p className="text-[10px] text-fg-subtle">
+                  <p className="text-2xs text-fg-subtle">
                     {count} {t('notificationsPage.actionSuffix')}{count > 1 ? 's' : ''}
                   </p>
                 </div>
@@ -477,7 +477,7 @@ export default function NotificationsPage() {
                 >
                   {tab.label}
                   {tab.count !== undefined && tab.count > 0 && (
-                    <span className={`text-[10px] px-1.5 py-px rounded-full font-bold ${
+                    <span className={`text-2xs px-1.5 py-px rounded-full font-bold ${
                       readFilter === tab.key ? 'bg-primary/10 text-primary' : 'bg-surface-3 text-fg-muted'
                     }`}>
                       {tab.count > 99 ? '99+' : tab.count}

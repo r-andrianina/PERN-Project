@@ -307,7 +307,7 @@ export default function GlobalSearch() {
                 <X size={14} />
               </button>
             )}
-            <kbd className="hidden sm:inline text-[10px] text-fg-subtle bg-surface-2 border border-border rounded px-1.5 py-0.5">Esc</kbd>
+            <kbd className="hidden sm:inline text-2xs text-fg-subtle bg-surface-2 border border-border rounded px-1.5 py-0.5">Esc</kbd>
           </div>
         </div>
 
@@ -328,7 +328,7 @@ export default function GlobalSearch() {
             {/* Spécimens */}
             {results.specimens.length > 0 && (
               <section>
-                <p className="px-4 py-1.5 text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">
+                <p className="px-4 py-1.5 text-2xs font-semibold text-fg-subtle uppercase tracking-wider">
                   {t('topbar.specimens')}
                 </p>
                 {results.specimens.map((s, i) => {
@@ -347,7 +347,7 @@ export default function GlobalSearch() {
                           <Highlight text={s.idTerrain || `#${s.id}`} query={query} /> · <Highlight text={s.methode?.localite?.nom || '—'} query={query} />
                         </p>
                       </div>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0"
+                      <span className="text-2xs font-semibold px-2 py-0.5 rounded-full border flex-shrink-0"
                         style={{ color: TYPE_TONE[s._type], borderColor: `${TYPE_TONE[s._type]}40`, background: `${TYPE_TONE[s._type]}12` }}>
                         {t(`globalSearch.typeLabel.${s._type}`)}
                       </span>
@@ -360,7 +360,7 @@ export default function GlobalSearch() {
             {/* Missions */}
             {results.missions.length > 0 && (
               <section>
-                <p className="px-4 py-1.5 text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">
+                <p className="px-4 py-1.5 text-2xs font-semibold text-fg-subtle uppercase tracking-wider">
                   {t('topbar.missions')}
                 </p>
                 {results.missions.map((m, i) => {
@@ -383,7 +383,7 @@ export default function GlobalSearch() {
             {/* Projets */}
             {results.projets.length > 0 && (
               <section>
-                <p className="px-4 py-1.5 text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">
+                <p className="px-4 py-1.5 text-2xs font-semibold text-fg-subtle uppercase tracking-wider">
                   {t('topbar.projets')}
                 </p>
                 {results.projets.map((p, i) => {
@@ -397,7 +397,7 @@ export default function GlobalSearch() {
                         <p className="text-sm font-medium text-fg truncate"><Highlight text={p.nom} query={query} /></p>
                         <p className="text-xs text-fg-subtle truncate font-mono"><Highlight text={p.code} query={query} /></p>
                       </div>
-                      <span className="text-[10px] text-fg-subtle flex-shrink-0">
+                      <span className="text-2xs text-fg-subtle flex-shrink-0">
                         {['actif', 'termine', 'suspendu'].includes(p.statut) ? t(`globalSearch.statutProjet.${p.statut}`) : p.statut}
                       </span>
                     </button>
@@ -422,11 +422,11 @@ export default function GlobalSearch() {
         {!query.trim() && history.length > 0 && (
           <div className="py-2">
             <div className="flex items-center justify-between px-4 py-1.5">
-              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">{t('globalSearch.recent')}</p>
+              <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider">{t('globalSearch.recent')}</p>
               <button
                 type="button"
                 onClick={clearHistory}
-                className="text-[10px] text-fg-subtle hover:text-danger transition-colors"
+                className="text-2xs text-fg-subtle hover:text-danger transition-colors"
               >
                 {t('globalSearch.clearAll')}
               </button>
@@ -456,7 +456,7 @@ export default function GlobalSearch() {
 
         {/* Hint clavier */}
         {!hasResults && !showEmpty && (
-          <div className={`flex items-center justify-center gap-4 px-4 text-[11px] text-fg-subtle ${!query.trim() && history.length > 0 ? 'pb-3 pt-1 border-t border-border' : 'py-4'}`}>
+          <div className={`flex items-center justify-center gap-4 px-4 text-xs text-fg-subtle ${!query.trim() && history.length > 0 ? 'pb-3 pt-1 border-t border-border' : 'py-4'}`}>
             <span><kbd className="bg-surface-2 border border-border rounded px-1">↑↓</kbd> {t('globalSearch.navigate')}</span>
             <span><kbd className="bg-surface-2 border border-border rounded px-1">↵</kbd> {t('globalSearch.open')}</span>
             <span><kbd className="bg-surface-2 border border-border rounded px-1">Esc</kbd> {t('common.close')}</span>

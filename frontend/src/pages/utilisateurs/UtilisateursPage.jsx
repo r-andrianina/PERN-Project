@@ -313,41 +313,52 @@ export default function UtilisateursPage() {
   const [page,        setPage]        = useState(1);
   const [limit,       setLimit]       = useState(25);
 
+  // Pagination, recherche et filtres sont désormais faits par le serveur
+  // (2026-09-16). La page chargeait auparavant TOUS les comptes et les
+  // découpait en mémoire.
+  //
+  // `stats` et `pending` ne se déduisent donc plus de la liste affichée : le
+  // serveur les renvoie à part. `compteurs` porte sur toute la base, hors
+  // filtres — les cartes de statistiques doivent rester stables quand on tape
+  // dans la recherche. `en_attente` reste complet : c'est une file d'action à
+  // vider, pas un catalogue à parcourir.
+  const [debounced, setDebounced] = useState('');
+  const [stats,     setStats]     = useState({ total: 0, actifs: 0, enAttente: 0, admins: 0, superviseurs: 0, chercheurs: 0 });
+  const [pending,   setPending]   = useState([]);
+  const [total,     setTotal]     = useState(0);
+  const [pageCount, setPageCount] = useState(1);
+
+  // La recherche part au serveur : sans délai, chaque frappe ferait une
+  // requête. Même temporisation que les listes de spécimens.
+  useEffect(() => {
+    const tid = setTimeout(() => { setDebounced(search); setPage(1); }, 300);
+    return () => clearTimeout(tid);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [filterRole, filterActif]);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await api.get('/auth/users');
-      setUsers([...r.data.actifs, ...r.data.en_attente]);
+      const r = await api.get('/auth/users', {
+        params: {
+          page,
+          limit,
+          search: debounced  || undefined,
+          role:   filterRole || undefined,
+          statut: filterActif || undefined,
+        },
+      });
+      setUsers(r.data.items);
+      setStats(r.data.compteurs);
+      setPending(r.data.en_attente);
+      setTotal(r.data.total);
+      setPageCount(r.data.pages);
     } finally { setLoading(false); }
-  }, []);
+  }, [page, limit, debounced, filterRole, filterActif]);
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Réinitialiser la page sur changement de filtre
-  useEffect(() => { setPage(1); }, [search, filterRole, filterActif]);
-
-  const stats = {
-    total:        users.length,
-    actifs:       users.filter((u) => u.actif).length,
-    enAttente:    users.filter((u) => !u.actif).length,
-    admins:       users.filter((u) => u.role === 'admin').length,
-    superviseurs: users.filter((u) => u.role === 'superviseur').length,
-    chercheurs:   users.filter((u) => u.role === 'chercheur').length,
-  };
-  const pending = users.filter((u) => !u.actif);
-
-  const filtered = users.filter((u) => {
-    if (filterActif === 'actifs'  && !u.actif)  return false;
-    if (filterActif === 'attente' &&  u.actif)   return false;
-    if (filterRole && u.role !== filterRole)      return false;
-    if (search) {
-      const s = search.toLowerCase();
-      return `${u.prenom} ${u.nom} ${u.email}`.toLowerCase().includes(s);
-    }
-    return true;
-  });
-
-  const pageCount = Math.ceil(filtered.length / limit) || 1;
-  const paged     = filtered.slice((page - 1) * limit, page * limit);
+  const paged = users;
 
   const toggleActif = useCallback(async (u) => {
     try { await api.patch(`/auth/users/${u.id}/activate`, { actif: !u.actif }); refresh(); }
@@ -383,7 +394,7 @@ export default function UtilisateursPage() {
             <p className="font-semibold text-fg text-sm">
               {u.prenom} {u.nom}
               {u.id === me?.id && (
-                <span className="ml-2 text-[10px] bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded-full font-medium">{t('utilisateursPage.youBadge')}</span>
+                <span className="ml-2 text-2xs bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded-full font-medium">{t('utilisateursPage.youBadge')}</span>
               )}
             </p>
           </div>
@@ -428,7 +439,7 @@ export default function UtilisateursPage() {
             <span className="text-xs text-danger">{t('utilisateursPage.noSpecimens')}</span>
           ) : (
             (u.specimensAutorises || []).map(s => (
-              <span key={s} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${specimens.find(x => x.value === s)?.color || ''}`}>
+              <span key={s} className={`text-2xs font-semibold px-2 py-0.5 rounded-full border ${specimens.find(x => x.value === s)?.color || ''}`}>
                 {specimens.find(x => x.value === s)?.label ?? s}
               </span>
             ))
@@ -598,7 +609,7 @@ export default function UtilisateursPage() {
         <Select value={filterActif} onChange={setFilterActif} wrapperClassName="w-44 flex-shrink-0"
           options={[{ value: '', label: t('utilisateursPage.allStatuses') }, { value: 'actifs', label: t('utilisateursPage.actifsOnly') }, { value: 'attente', label: t('utilisateursPage.enAttente') }]}
         />
-        <span className="text-xs text-fg-subtle ml-auto">{interpolate(t('utilisateursPage.usersCount'), { n: filtered.length })}</span>
+        <span className="text-xs text-fg-subtle ml-auto">{interpolate(t('utilisateursPage.usersCount'), { n: total })}</span>
       </div>
 
       {/* Table principale */}
@@ -614,7 +625,7 @@ export default function UtilisateursPage() {
           empty={<span className="text-fg-subtle text-sm">{t('utilisateursPage.noUserFound')}</span>}
         />
         <Pagination
-          page={page} pages={pageCount} total={filtered.length} limit={limit}
+          page={page} pages={pageCount} total={total} limit={limit}
           onChange={setPage}
           onLimitChange={(n) => { setLimit(n); setPage(1); }}
         />

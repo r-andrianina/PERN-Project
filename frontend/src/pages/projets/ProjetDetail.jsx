@@ -44,36 +44,50 @@ function MiniBar({ value, max, colorClass = 'bg-primary' }) {
 }
 
 // ── Modal ajout de membre ──────────────────────────────────────
+
+// Plafond d'affichage. Il existait déjà, mais tronquait EN SILENCE : au-delà
+// de huit candidats, les suivants disparaissaient sans que rien ne l'indique.
+// Le reste est désormais annoncé sous la liste.
+const MAX_RESULTATS = 8;
+
 function AddMembreModal({ projetId, currentMembres, onClose, onAdded }) {
   const t = useT();
   const [query,    setQuery]    = useState('');
   const [users,    setUsers]    = useState([]);
-  const [loading,  setLoading]  = useState(false);
+  const [loading,  setLoading]  = useState(true);
   const [adding,   setAdding]   = useState(null);
   const [error,    setError]    = useState(null);
 
+  // Le catalogue des comptes est chargé UNE SEULE FOIS, à l'ouverture de la
+  // modale (2026-09-18). Chaque frappe relançait auparavant un GET /auth/users
+  // complet — toute la table des comptes retraversait le réseau pour un
+  // filtrage que le navigateur faisait ensuite lui-même, en mémoire.
   useEffect(() => {
-    let cancelled = false;
-    const search = async () => {
-      if (query.length < 2) { setUsers([]); return; }
-      setLoading(true);
-      try {
-        const r = await api.get('/auth/users');
-        const all = [...(r.data.actifs || []), ...(r.data.en_attente || [])];
-        const q = query.toLowerCase();
-        const currentIds = new Set(currentMembres.map(m => m.userId));
-        if (!cancelled) setUsers(
-          all.filter(u =>
-            !currentIds.has(u.id) &&
-            `${u.prenom} ${u.nom} ${u.email}`.toLowerCase().includes(q)
-          ).slice(0, 8)
-        );
-      } catch { if (!cancelled) setError(t('projetDetail.loadUsersError')); }
-      finally { if (!cancelled) setLoading(false); }
-    };
-    const tid = setTimeout(search, 250);
-    return () => { cancelled = true; clearTimeout(tid); };
-  }, [query, currentMembres, t]);
+    let annule = false;
+    api.get('/auth/users')
+      .then((r) => { if (!annule) setUsers([...(r.data.actifs || []), ...(r.data.en_attente || [])]); })
+      .catch(() => { if (!annule) setError(t('projetDetail.loadUsersError')); })
+      .finally(() => { if (!annule) setLoading(false); });
+    return () => { annule = true; };
+  }, [t]);
+
+  // Filtrage local, donc instantané — plus de temporisation à attendre.
+  //
+  // Le seuil de deux caractères a disparu : il n'affichait RIEN avant qu'on
+  // tape, ce qui obligeait à deviner un nom. L'institut compte trois comptes —
+  // la liste des candidats est plus courte que la phrase qui demandait de la
+  // chercher. La recherche reste là pour le jour où ils seront cinquante.
+  const disponibles = useMemo(() => {
+    const dejaMembres = new Set(currentMembres.map((m) => m.userId));
+    const q = query.trim().toLowerCase();
+    return users.filter((u) =>
+      !dejaMembres.has(u.id)
+      && (!q || `${u.prenom} ${u.nom} ${u.email}`.toLowerCase().includes(q))
+    );
+  }, [users, currentMembres, query]);
+
+  const affiches = disponibles.slice(0, MAX_RESULTATS);
+  const restants = disponibles.length - affiches.length;
 
   const addMembre = async (userId) => {
     setAdding(userId); setError(null);
@@ -109,13 +123,16 @@ function AddMembreModal({ projetId, currentMembres, onClose, onAdded }) {
           </div>
           <div className="max-h-52 overflow-y-auto divide-y divide-border rounded-xl border border-border">
             {loading && <p className="text-xs text-fg-subtle text-center py-4"><Loader2 size={14} className="animate-spin inline mr-1" />{t('common.loading')}</p>}
-            {!loading && query.length >= 2 && users.length === 0 && (
-              <p className="text-xs text-fg-subtle text-center py-4">{t('projetDetail.noUserFound')}</p>
+            {!loading && disponibles.length === 0 && (
+              <p className="text-xs text-fg-subtle text-center py-4">
+                {/* Deux causes bien distinctes pour une liste vide : la
+                    recherche ne donne rien, ou il n'y a plus personne à
+                    ajouter. Les confondre laissait croire à une recherche
+                    infructueuse alors que le projet avait déjà tout le monde. */}
+                {query.trim() ? t('projetDetail.noUserFound') : t('projetDetail.tousDejaMembres')}
+              </p>
             )}
-            {!loading && query.length < 2 && (
-              <p className="text-xs text-fg-subtle text-center py-4">{t('projetDetail.typeAtLeast2')}</p>
-            )}
-            {users.map(u => (
+            {affiches.map(u => (
               <div key={u.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-surface-2 transition-colors">
                 <div>
                   <p className="text-sm font-medium text-fg">{u.prenom} {u.nom}</p>
@@ -131,6 +148,11 @@ function AddMembreModal({ projetId, currentMembres, onClose, onAdded }) {
                 </button>
               </div>
             ))}
+            {restants > 0 && (
+              <p className="text-2xs text-fg-subtle text-center py-2 bg-surface-2">
+                {interpolate(t('projetDetail.etNAutres'), { n: restants })}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -419,7 +441,7 @@ export default function ProjetDetail() {
           {/* Actions */}
           {(canEdit || isAdmin) && (
             <Card padding="sm">
-              <p className="text-[10px] font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('projetDetail.actions')}</p>
+              <p className="text-2xs font-semibold text-fg-subtle uppercase tracking-wider mb-2.5">{t('projetDetail.actions')}</p>
               <div className="space-y-2">
                 {editing ? (
                   <>
@@ -471,7 +493,7 @@ export default function ProjetDetail() {
                   style={{ width: `${progress.pct}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-fg-subtle mt-1.5">
+              <div className="flex justify-between text-2xs text-fg-subtle mt-1.5">
                 <span>{new Date(projet.dateDebut).toLocaleDateString(t('common.locale'), { month: 'short', year: 'numeric' })}</span>
                 <span>{new Date(projet.dateFin).toLocaleDateString(t('common.locale'), { month: 'short', year: 'numeric' })}</span>
               </div>
@@ -487,11 +509,11 @@ export default function ProjetDetail() {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-surface-2 rounded-xl p-3 text-center">
                 <p className="text-xl font-bold text-fg">{totalMissions}</p>
-                <p className="text-[10px] text-fg-subtle mt-0.5">{t('projetDetail.missionsShort')}</p>
+                <p className="text-2xs text-fg-subtle mt-0.5">{t('projetDetail.missionsShort')}</p>
               </div>
               <div className="bg-surface-2 rounded-xl p-3 text-center">
                 <p className="text-xl font-bold text-fg">{totalLocalites}</p>
-                <p className="text-[10px] text-fg-subtle mt-0.5">{t('projetDetail.localitiesShort')}</p>
+                <p className="text-2xs text-fg-subtle mt-0.5">{t('projetDetail.localitiesShort')}</p>
               </div>
             </div>
           </Card>
@@ -534,7 +556,7 @@ export default function ProjetDetail() {
                     </div>
                   ))}
                 {specimenStats.totalIndividus > totalSpecimens && (
-                  <p className="text-[10px] text-fg-subtle border-t border-border pt-2 mt-1">
+                  <p className="text-2xs text-fg-subtle border-t border-border pt-2 mt-1">
                     {interpolate(t('projetDetail.totalIndividuals'), { n: specimenStats.totalIndividus })}
                   </p>
                 )}
@@ -552,7 +574,7 @@ export default function ProjetDetail() {
               <div className="space-y-2">
                 {specimenStats.topEspeces.slice(0, 5).map((e, i) => (
                   <div key={e.nom} className="flex items-center gap-2 text-xs">
-                    <span className="text-[10px] font-bold text-fg-subtle w-4 text-right flex-shrink-0">{i + 1}.</span>
+                    <span className="text-2xs font-bold text-fg-subtle w-4 text-right flex-shrink-0">{i + 1}.</span>
                     <span className="italic text-fg truncate flex-1">{e.nom}</span>
                     <span className="font-bold text-fg-muted tabular-nums flex-shrink-0">{e.count}</span>
                   </div>
@@ -586,13 +608,13 @@ export default function ProjetDetail() {
               ) : membres.map(m => (
                 <div key={m.userId} className="flex items-center gap-2.5 px-4 py-2.5 group">
                   <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <span className="text-[10px] font-bold text-primary">
+                    <span className="text-2xs font-bold text-primary">
                       {`${m.user?.prenom?.[0] ?? ''}${m.user?.nom?.[0] ?? ''}`.toUpperCase()}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-fg truncate">{m.user?.prenom} {m.user?.nom}</p>
-                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${ROLE_COLORS[m.user?.role] ?? 'bg-surface-3 text-fg-muted border-border'}`}>
+                    <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded-full border ${ROLE_COLORS[m.user?.role] ?? 'bg-surface-3 text-fg-muted border-border'}`}>
                       {m.user?.role ? roleLabel(m.user.role) : ''}
                     </span>
                   </div>

@@ -59,7 +59,7 @@ export default function RouteErrorBoundary() {
           </button>
 
           {!isChunkLoadError && message && (
-            <p className="text-[10px] text-fg-subtle/70 font-mono mt-4 break-words">{message}</p>
+            <p className="text-2xs text-fg-subtle/70 font-mono mt-4 break-words">{message}</p>
           )}
         </div>
       </div>

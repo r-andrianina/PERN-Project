@@ -127,7 +127,7 @@ export default function NouveauProjet() {
               </div>
               <div className="space-y-3">
                 <div>
-                  <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.name')}</span>
+                  <span className="text-2xs font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.name')}</span>
                   <p className="text-sm font-semibold text-fg mt-0.5">
                     {form.nom || <span className="text-fg-subtle font-normal italic">{t('nouveauProjet.undefined')}</span>}
                   </p>
@@ -136,11 +136,11 @@ export default function NouveauProjet() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <User size={11} className="text-fg-subtle" />
-                      <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.lead')}</span>
+                      <span className="text-2xs font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.lead')}</span>
                     </div>
                     <p className="text-xs text-fg">
                       {form.porteur}
-                      {matchedUser && <span className="ml-1.5 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">{t('nouveauProjet.userTag')}</span>}
+                      {matchedUser && <span className="ml-1.5 text-2xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">{t('nouveauProjet.userTag')}</span>}
                     </p>
                   </div>
                 )}
@@ -148,7 +148,7 @@ export default function NouveauProjet() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <Calendar size={11} className="text-fg-subtle" />
-                      <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.period')}</span>
+                      <span className="text-2xs font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.period')}</span>
                     </div>
                     <p className="text-xs text-fg">
                       {form.dateDebut ? new Date(form.dateDebut).toLocaleDateString(t('common.locale')) : '?'}
@@ -156,12 +156,12 @@ export default function NouveauProjet() {
                       {form.dateFin   ? new Date(form.dateFin).toLocaleDateString(t('common.locale'))   : '?'}
                     </p>
                     {dureeJours !== null && (
-                      <p className="text-[10px] text-fg-subtle mt-0.5">{dureeJours} {t('nouveauProjet.days')}</p>
+                      <p className="text-2xs text-fg-subtle mt-0.5">{dureeJours} {t('nouveauProjet.days')}</p>
                     )}
                   </div>
                 )}
                 <div>
-                  <span className="text-[10px] font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.status')}</span>
+                  <span className="text-2xs font-medium text-fg-subtle uppercase tracking-wider">{t('nouveauProjet.status')}</span>
                   <div className="mt-1">
                     <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full border ${STATUT_CLS[form.statut]}`}>
                       <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
@@ -177,7 +177,7 @@ export default function NouveauProjet() {
                 <Info size={13} className="text-info" />
                 <p className="text-xs font-semibold text-fg">{t('nouveauProjet.help')}</p>
               </div>
-              <ul className="text-[11px] text-fg-muted space-y-1.5 leading-relaxed">
+              <ul className="text-xs text-fg-muted space-y-1.5 leading-relaxed">
                 <li>• {t('nouveauProjet.helpLeadPrefix')} <strong>{t('nouveauProjet.leadWord')}</strong> {t('nouveauProjet.helpLeadSuffix')}</li>
                 <li>• {t('nouveauProjet.helpMissions')}</li>
               </ul>

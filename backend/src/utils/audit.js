@@ -6,12 +6,16 @@ const prisma      = require('../config/prisma');
 const sseManager  = require('./sseManager');
 
 const ACTIONS = {
-  CREATE:     'CREATE',
-  UPDATE:     'UPDATE',
-  DELETE:     'DELETE',
-  ACTIVATE:   'ACTIVATE',
-  DEACTIVATE: 'DEACTIVATE',
-  READ:       'READ',
+  CREATE:       'CREATE',
+  UPDATE:       'UPDATE',
+  DELETE:       'DELETE',
+  ACTIVATE:     'ACTIVATE',
+  DEACTIVATE:   'DEACTIVATE',
+  READ:         'READ',
+  // Authentification (2026-09-14). Portées par l'entité 'Auth', exclue du
+  // centre de notifications : ce sont des données de sécurité pour les admins.
+  LOGIN:        'LOGIN',
+  LOGIN_FAILED: 'LOGIN_FAILED',
 };
 
 /**
@@ -24,9 +28,17 @@ const ACTIONS = {
  * fichier et bloque un ré-import ; l'écrire hors transaction laissait un import
  * validé sans sa garde).
  */
-function buildAuditData({ req, action, entity, entityId, oldValues, newValues }) {
+/**
+ * @param {number} [params.userId] auteur, quand `req.user` n'existe pas encore.
+ *   Cas unique à ce jour : la connexion elle-même — au moment où `login()`
+ *   journalise, aucun token n'a été vérifié, donc `req.user` est absent et
+ *   l'entrée serait anonyme. Sans cet override, la question « qui s'est
+ *   connecté ? » resterait sans réponse, ce qui viderait la traçabilité de son
+ *   objet. Partout ailleurs, laisser `req` décider.
+ */
+function buildAuditData({ req, action, entity, entityId, oldValues, newValues, userId }) {
   return {
-    userId:    req?.user?.id ?? null,
+    userId:    userId ?? req?.user?.id ?? null,
     action,
     entity,
     entityId,
@@ -63,7 +75,12 @@ function notifierActivite(actorId) {
 async function logAudit(params) {
   try {
     await prisma.auditLog.create({ data: buildAuditData(params) });
-    notifierActivite(params.req?.user?.id ?? null);
+    // `notify: false` pour les entrées que le centre de notifications filtre de
+    // toute façon (authentification) : diffuser "new_activity" ferait recharger
+    // le flux de tous les clients connectés pour n'y rien trouver de nouveau.
+    if (params.notify !== false) {
+      notifierActivite(params.userId ?? params.req?.user?.id ?? null);
+    }
   } catch (err) {
     // L'audit ne doit jamais bloquer la requête utilisateur ;
     // on log côté serveur sans relancer.
