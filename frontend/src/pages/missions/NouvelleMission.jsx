@@ -12,6 +12,7 @@ import MethodeFieldsForm from '../../components/MethodeFieldsForm';
 import AgentMultiSelect from '../../components/AgentMultiSelect';
 import { useApiQuery } from '../../hooks';
 import { useT, interpolate } from '../../lib/i18n';
+import { dateNuitPiegeFormatee } from '../../utils/methodeLabel';
 
 const defaultLocalite = () => ({
   nom: '', pays: 'Madagascar',
@@ -602,9 +603,10 @@ export default function NouvelleMission() {
                                 m.interieurExterieur === 'interieur' ? t('methodeForm.interieur') : m.interieurExterieur === 'exterieur' ? t('methodeForm.exterieur') : null,
                               ].filter(Boolean).join(' · ')}
                             </span>
-                            {m.datePose && (
+                            {/* Le RELEVÉ, pas la pose — cf. utils/methodeLabel.js */}
+                            {dateNuitPiegeFormatee(m, t('common.locale')) && (
                               <span className="text-fg-subtle whitespace-nowrap">
-                                {new Date(m.datePose).toLocaleDateString(t('common.locale'))}
+                                {dateNuitPiegeFormatee(m, t('common.locale'))}
                               </span>
                             )}
                             {!Number.isNaN(lat) && !Number.isNaN(lng) && (
