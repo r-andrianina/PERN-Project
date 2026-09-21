@@ -25,10 +25,32 @@ SRC="C:/Users/Andrianina/Desktop/SpecimenManager"
 # 1. Builder le frontend
 cd "$SRC/frontend" && npm run build
 
-# 2. Transférer via tar pipe — backend/prisma est INDISPENSABLE ici : c'est
-#    là que vivent schema.prisma et les migrations. L'oublier fait tourner
-#    le rebuild suivant sur un schéma obsolète sans qu'aucune erreur ne le
-#    signale (constaté le 2026-07-27 : 7 migrations manquantes, silencieux).
+# 2. Transférer via tar pipe.
+#
+#    LA LISTE CI-DESSOUS FAIT FOI. Elle est la seule de tout le dépôt ;
+#    `transfer-nas.md` y renvoie au lieu de la recopier, parce que c'est la
+#    duplication qui a laissé les deux procédures diverger.
+#
+#    Règle : `tar xzf` AJOUTE, il n'efface rien et ne met à jour que ce qu'on
+#    lui donne. Tout fichier hors de cette liste garde indéfiniment sa version
+#    du jour de l'installation, sans qu'aucune erreur ne le signale.
+#      · backend/prisma — schema.prisma et les migrations. L'oublier fait
+#        tourner le rebuild suivant sur un schéma obsolète, en silence
+#        (constaté le 2026-07-27 : 7 migrations manquantes).
+#      · backend/package*.json — c'est là que vivent les versions. Le
+#        Dockerfile fait `COPY package*.json ./` puis `npm ci` : sans elles,
+#        le rebuild réinstalle les ANCIENNES dépendances sous du code neuf.
+#        C'est ce qui bloquait la montée Prisma 5→7 le 2026-09-21.
+#      · backend/prisma.config.js — requis par la CLI Prisma ≥ 7.
+#      · backend/server.js, scripts/, Dockerfile, entrypoint.sh — hors de
+#        `src/`, donc jamais transférés jusqu'au 2026-09-21. Le garde-fou
+#        JWT_SECRET ajouté à server.js le 2026-08-11 n'avait toujours pas
+#        atteint la prod six semaines plus tard.
+#
+#    Volontairement ABSENTS de la liste :
+#      · docker-compose.prod.yml — la version du NAS fait foi et diffère de
+#        celle du dépôt (cf. configs.md § 3.4). L'écraser casserait la prod.
+#      · backend/.env* — secrets de production, jamais poussés depuis un poste.
 #
 #    DEUX migrations ne doivent JAMAIS partir en prod :
 #      · 20260506183552_init — la prod a été baselinée sans elle ; la rejouer
@@ -41,7 +63,10 @@ cd "$SRC"
 tar czf - \
   --exclude='backend/prisma/migrations/20260506183552_init' \
   --exclude='backend/prisma/migrations/20260806101736_taxonomie_specimens_unique_indexes' \
-  backend/src backend/prisma frontend/src frontend/dist \
+  backend/src backend/prisma backend/scripts \
+  backend/server.js backend/package.json backend/package-lock.json \
+  backend/prisma.config.js backend/Dockerfile backend/entrypoint.sh \
+  frontend/src frontend/dist frontend/Dockerfile.dist \
   | ssh -i "$KEY" "$NAS" "tar xzf - -C $DST/"
 
 # 2 bis. VÉRIFIER AVANT DE REBUILDER — l'exclusion ci-dessus n'enlève pas ce
@@ -56,6 +81,15 @@ ssh -i "$KEY" "$NAS" \
 #    sudo mv $DST/backend/prisma/migrations/<dossier> \
 #            $DST/backend/prisma/_migrations_differees/
 
+# 2 ter. Même raison, autre fichier : `prisma.config.ts` traîne à la racine du
+#    backend sur le NAS depuis une tentative abandonnée. Prisma ≥ 7 lit
+#    `prisma.config.*` au démarrage de sa CLI — deux fichiers de configuration
+#    côte à côte, c'est une ambiguïté qu'on ne veut pas découvrir pendant un
+#    `migrate deploy`. Le transfert dépose le `.js` mais n'efface pas le `.ts`.
+ssh -i "$KEY" "$NAS" "ls $DST/backend/prisma.config.* 2>/dev/null"
+#    Attendu : prisma.config.js SEUL. Si le .ts est encore là :
+#    ssh -i "$KEY" "$NAS" "mv $DST/backend/prisma.config.ts $DST/backend/prisma.config.ts.retire"
+
 # 3. Rebuilder les containers
 ssh -i "$KEY" "$NAS" \
   "echo 'MOT_DE_PASSE' | sudo -S /usr/local/bin/docker compose \
@@ -66,6 +100,29 @@ ssh -i "$KEY" "$NAS" \
 ssh -i "$KEY" "$NAS" \
   "echo 'MOT_DE_PASSE' | sudo -S /usr/local/bin/docker exec sm_backend \
   npx prisma migrate deploy"
+
+# 4 bis. MIGRATIONS DE DONNÉES — celles que Prisma ne connaît pas.
+#    `migrate deploy` ne joue que les changements de SCHÉMA. Un changement de
+#    MODÈLE qui réinterprète des colonnes existantes vit dans backend/scripts/
+#    et doit être lancé à la main, une fois, après le déploiement du code.
+#
+#    Elles se lancent TOUTES à blanc d'abord : sans --apply, le script joue la
+#    transaction en entier, vérifie son invariant, affiche le résultat réel et
+#    annule. On lit, puis on signe.
+#
+#      migrate-nuit-piege.js   requis pour toute base écrite avant le
+#                              2026-09-16 (commit 96295d5). Aligne les dates
+#                              de méthode sur la date de collecte des
+#                              spécimens. Sans lui, le code neuf affiche
+#                              toutes les dates un jour trop tard.
+#
+#    À ne lancer qu'APRÈS une sauvegarde fraîche (cf. § Commandes utiles).
+ssh -i "$KEY" "$NAS" \
+  "echo 'MOT_DE_PASSE' | sudo -S /usr/local/bin/docker exec sm_backend \
+  node scripts/migrate-nuit-piege.js"            # simulation
+ssh -i "$KEY" "$NAS" \
+  "echo 'MOT_DE_PASSE' | sudo -S /usr/local/bin/docker exec sm_backend \
+  node scripts/migrate-nuit-piege.js --apply"    # après lecture du rapport
 
 # 5. Vérifier
 ssh -i "$KEY" "$NAS" "curl -s http://localhost:8080/api/health"
