@@ -116,7 +116,7 @@ describe('Recherche', () => {
   });
 
   it('cloisonne aussi l’export Excel', async () => {
-    // L’export passe par le même fetchAllSpecimens. S’il avait gardé sa propre
+    // L’export partage le filtre de la liste (whereDuType). S’il avait gardé sa propre
     // requête, le filtre aurait pu être posé sur la liste et oublié ici — la
     // fuite la plus discrète, puisqu’elle sort en fichier.
     //
