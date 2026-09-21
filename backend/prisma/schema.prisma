@@ -7,9 +7,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// L'URL de connexion ne vit plus ici (Prisma 7) : Migrate la lit dans
+// prisma.config.js, et le client la recoit via un adaptateur de pilote.
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // =============================================================

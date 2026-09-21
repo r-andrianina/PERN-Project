@@ -8,12 +8,19 @@
 
 const { execSync }     = require('child_process');
 const { PrismaClient } = require('@prisma/client');
+const { PrismaPg }     = require('@prisma/adapter-pg');
 const { NOM_BASE_TEST, urlTest, urlMaintenance } = require('./testDatabase');
 
 async function creerBaseSiAbsente() {
   // Client jeté, branché sur la base de maintenance : on ne peut pas se
   // connecter à une base qui n'existe pas encore pour la créer.
-  const admin = new PrismaClient({ datasources: { db: { url: urlMaintenance } } });
+  //
+  // Prisma 7 a supprimé l'option `datasources` du constructeur, qui servait
+  // jusqu'ici à pointer une URL différente de celle du schéma. Le ciblage
+  // passe désormais par l'adaptateur de pilote.
+  const admin = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: urlMaintenance }),
+  });
   try {
     const existe = await admin.$queryRawUnsafe(
       'SELECT 1 FROM pg_database WHERE datname = $1', NOM_BASE_TEST,
