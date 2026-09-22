@@ -6,6 +6,8 @@ import {
   BarChart2, Clock, AlertTriangle, TrendingUp,
 } from 'lucide-react';
 import api from '../../api/axios';
+import { useApiQuery } from '../../hooks/useApiQuery';
+import { useAppelTemporise } from '../../hooks/useAppelTemporise';
 import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
 import { formatNotificationText, formatRelativeDate } from '../../utils/notifications';
@@ -98,8 +100,16 @@ function UserCard({ user, isMe, kicking, onKick }) {
           <span className={`text-2xs font-semibold px-2 py-0.5 rounded-full ${role.pill}`}>
             {roleLabel(user.role)}
           </span>
+          {/* `tabCount` vient de sseManager.getTabCount() : c'est un nombre de
+              CONNEXIONS SSE, pas d'onglets. Les deux ne coincident pas — la
+              cloche de notification et cette page ouvrent chacune leur flux,
+              si bien qu'un seul onglet ici en declare deux. Le libelle disait
+              « onglets » et accusait donc l'utilisateur d'une fenetre qu'il
+              n'avait pas ouverte, justement pendant qu'il regardait l'ecran
+              qui la creait. La carte de statistique voisine nommait deja la
+              meme donnee « Connexions SSE actives » : on s'aligne dessus. */}
           {user.tabCount > 1 && (
-            <span className="text-2xs text-fg-subtle">{user.tabCount} {t('adminPresencePage.tabsSuffix')}</span>
+            <span className="text-2xs text-fg-subtle">{user.tabCount} {t('adminPresencePage.connectionsSuffix')}</span>
           )}
         </div>
       </div>
@@ -231,75 +241,85 @@ export default function AdminPresencePage() {
   const specimenCfg = getSpecimenCfg(t);
   const { user: me } = useAuthStore();
 
-  const [presence,    setPresence]    = useState({ users: [], count: 0 });
-  const [activity,    setActivity]    = useState([]);
-  const [adminStats,  setAdminStats]  = useState(null);
-  const [loadingP,    setLoadingP]    = useState(true);
-  const [loadingA,    setLoadingA]    = useState(true);
-  const [loadingS,    setLoadingS]    = useState(true);
   const [kickingId,   setKickingId]   = useState(null);
   const [sseOk,       setSseOk]       = useState(false);
   const [barsVisible, setBarsVisible] = useState(false);
   const [freshIds,    setFreshIds]    = useState(new Set());
   const prevActivityIds = useRef(new Set());
 
-  const fetchPresence = useCallback(async () => {
-    try {
-      const r = await api.get('/auth/users/presence');
-      setPresence(r.data);
-    } catch { /* silencieux */ } finally { setLoadingP(false); }
-  }, []);
+  // Les trois chargements passaient par de l'axios brut avec un
+  // `catch { /* silencieux */ }` chacun. Sur un ECRAN DE SURVEILLANCE c'est le
+  // pire endroit pour se taire : `/auth/users/presence` en echec affichait
+  // « 0 en ligne » sans un mot, et on en concluait que personne ne travaillait.
+  // Un tableau de bord qui ment quand il est casse est plus dangereux qu'un
+  // tableau de bord en panne.
+  //
+  // `useApiQuery` remonte l'erreur au `QueryCache.onError` global installe dans
+  // main.jsx, qui affiche un toast — le meme filet que le reste de
+  // l'application depuis le balayage du 2026-08-25, dont cette page avait ete
+  // oubliee. Au passage : trois `useState` de chargement en moins, et le cache.
+  const { data: presenceData, loading: loadingP, refetch: rechargerPresence } =
+    useApiQuery('/auth/users/presence');
+  const { data: activity, loading: loadingA, refetch: rechargerActivite } =
+    useApiQuery('/dictionnaire/audit-logs', { params: { limit: 30 }, select: (d) => d.items ?? [] });
+  const { data: adminStats, loading: loadingS, refetch: rechargerStats } =
+    useApiQuery('/dashboard/admin-stats');
 
-  const fetchActivity = useCallback(async () => {
-    try {
-      const r = await api.get('/dictionnaire/audit-logs', { params: { limit: 30 } });
-      const items = r.data.items || [];
-      // Marque les items réellement nouveaux pour l'animation
-      const newIds = new Set(items.map(i => i.id));
-      const fresh  = new Set([...newIds].filter(id => !prevActivityIds.current.has(id)));
-      prevActivityIds.current = newIds;
-      setFreshIds(fresh);
-      setActivity(items);
-    } catch { /* silencieux */ } finally { setLoadingA(false); }
-  }, []);
+  const presence = presenceData ?? { users: [], count: 0 };
 
-  const fetchAdminStats = useCallback(async () => {
-    try {
-      const r = await api.get('/dashboard/admin-stats');
-      setAdminStats(r.data);
-      // Lance l'animation des barres avec un léger délai
-      setTimeout(() => setBarsVisible(true), 120);
-    } catch { /* silencieux */ } finally { setLoadingS(false); }
-  }, []);
+  // Marque les entrees reellement nouvelles, pour l'animation d'arrivee.
+  // C'etait fait dans le fetch ; ca appartient a l'affichage, pas au transport.
+  useEffect(() => {
+    if (!activity) return;
+    const ids = new Set(activity.map((i) => i.id));
+    setFreshIds(new Set([...ids].filter((id) => !prevActivityIds.current.has(id))));
+    prevActivityIds.current = ids;
+  }, [activity]);
+
+  // Animation des barres, declenchee a la premiere arrivee des statistiques.
+  useEffect(() => {
+    if (!adminStats || barsVisible) return undefined;
+    const tid = setTimeout(() => setBarsVisible(true), 120);
+    return () => clearTimeout(tid);
+  }, [adminStats, barsVisible]);
 
   const kick = useCallback(async (userId) => {
     setKickingId(userId);
     try {
       const r = await api.delete(`/auth/users/${userId}/session`);
       toast.info(r.data.message || t('adminPresencePage.sessionClosed'));
-      await fetchPresence();
+      await rechargerPresence();
     } catch (err) {
       toast.error(err.response?.data?.error || t('adminPresencePage.errorClosingSession'));
     } finally { setKickingId(null); }
-  }, [fetchPresence, t]);
+  }, [rechargerPresence, t]);
+
+  // Un evenement `new_activity` rechargeait le fil ET les statistiques, sans
+  // aucune temporisation. Or `/dashboard/admin-stats` execute une quinzaine de
+  // requetes Prisma : un technicien saisissant 50 specimens un par un faisait
+  // emettre ~800 requetes a un ecran d'admin simplement reste ouvert. Les
+  // imports en masse, eux, etaient deja epargnes — le controleur ne diffuse
+  // qu'une fois, apres la transaction.
+  const surActivite = useAppelTemporise(
+    useCallback(() => { rechargerActivite(); rechargerStats(); }, [rechargerActivite, rechargerStats]),
+  );
+  // Presence : plus leger (une requete), mais les connexions et deconnexions
+  // arrivent en grappe le matin. Fenetre plus courte, l'ecran doit rester vif.
+  const surPresence = useAppelTemporise(rechargerPresence, { delai: 300, maxAttente: 1500 });
 
   useEffect(() => {
-    fetchPresence();
-    fetchActivity();
-    fetchAdminStats();
-
     const token  = localStorage.getItem('token');
     const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
     const es = new EventSource(`${apiUrl}/notifications/stream?token=${encodeURIComponent(token)}`);
 
     es.addEventListener('init',            () => setSseOk(true));
-    es.addEventListener('presence_update', fetchPresence);
-    es.addEventListener('new_activity',    () => { fetchActivity(); fetchAdminStats(); });
+    es.addEventListener('presence_update', surPresence);
+    es.addEventListener('new_activity',    surActivite);
     es.onopen  = () => setSseOk(true);
     es.onerror = () => setSseOk(false);
 
     return () => es.close();
-  }, [fetchPresence, fetchActivity, fetchAdminStats]);
+  }, [surPresence, surActivite]);
 
   const totaux     = adminStats?.totauxSpecimens ?? {};
   const recents    = adminStats?.saisiesRecentes ?? {};
