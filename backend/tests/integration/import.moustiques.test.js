@@ -13,7 +13,7 @@
 const {
   resetBase, seedReferentiel, connecter,
   fabriquerXlsx, importer, tubesDeLaMission,
-  prisma,
+  prisma, app, request,
 } = require('./helpers');
 
 let token;
@@ -228,3 +228,85 @@ describe('Accès', () => {
     expect(await prisma.moustique.count()).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Puits témoin H12 — ajouté le 2026-09-22
+//
+// Le protocole réserve le dernier puits d'une plaque 96 au témoin négatif : il
+// ne reçoit jamais d'insecte. Le fichier de terrain porte quand même sa ligne,
+// pour décrire la plaque en entier, et cette ligne n'a ni SCIENTIFIC_NAME ni
+// GENUS — c'est la définition d'un témoin, pas un oubli de saisie.
+//
+// L'import la rejetait en « Taxonomie manquante » : un fichier parfaitement
+// conforme au protocole sortait avec une erreur par plaque, et l'utilisateur
+// devait apprendre à ignorer une erreur — le plus sûr moyen de finir par
+// ignorer les vraies.
+// ---------------------------------------------------------------------------
+const valider = (jeton, buffer, nom = 'test.xlsx') =>
+  request(app)
+    .post('/api/v1/import/moustiques/validate')
+    .set('Authorization', `Bearer ${jeton}`)
+    .attach('file', buffer, nom);
+
+describe('Puits témoin H12', () => {
+  const temoin  = { series: 'ZZZ_T', taxo: '', genre: '', espece: '', box: 'P_001', pos: 'H12' };
+  const normale = { series: 'ZZZ_1', box: 'P_001', pos: 'A1' };
+
+  // Un seul envoi pour les trois assertions : `importLimiter` plafonne à 20
+  // requêtes par 10 minutes sans dérogation en test, et l'aperçu partage le
+  // même compteur. Un `it` par assertion épuisait le quota en cours de
+  // fichier — les tests suivants échouaient alors en 429, sur le débit et non
+  // sur la règle qu'ils prétendent vérifier.
+  it('est accepté, sans spécimen ni position', async () => {
+    const r = await importer(token, await fabriquerXlsx([normale, temoin]), 'plaque.xlsx');
+
+    // 1. L'absence de taxonomie ne fait plus échouer le fichier.
+    expect(r.status).toBe(200);
+    expect(r.body.errors).toHaveLength(0);
+
+    // 2. Le puits est VIDE : l'importer aurait inventé un moustique qui n'a
+    //    jamais été capturé.
+    const tubes = await prisma.moustique.findMany({ select: { idTerrain: true, position: true } });
+    expect(tubes.map((t) => t.idTerrain)).toEqual(['ZZZ_1']);
+
+    // 3. Et la position reste libre pour le témoin réel.
+    expect(tubes.map((t) => t.position)).not.toContain('H12');
+  });
+
+  it('CONTRE-ÉPREUVE : une taxonomie manquante ailleurs reste une erreur', async () => {
+    // Sans cette assertion, une dispense trop large passerait inaperçue : un
+    // import n'exigeant plus JAMAIS de taxonomie satisferait le test précédent.
+    const r = await importer(
+      token,
+      await fabriquerXlsx([{ series: 'ZZZ_9', taxo: '', genre: '', espece: '', box: 'P_001', pos: 'B2' }]),
+      'plaque.xlsx',
+    );
+
+    expect(r.body.errors.length).toBeGreaterThan(0);
+    expect(await prisma.moustique.count()).toBe(0);
+  });
+
+  it('CONTRE-ÉPREUVE : H12 hors plaque reste une erreur', async () => {
+    // La dispense tient au PUITS TÉMOIN D'UNE PLAQUE. Une boîte de tubes n'a
+    // pas de témoin : « H12 » n'y est qu'un identifiant de tube parmi d'autres.
+    const r = await importer(
+      token,
+      await fabriquerXlsx([{ series: 'ZZZ_8', taxo: '', genre: '', espece: '', box: 'BX_001', pos: 'H12' }]),
+      'boite.xlsx',
+    );
+
+    expect(r.body.errors.length).toBeGreaterThan(0);
+  });
+
+  it('l’aperçu rend le même verdict que l’import', async () => {
+    // Un aperçu qui annoncerait une erreur là où l'import passe serait pire
+    // qu'inutile : on corrigerait un fichier qui n'a rien.
+    const r = await valider(token, await fabriquerXlsx([normale, temoin]), 'plaque.xlsx');
+
+    expect(r.status).toBe(200);
+    const codes = (r.body.logs ?? []).map((l) => l.code);
+    expect(codes).not.toContain('TAXONOMIE_INTROUVABLE');
+    expect(codes).toContain('PUITS_TEMOIN');
+  });
+});
+

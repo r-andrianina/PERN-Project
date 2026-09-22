@@ -10,17 +10,17 @@
 
 import { renderHook, act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useRef } from 'react';
 import { SseContext } from './sseContext';
 import { useSse, useSseEtat } from './sseHooks';
 
 /** Un faux fournisseur : même forme de valeur, sans réseau. */
 function fabriquerProvider(etat = 'connected') {
   const abonnes = { current: new Map() };
-  const wrapper = ({ children }) => {
-    const ref = useRef(abonnes);
-    return <SseContext.Provider value={{ etat, abonnes: ref.current }}>{children}</SseContext.Provider>;
-  };
+  // `abonnes` est cree une fois par appel a cette fabrique : il est deja
+  // stable entre les rendus, sans avoir besoin d'une ref.
+  const wrapper = ({ children }) => (
+    <SseContext.Provider value={{ etat, abonnes }}>{children}</SseContext.Provider>
+  );
   const emettre = (nom, data) => act(() => {
     const set = abonnes.current.get(nom);
     if (set) for (const h of [...set]) h({ data });

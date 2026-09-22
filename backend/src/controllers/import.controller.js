@@ -143,13 +143,43 @@ function compacterLignes(lignes) {
   return groupes.length > 8 ? `${texte}, +${groupes.length - 8} autres` : texte;
 }
 
-// Positions libres d'une plaque (excl. H12 — témoin SOP) à partir d'une liste d'occupées
+// ── Témoin négatif de plaque (SOP) ───────────────────────────
+// Le dernier puits d'une plaque 96 est réservé au témoin négatif : il ne
+// reçoit JAMAIS de spécimen. La valeur était écrite en dur à trois endroits ;
+// elle est ici, une fois.
+const POSITION_TEMOIN = 'H12';
+
+// Un container est une plaque si son code porte le préfixe `P_`. C'est la
+// règle déjà appliquée par l'aperçu et par `resolveContainer` ; la reprendre
+// ici évite qu'import et aperçu ne rendent des verdicts différents sur la
+// même ligne — le défaut qu'on paie a chaque fois qu'une regle est recopiee.
+const estCodePlaque = (boxId) => Boolean(boxId) && /^P_/i.test(boxId);
+
+/**
+ * La ligne décrit-elle le puits témoin d'une plaque ?
+ *
+ * Le fichier de terrain porte une ligne pour H12 afin que la plaque soit
+ * décrite en entier, mais ce puits ne contient pas d'insecte : ni
+ * SCIENTIFIC_NAME ni GENUS n'y sont renseignés, et c'est NORMAL. L'import le
+ * rejetait en « Taxonomie manquante », si bien qu'un fichier parfaitement
+ * conforme au protocole sortait avec une erreur par plaque.
+ *
+ * L'absence de taxonomie fait partie de la définition, volontairement : une
+ * ligne H12 QUI PORTE une taxonomie décrit un vrai spécimen mal placé, pas un
+ * témoin. Celle-là continue d'être signalée et importée sans position.
+ */
+const estPuitsTemoin = (boxId, position, genre) =>
+  !genre
+  && estCodePlaque(boxId)
+  && String(position ?? '').trim().toUpperCase() === POSITION_TEMOIN;
+
+// Positions libres d'une plaque (le témoin exclu) à partir d'une liste d'occupées
 function freePlaquePositions(occupiedSet) {
   const out = [];
   for (const r of 'ABCDEFGH') {
     for (let c = 1; c <= 12; c++) {
       const p = `${r}${c}`;
-      if (p !== 'H12' && !occupiedSet.has(p)) out.push(p);
+      if (p !== POSITION_TEMOIN && !occupiedSet.has(p)) out.push(p);
     }
   }
   return out;
@@ -1012,6 +1042,10 @@ const importMoustiques = async (req, res) => {
         const methode = methodeCache.get(methKey);
         if (!methode) { counts.skipped++; continue; }
 
+        // Lu ici et non plus au § 6 : le verdict « puits témoin » se prend
+        // AVANT le contrôle taxonomique, puisqu'il en dispense.
+        const boxId = toString(cellValue(row, hMap, ...COL.container));
+
         // ── 4. Taxonomie ──
         // Deux formats acceptés : nom scientifique complet, ou colonnes GENUS
         // [+ SPECIES] — cf. resolveTaxonInput pour la règle de priorité.
@@ -1027,6 +1061,17 @@ const importMoustiques = async (req, res) => {
           addLog('avertissement', 'TAXO_SOURCES_DIVERGENTES',
             `Genre divergent entre colonnes : GENUS="${conflit.genreColonne}" vs SCIENTIFIC_NAME="${conflit.genreNomScientifique}" — la colonne GENUS fait foi`);
         }
+        // Puits témoin : la ligne décrit un puits vide, pas un spécimen. On
+        // ne cherche donc aucune taxonomie et on ne crée aucune ligne — la
+        // signaler en `info` plutôt qu'en `erreur` change le verdict du
+        // fichier entier, puisque seules les erreurs comptent comme échec.
+        if (estPuitsTemoin(boxId, cellValue(row, hMap, ...COL.position), genus)) {
+          addLog('info', 'PUITS_TEMOIN',
+            `Puits ${POSITION_TEMOIN} — témoin négatif du protocole, aucun spécimen attendu`);
+          counts.skipped++;
+          continue;
+        }
+
         const taxoKey = `${genus}_${species}`;
         if (!taxoCache.has(taxoKey)) {
           const t = await resoudreTaxonomie(tx, genus, species);
@@ -1121,7 +1166,6 @@ const importMoustiques = async (req, res) => {
         });
 
         // ── 6. Container ──
-        const boxId = toString(cellValue(row, hMap, ...COL.container));
         let position = tronquer(toString(cellValue(row, hMap, ...COL.position)), 'position', addLog);
         let containerId = null;
         let containerType = null;
@@ -1225,10 +1269,13 @@ const importMoustiques = async (req, res) => {
 
         // ── 6b. PLAQUE normale (nombre = 1) ou BOITE ──
         if (containerId) {
-          // H12 = témoin négatif SOP sur les plaques
-          if (containerType === 'PLAQUE' && position === 'H12') {
+          // Reste ici le cas d'une ligne H12 QUI PORTE une taxonomie : le puits
+          // témoin, lui, a déjà été écarté au § 4. Un vrai spécimen annoncé sur
+          // le puits témoin est une erreur de saisie — on l'importe, sans lui
+          // attribuer une position qui doit rester vide.
+          if (containerType === 'PLAQUE' && position === POSITION_TEMOIN) {
             addLog('avertissement', 'TEMOIN_H12',
-              `Position H12 réservée au témoin négatif (SOP) — spécimen importé sans position assignée`);
+              `Position ${POSITION_TEMOIN} réservée au témoin négatif (SOP) — spécimen importé sans position assignée`);
             position = null;
           }
 
@@ -1697,9 +1744,23 @@ const validateMoustiques = async (req, res) => {
     // seule ligne pathologique — il est justement là pour les mettre au jour.
     try {
 
+    // Même verdict que l'import, par la même fonction : l'aperçu annonce ce
+    // que l'import fera, et un aperçu qui signalerait une erreur là où
+    // l'import passe serait pire qu'inutile.
+    const puitsTemoin = estPuitsTemoin(
+      toString(cellValue(row, hMap, ...COL.container)),
+      toString(cellValue(row, hMap, ...COL.position)),
+      genus,
+    );
+
     // 1. Champs obligatoires
     if (!ordreMission) addLog('erreur', 'MISSION_MANQUANTE', 'MISSION_ORDER_NUMBER manquant');
-    if (!genus)        addLog('erreur', 'TAXONOMIE_INTROUVABLE', 'Taxonomie manquante (ni SCIENTIFIC_NAME ni GENUS renseignés)');
+    if (puitsTemoin) {
+      addLog('info', 'PUITS_TEMOIN',
+        `Puits ${POSITION_TEMOIN} — témoin négatif du protocole, aucun spécimen attendu`);
+    } else if (!genus) {
+      addLog('erreur', 'TAXONOMIE_INTROUVABLE', 'Taxonomie manquante (ni SCIENTIFIC_NAME ni GENUS renseignés)');
+    }
 
     // Même contrôle de gabarit qu'à l'import : un identifiant au-delà de 50
     // caractères sera tronqué, ce qui peut créer un doublon avec une autre ligne.
@@ -1923,7 +1984,7 @@ const validateMoustiques = async (req, res) => {
             // puits et l'aperçu passait alors que l'import aurait manqué de place.
             for (const p of prises) occupiedMap.set(p, idTerrain ?? `ligne_${rn}`);
           }
-        } else if (position && position !== 'H12') {
+        } else if (position && position !== POSITION_TEMOIN) {
           // PLAQUE normale ou BOITE : vérifier position occupée
           if (occupiedMap.has(position)) {
             addLog('erreur', 'POSITION_OCCUPEE',

@@ -90,6 +90,7 @@ const getCodeLabels = (t) => ({
   PARITE_HORS_FEMELLE:      t('importPage.codePariteHorsFemelle'),
   ERREUR_LIGNE:             t('importPage.codeErreurLigne'),
   TEMOIN_H12:               t('importPage.codeTemoinH12'),
+  PUITS_TEMOIN:             t('importPage.codePuitsTemoin'),
   TAXO_NIVEAU_GENRE:        t('importPage.codeTaxoNiveauGenre'),
   TAXO_ESPECE_NON_DETERMINEE: t('importPage.codeTaxoEspeceNonDeterminee'),
   TAXO_SOURCES_DIVERGENTES: t('importPage.codeTaxoSourcesDivergentes'),
