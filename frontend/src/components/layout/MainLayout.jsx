@@ -11,6 +11,7 @@ import { Badge } from '../ui';
 import SpecimenIcon from '../SpecimenIcon';
 import GlobalSearch from '../GlobalSearch';
 import NotificationBell from '../NotificationBell';
+import { SseProvider } from '../../lib/sse';
 import ConnectionBanner from '../ConnectionBanner';
 import ChangePasswordModal from '../ChangePasswordModal';
 import Footer from './Footer';
@@ -98,6 +99,11 @@ export default function MainLayout() {
   ];
 
   return (
+    // Un seul flux SSE pour toute la zone authentifiee. Monte ici parce que
+    // MainLayout enveloppe deja la cloche ET l'<Outlet> : le flux vit donc
+    // aussi longtemps que la session, et survit aux changements de page au
+    // lieu d'etre ferme puis rouvert a chaque navigation.
+    <SseProvider>
     <div className="flex h-screen bg-bg overflow-hidden">
 
       <ConnectionBanner />
@@ -249,5 +255,6 @@ export default function MainLayout() {
         <Footer />
       </div>
     </div>
+    </SseProvider>
   );
 }

@@ -1,6 +1,6 @@
 // frontend/src/pages/notifications/NotificationsPage.jsx
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell, CheckCheck, ArrowRight, BellOff, Filter,
@@ -14,6 +14,7 @@ import {
   resolveEntityUrl,
 } from '../../utils/notifications';
 import { useT } from '../../lib/i18n';
+import { useSse } from '../../lib/sseHooks';
 
 // ── Tokens visuels ─────────────────────────────────────────────
 const ACTION_TONE = {
@@ -370,16 +371,11 @@ export default function NotificationsPage() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const refreshRef = useRef(refresh);
-  useEffect(() => { refreshRef.current = refresh; });
-
-  useEffect(() => {
-    const token  = localStorage.getItem('token');
-    const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
-    const es = new EventSource(`${apiUrl}/notifications/stream?token=${encodeURIComponent(token)}`);
-    es.addEventListener('new_activity', () => refreshRef.current?.());
-    return () => es.close();
-  }, []);
+  // Le flux est celui de <SseProvider> : plus de connexion propre à cette
+  // page, donc plus de seconde connexion ouverte pendant qu'on la consulte.
+  // La ref qui stabilisait `refresh` n'a plus lieu d'être — `useSse` lit
+  // déjà le handler au moment de l'émission.
+  useSse('new_activity', () => refresh());
 
   const resetPage = (setter) => (val) => { setter(val); setPage(1); };
 

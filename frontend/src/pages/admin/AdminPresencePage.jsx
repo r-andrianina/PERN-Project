@@ -12,6 +12,7 @@ import useAuthStore from '../../store/authStore';
 import { toast } from '../../lib/toast';
 import { formatNotificationText, formatRelativeDate } from '../../utils/notifications';
 import { useT } from '../../lib/i18n';
+import { useSse, useSseEtat } from '../../lib/sseHooks';
 import { roleLabel } from '../../lib/roles';
 
 // ── Tokens visuels ────────────────────────────────────────────
@@ -242,7 +243,6 @@ export default function AdminPresencePage() {
   const { user: me } = useAuthStore();
 
   const [kickingId,   setKickingId]   = useState(null);
-  const [sseOk,       setSseOk]       = useState(false);
   const [barsVisible, setBarsVisible] = useState(false);
   const [freshIds,    setFreshIds]    = useState(new Set());
   const prevActivityIds = useRef(new Set());
@@ -307,19 +307,12 @@ export default function AdminPresencePage() {
   // arrivent en grappe le matin. Fenetre plus courte, l'ecran doit rester vif.
   const surPresence = useAppelTemporise(rechargerPresence, { delai: 300, maxAttente: 1500 });
 
-  useEffect(() => {
-    const token  = localStorage.getItem('token');
-    const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
-    const es = new EventSource(`${apiUrl}/notifications/stream?token=${encodeURIComponent(token)}`);
-
-    es.addEventListener('init',            () => setSseOk(true));
-    es.addEventListener('presence_update', surPresence);
-    es.addEventListener('new_activity',    surActivite);
-    es.onopen  = () => setSseOk(true);
-    es.onerror = () => setSseOk(false);
-
-    return () => es.close();
-  }, [surPresence, surActivite]);
+  // Abonnements au flux partagé. Cette page ouvrait sa propre connexion en
+  // plus de celle de la cloche : c'est ce doublon qui faisait compter deux
+  // connexions pour un seul onglet, et donc mentir le badge d'a côté.
+  useSse('presence_update', surPresence);
+  useSse('new_activity',    surActivite);
+  const sseOk = useSseEtat() === 'connected';
 
   const totaux     = adminStats?.totauxSpecimens ?? {};
   const recents    = adminStats?.saisiesRecentes ?? {};

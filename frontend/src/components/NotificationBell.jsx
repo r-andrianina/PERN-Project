@@ -9,6 +9,7 @@ import { toast } from '../lib/toast';
 import { formatNotificationText, formatRelativeDate, resolveEntityUrl } from '../utils/notifications';
 import useAuthStore from '../store/authStore';
 import { useT } from '../lib/i18n';
+import { useSse, useSseEtat } from '../lib/sseHooks';
 
 // Poll de secours si SSE déconnecté (perte réseau, redémarrage serveur)
 const FALLBACK_POLL_MS = 60000;
@@ -66,7 +67,10 @@ export default function NotificationBell() {
   const [open,        setOpen]        = useState(false);
   const [items,       setItems]       = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [sseStatus,   setSseStatus]   = useState('connecting'); // 'connecting' | 'connected' | 'offline'
+  // L'etat vient du flux partage : c'est lui qui detient la connexion.
+  // Le composant n'a plus d'etat local a tenir a jour, donc plus de risque
+  // qu'il affiche « connecte » alors que la connexion est tombee ailleurs.
+  const sseStatus = useSseEtat(); // 'connecting' | 'connected' | 'offline'
   const [coords,      setCoords]      = useState(null);
 
   const btnRef  = useRef(null);
@@ -124,35 +128,26 @@ export default function NotificationBell() {
     } catch { /* non bloquant */ }
   }, [t]);
 
-  // ── SSE + polling de secours ────────────────────────────────────
+  // ── Flux SSE partagé + polling de secours ───────────────────────
+  // La connexion elle-même vit dans <SseProvider> (lib/sse.jsx) : ce
+  // composant ne fait plus que s'abonner. Les handlers n'ont plus besoin
+  // d'être stables, d'où la disparition du tableau de dépendances qui
+  // fermait et rouvrait la connexion dès qu'un rappel changeait d'identité.
+  useSse('init', async (e) => {
+    try { setUnreadCount(JSON.parse(e.data).unreadCount ?? 0); } catch { /* non bloquant */ }
+    await fetchNotifications(); // rattrape les événements manqués pendant une déconnexion
+  });
+  useSse('new_activity',        handleNewActivity);
+  useSse('permissions_changed', handlePermissionsChanged);
+  useSse('account_updated',     handleAccountUpdated);
+
+  // Chargement initial + poll de secours, qui rattrape les événements que
+  // le flux aurait pu manquer pendant une coupure.
   useEffect(() => {
     fetchNotifications();
-
-    const token  = localStorage.getItem('token');
-    const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
-    const es = new EventSource(`${apiUrl}/notifications/stream?token=${encodeURIComponent(token)}`);
-
-    // unreadCount initial + refresh liste à chaque (re)connexion SSE
-    es.addEventListener('init', async (e) => {
-      setSseStatus('connected');
-      try { setUnreadCount(JSON.parse(e.data).unreadCount ?? 0); } catch { /* non bloquant */ }
-      await fetchNotifications(); // rattrape les événements manqués pendant une déconnexion
-    });
-
-    es.addEventListener('new_activity', handleNewActivity);
-    es.addEventListener('permissions_changed', handlePermissionsChanged);
-    es.addEventListener('account_updated', handleAccountUpdated);
-    es.onopen  = () => setSseStatus('connected');
-    es.onerror = () => setSseStatus('offline');
-
-    // Poll de secours — rattrape les événements SSE potentiellement manqués
     const tid = setInterval(fetchNotifications, FALLBACK_POLL_MS);
-
-    return () => {
-      es.close();
-      clearInterval(tid);
-    };
-  }, [fetchNotifications, handleNewActivity, handlePermissionsChanged, handleAccountUpdated]);
+    return () => clearInterval(tid);
+  }, [fetchNotifications]);
 
   // ── Ouverture / fermeture du dropdown ─────────────────────────
   const openMenu = () => {
