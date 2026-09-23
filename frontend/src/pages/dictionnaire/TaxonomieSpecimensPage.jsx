@@ -48,16 +48,22 @@ const NIVEAU_ENFANT = {
   sous_espece:  [],
 };
 
+// `autre` couvre tout ce que le dictionnaire connaît hors des trois tables
+// dédiées — Culicoides, phlébotomes, simulies, tabanidés… C'est le type que
+// vise AutreSpecimen ; sans lui dans cette liste, ces branches existaient en
+// base sans être ni filtrables ni créables depuis l'écran.
 const getTypes = (t) => [
   { value: 'moustique', label: t('specimenTypes.moustique') },
   { value: 'tique',     label: t('specimenTypes.tique') },
   { value: 'puce',      label: t('specimenTypes.puce') },
+  { value: 'autre',     label: t('specimenTypes.autre') },
 ];
 
 const TYPE_COLOR = {
   moustique: 'bg-specimen-moustique/10 text-specimen-moustique border-emerald-100',
   tique:     'bg-specimen-tique/10 text-specimen-tique border-rose-100',
   puce:      'bg-specimen-puce/10 text-specimen-puce border-amber-100',
+  autre:     'bg-specimen-autre/10 text-specimen-autre border-indigo-100',
 };
 
 const ITALIC_LEVELS = ['genre', 'sous_genre', 'espece', 'sous_espece'];

@@ -27,7 +27,8 @@ module.exports = {
     'bg-specimen-moustique', 'text-specimen-moustique', 'border-specimen-moustique',
     'bg-specimen-tique',     'text-specimen-tique',     'border-specimen-tique',
     'bg-specimen-puce',      'text-specimen-puce',      'border-specimen-puce',
-    'bg-specimen-moustique/10', 'bg-specimen-tique/10', 'bg-specimen-puce/10',
+    'bg-specimen-autre',     'text-specimen-autre',     'border-specimen-autre',
+    'bg-specimen-moustique/10', 'bg-specimen-tique/10', 'bg-specimen-puce/10', 'bg-specimen-autre/10',
     // Rôles
     'bg-role-admin',     'text-role-admin',     'border-role-admin',
     'bg-role-chercheur', 'text-role-chercheur', 'border-role-chercheur',
@@ -82,6 +83,7 @@ module.exports = {
           moustique: '#10b981', // emerald-500
           tique:     '#f43f5e', // rose-500
           puce:      '#f59e0b', // amber-500
+          autre:     '#6366f1', // indigo-500 — Culicoides, phlébotomes, etc.
         },
         // ── Domaine : rôles utilisateurs ──────────────────────
         role: {

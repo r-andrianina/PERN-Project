@@ -79,7 +79,7 @@ const list = async (req, res) => {
     where,
     include: {
       parent:  { select: { id: true, niveau: true, nom: true } },
-      _count:  { select: { enfants: true, moustiques: true, tiques: true, puces: true } },
+      _count:  { select: { enfants: true, moustiques: true, tiques: true, puces: true, autresSpecimens: true } },
     },
     orderBy: [{ niveau: 'asc' }, { nom: 'asc' }],
   });
@@ -122,7 +122,7 @@ const getOne = async (req, res) => {
       parent:    { select: { id: true, niveau: true, nom: true, parent: { select: { id: true, niveau: true, nom: true } } } },
       enfants:   { orderBy: [{ niveau: 'asc' }, { nom: 'asc' }] },
       synonymes: { select: { id: true, nom: true, auteur: true, annee: true } },
-      _count:    { select: { moustiques: true, tiques: true, puces: true } },
+      _count:    { select: { moustiques: true, tiques: true, puces: true, autresSpecimens: true } },
     },
   });
   if (!item) return res.status(404).json({ error: 'Taxonomie introuvable' });
@@ -147,7 +147,7 @@ const create = async (req, res) => {
   // Le type se propage du parent (si présent)
   const typeFinal = niveau === 'ordre' ? (type ?? null) : (parent?.type ?? type ?? null);
   if (niveau === 'ordre' && !typeFinal) {
-    return res.status(400).json({ error: 'type obligatoire au niveau ordre (moustique, tique ou puce)' });
+    return res.status(400).json({ error: 'type obligatoire au niveau ordre (moustique, tique, puce ou autre)' });
   }
 
   const dupError = await checkDuplicate({ niveau, nom, parentId: parent?.id ?? null, type: typeFinal });
@@ -231,14 +231,20 @@ const remove = async (req, res) => {
   const id = parseInt(req.params.id);
   const item = await prisma.taxonomieSpecimen.findUnique({
     where: { id },
-    include: { _count: { select: { enfants: true, moustiques: true, tiques: true, puces: true } } },
+    include: { _count: { select: { enfants: true, moustiques: true, tiques: true, puces: true, autresSpecimens: true } } },
   });
   if (!item) return res.status(404).json({ error: 'Taxonomie introuvable' });
 
   if (item._count.enfants > 0) {
     return res.status(409).json({ error: `Impossible : ${item._count.enfants} enfant(s) liés. Supprimez-les d'abord.` });
   }
-  const total = item._count.moustiques + item._count.tiques + item._count.puces;
+  // `autresSpecimens` compte autant que les trois autres : la relation est
+  // facultative, donc une suppression ne lèverait AUCUNE erreur de clé
+  // étrangère — elle mettrait silencieusement taxonomie_id à NULL sur les
+  // spécimens concernés. Latent jusqu'ici faute de taxonomie de type `autre`
+  // en base ; réel depuis que l'import en crée (2026-09-23).
+  const total = item._count.moustiques + item._count.tiques + item._count.puces
+    + item._count.autresSpecimens;
   if (total > 0) {
     return res.status(409).json({ error: `Impossible : utilisée par ${total} spécimen(s). Désactivez plutôt.` });
   }

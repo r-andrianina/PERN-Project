@@ -79,7 +79,13 @@ export default function NouvelAutreSpecimen() {
   useEffect(() => {
     Promise.all([
       api.get('/dictionnaire/types-autre-specimen', { params: { actif: 'true' } }),
-      api.get('/dictionnaire/taxonomie-specimens',  { params: { actif: 'true', niveau: 'espece' } }),
+      // `type: 'autre'` — sans ce filtre, le menu listait les espèces de
+      // moustiques, tiques et puces, c'est-à-dire exactement celles qui ont
+      // leur propre formulaire, et aucune de celles qu'on vient saisir ici.
+      // C'était sans conséquence tant que le dictionnaire n'avait aucune
+      // branche `autre` ; il en a depuis le 2026-09-23 (Culicoides,
+      // phlébotomes, simulies, tabanidés…).
+      api.get('/dictionnaire/taxonomie-specimens',  { params: { actif: 'true', niveau: 'espece', type: 'autre' } }),
       api.get('/dictionnaire/solutions-conservation', { params: { actif: 'true' } }),
     ]).then(([tRes, taxRes, sRes]) => {
       setTypesSpec(tRes.data.items   || []);

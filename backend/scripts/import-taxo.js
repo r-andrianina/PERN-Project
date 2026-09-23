@@ -10,21 +10,15 @@
 //   importées comme synonymes de recherche (TaxonomieSynonyme) — pas comme
 //   nœuds de l'arbre, un synonyme n'a pas de place propre dans la hiérarchie.
 // Mapping : Diptera/Culicidae → moustique | Ixodida → tique | Siphonaptera → puce
+//           tout le reste → autre (cf. detectType)
 
 const path    = require('path');
 const ExcelJS = require('exceljs');
 const prisma  = require('../src/config/prisma');
+const { detectType } = require('../src/utils/taxonomyType');
 
 const FILE = process.argv[2]
   || path.join(__dirname, '../../fichiers/Dico_Taxo.xlsx');
-
-// ── Mapping type ────────────────────────────────────────────
-function detectType(ordre, famille) {
-  if (ordre === 'Diptera' && famille === 'Culicidae') return 'moustique';
-  if (ordre === 'Ixodida')                            return 'tique';
-  if (ordre === 'Siphonaptera')                        return 'puce';
-  return null;
-}
 
 // ── Nettoyage cellule ───────────────────────────────────────
 function clean(v, maxLen = 150) {
@@ -57,6 +51,23 @@ function cacheKey(niveau, nom, parentId, type) {
     : `${niveau}:${nom.toLowerCase()}:${parentId ?? 'null'}`;
 }
 
+// ── Rattachements divergents ────────────────────────────────
+// La règle d'unicité globale ci-dessus réutilise un nom déjà connu ailleurs
+// dans l'arbre. C'est voulu, mais ça veut dire qu'une ligne réclamant le même
+// nom sous un AUTRE parent voit son rattachement ignoré en silence. Le cas
+// existait déjà (puce : Coptopsylla sous Coptopsyllidae ET Hystrichopsyllidae)
+// et s'étend avec le type `autre` (Cimex sous Cimicidae ET Reduviidae). On ne
+// change pas la règle — on cesse juste de taire ce qu'elle décide.
+const parentRetenu    = new Map();   // clé de cache → parentId effectivement retenu
+const divergences     = [];          // { niveau, nom, type, retenuId, demandeId }
+function noterRattachement(key, { niveau, nom, type, parentId, id }) {
+  const connu = parentRetenu.get(key);
+  if (connu === undefined) { parentRetenu.set(key, parentId ?? null); return; }
+  if (connu === (parentId ?? null)) return;
+  if (divergences.some((d) => d.nom === nom && d.niveau === niveau && d.demandeId === (parentId ?? null))) return;
+  divergences.push({ niveau, nom, type, retenuId: connu, demandeId: parentId ?? null, id });
+}
+
 // ── Table de correspondance binomiale pour résoudre "rattachement" ──
 // clé : "type:genre:espece[:sousespece]" (minuscules) → id du nœud espèce/sous_espece
 const binomial = new Map();
@@ -72,6 +83,7 @@ async function getOrCreate({ niveau, nom, parentId, type, auteur, annee, paysTyp
   const key = cacheKey(niveau, nom, parentId, type);
   if (cache.has(key)) {
     const id = cache.get(key);
+    if (global) noterRattachement(key, { niveau, nom, type, parentId, id });
     // Sur les feuilles déjà en base, on complète pays_type s'il était vide
     // (ex: relancé après ajout de la colonne) — jamais d'écrasement.
     if (paysType) {
@@ -87,11 +99,17 @@ async function getOrCreate({ niveau, nom, parentId, type, auteur, annee, paysTyp
     where: global
       ? { niveau, nom: { equals: nom, mode: 'insensitive' }, type }
       : { niveau, nom, parentId: parentId ?? null },
-    select: { id: true, paysType: true },
+    select: { id: true, paysType: true, parentId: true },
   });
 
   if (existing) {
     cache.set(key, existing.id);
+    if (global) {
+      // Le parent retenu est celui du nœud DÉJÀ en base, pas celui demandé :
+      // c'est lui qui fera foi pour les lignes suivantes.
+      parentRetenu.set(key, existing.parentId ?? null);
+      noterRattachement(key, { niveau, nom, type, parentId, id: existing.id });
+    }
     if (paysType && !existing.paysType) {
       await prisma.taxonomieSpecimen.update({ where: { id: existing.id }, data: { paysType } });
     }
@@ -103,6 +121,7 @@ async function getOrCreate({ niveau, nom, parentId, type, auteur, annee, paysTyp
     select: { id: true },
   });
   cache.set(key, entry.id);
+  if (global) parentRetenu.set(key, parentId ?? null);
   return { id: entry.id, created: true };
 }
 
@@ -115,7 +134,14 @@ async function main() {
   const existing = await prisma.taxonomieSpecimen.findMany({
     select: { id: true, niveau: true, nom: true, parentId: true, type: true },
   });
-  existing.forEach(e => cache.set(cacheKey(e.niveau, e.nom, e.parentId, e.type), e.id));
+  existing.forEach((e) => {
+    const key = cacheKey(e.niveau, e.nom, e.parentId, e.type);
+    cache.set(key, e.id);
+    // Sans ça, au second passage le premier nœud rencontré ferait foi comme
+    // « parent retenu » au lieu du parent réel déjà en base, et le rapport de
+    // divergence désignerait la mauvaise branche.
+    if (GLOBAL_UNIQUE_LEVELS.includes(e.niveau)) parentRetenu.set(key, e.parentId ?? null);
+  });
   console.log(`   ${existing.length} entrées déjà en base (cache pré-chargé)`);
 
   // Lire l'Excel — un seul passage, on classe VAL et SYN dans deux listes.
@@ -127,18 +153,26 @@ async function main() {
   const valRows = [];
   const synRows = [];
 
+  // Une ligne non retenue est une ligne que l'utilisateur ne retrouvera pas
+  // dans le dictionnaire. On la compte et on dit pourquoi — c'est le silence
+  // sur ce compteur qui a caché l'absence des Culicoides pendant des mois.
+  const ecartees = { statut: new Map(), ordreManquant: [], chaineVide: [] };
+
   ws.eachRow((row, n) => {
     if (n === 1) return;
     const v = row.values;
     const statut = (v[10] || '').toString().trim();
-    if (statut !== 'VAL' && statut !== 'SYN') return;
+    if (statut !== 'VAL' && statut !== 'SYN') {
+      const cle = statut || '(vide)';
+      ecartees.statut.set(cle, (ecartees.statut.get(cle) || 0) + 1);
+      return;
+    }
 
     const ordre   = clean(v[1]);
     const famille = clean(v[2]);
-    if (!ordre) return;
+    if (!ordre) { ecartees.ordreManquant.push(n); return; }
 
     const type = detectType(ordre, famille);
-    if (!type) return;
 
     const chain = [
       { niveau: 'ordre',        nom: ordre },
@@ -149,7 +183,7 @@ async function main() {
       { niveau: 'espece',       nom: clean(v[6]) },
       { niveau: 'sous_espece',  nom: clean(v[7]) },
     ].filter(x => x.nom !== null);
-    if (chain.length === 0) return;
+    if (chain.length === 0) { ecartees.chaineVide.push(n); return; }
 
     const record = {
       chain, type,
@@ -168,6 +202,25 @@ async function main() {
   console.log(`\n🔍 Lignes retenues — VAL : ${valRows.length} | SYN : ${synRows.length}`);
   const byType = valRows.reduce((acc, r) => { acc[r.type] = (acc[r.type] || 0) + 1; return acc; }, {});
   Object.entries(byType).forEach(([t, c]) => console.log(`   ${t} : ${c}`));
+
+  // ── Ce qui n'entrera PAS dans le dictionnaire ───────────
+  const totalStatut  = [...ecartees.statut.values()].reduce((a, b) => a + b, 0);
+  const totalEcarte  = totalStatut + ecartees.ordreManquant.length + ecartees.chaineVide.length;
+  const lu           = valRows.length + synRows.length + totalEcarte;
+  console.log(`\n🚫 Lignes écartées : ${totalEcarte} / ${lu} lues`);
+  if (totalStatut > 0) {
+    const detail = [...ecartees.statut.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, c]) => `${k}:${c}`)
+      .join(', ');
+    console.log(`   statut hors VAL/SYN (${totalStatut}) — ${detail}`);
+  }
+  if (ecartees.ordreManquant.length > 0) {
+    console.log(`   ordre absent ou non déterminé (${ecartees.ordreManquant.length}) — lignes ${ecartees.ordreManquant.slice(0, 10).join(', ')}${ecartees.ordreManquant.length > 10 ? '…' : ''}`);
+  }
+  if (ecartees.chaineVide.length > 0) {
+    console.log(`   aucun rang exploitable (${ecartees.chaineVide.length}) — lignes ${ecartees.chaineVide.slice(0, 10).join(', ')}${ecartees.chaineVide.length > 10 ? '…' : ''}`);
+  }
 
   // ── Import VAL ──────────────────────────────────────────
   console.log('\n🚀 Import des noms valides…');
@@ -251,6 +304,20 @@ async function main() {
     unresolved.slice(0, 5).forEach((r) =>
       console.log(`   ligne ${r.ligne} : "${r.genre} ${r.espece}" (${r.type}) → rattachement "${r.rattachement}"`)
     );
+  }
+
+  // ── Noms réclamés sous deux parents différents ──────────
+  if (divergences.length > 0) {
+    const ids = [...new Set(divergences.flatMap((d) => [d.retenuId, d.demandeId]).filter((x) => x !== null))];
+    const noeuds = await prisma.taxonomieSpecimen.findMany({ where: { id: { in: ids } }, select: { id: true, nom: true } });
+    const nomDe = new Map(noeuds.map((x) => [x.id, x.nom]));
+    const label = (id) => (id === null ? 'racine' : nomDe.get(id) || `#${id}`);
+    console.log(`\n⚠️  Noms réclamés sous plusieurs parents : ${divergences.length}`);
+    console.log('   La règle d\'unicité globale a gardé le premier rattachement ; le second est ignoré.');
+    divergences.slice(0, 20).forEach((d) =>
+      console.log(`   ${d.type.padEnd(10)} ${d.niveau.padEnd(13)} ${d.nom} — retenu sous ${label(d.retenuId)}, aussi déclaré sous ${label(d.demandeId)}`)
+    );
+    if (divergences.length > 20) console.log(`   … et ${divergences.length - 20} autres`);
   }
 
   // Bilan par type dans la base
