@@ -17,8 +17,13 @@ import { GORGEMENT_OPTIONS } from '../../utils/gorgement';
 import { useT, interpolate } from '../../lib/i18n';
 
 // ── Constantes UI ─────────────────────────────────────────────
-const TYPE_TONE  = { moustique: 'specimen-moustique', tique: 'specimen-tique', puce: 'specimen-puce' };
-const getTypeLabel = (t) => ({ moustique: t('specimenTypes.moustique'), tique: t('specimenTypes.tique'), puce: t('specimenTypes.puce') });
+const TYPE_TONE  = { moustique: 'specimen-moustique', tique: 'specimen-tique', puce: 'specimen-puce', autre: 'specimen-autre' };
+const getTypeLabel = (t) => ({ moustique: t('specimenTypes.moustique'), tique: t('specimenTypes.tique'), puce: t('specimenTypes.puce'), autre: t('specimenTypes.autre') });
+
+// Ordre et contenu de référence du filtre de type : `TYPES_VALIDES` côté
+// serveur. Une liste en dur ici (elle valait 'moustique,tique,puce') rendait les
+// autres spécimens introuvables même après leur ajout côté API.
+const TOUS_TYPES = ['moustique', 'tique', 'puce', 'autre'];
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const getSexeLabel = (t) => ({ M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') });
@@ -75,7 +80,17 @@ const getResultColumns = (t) => {
     key:          '_type',
     label:        t('specimenList.colType'),
     skeletonWidth: '55%',
-    render: (s) => <Badge tone={TYPE_TONE[s._type]}>{typeLabel[s._type]}</Badge>,
+    // Pour un « autre spécimen », le badge seul ne dit rien : phlébotome et
+    // scorpion s'afficheraient à l'identique. Le type précis vient dessous,
+    // plutôt que dans une colonne vide pour les trois autres types.
+    render: (s) => (
+      <div className="flex flex-col gap-0.5">
+        <Badge tone={TYPE_TONE[s._type]}>{typeLabel[s._type]}</Badge>
+        {s.typeSpecimen?.nom && (
+          <span className="text-2xs text-fg-subtle leading-tight">{s.typeSpecimen.nom}</span>
+        )}
+      </div>
+    ),
   },
   {
     key:          'idTerrain',
@@ -279,12 +294,13 @@ export default function RecherchePage() {
   const [texteDistrict,  setTexteDistrict]  = useFiltreTemporise(f.district, (v) => setFilter('district', v));
 
   const toggleType = (type) => {
-    const current = (f.types || 'moustique,tique,puce').split(',');
+    const current = (f.types || TOUS_TYPES.join(',')).split(',');
     const next = current.includes(type) ? current.filter((ty) => ty !== type) : [...current, type];
-    setFilter('types', next.length === 3 ? '' : next.join(','));
+    // Tous cochés = aucun filtre transmis, plutôt que la liste complète.
+    setFilter('types', next.length === TOUS_TYPES.length ? '' : next.join(','));
   };
 
-  const activeTypes = (f.types || 'moustique,tique,puce').split(',');
+  const activeTypes = (f.types || TOUS_TYPES.join(',')).split(',');
   const hasActiveFilters = Object.keys(f).length > 0;
   const filterCount = Object.keys(f).filter((k) => k !== 'types' && f[k]).length;
 
@@ -405,7 +421,9 @@ export default function RecherchePage() {
               </div>
 
           <FilterSection title={t('recherchePage.sectionType')} icon={Bug}>
-            <div className="grid grid-cols-3 gap-1.5">
+            {/* Deux colonnes depuis le quatrième type : « Autre spécimen » ne
+                tient pas sur un tiers de la largeur du panneau de filtres. */}
+            <div className="grid grid-cols-2 gap-1.5">
               {Object.entries(typeLabel).map(([key, label]) => {
                 const active = activeTypes.includes(key);
                 return (

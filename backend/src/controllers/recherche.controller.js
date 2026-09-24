@@ -1,5 +1,5 @@
 // backend/src/controllers/recherche.controller.js
-// Recherche unifiée multi-critères des spécimens (Moustiques + Tiques + Puces).
+// Recherche unifiée multi-critères des spécimens (moustiques, tiques, puces, autres).
 
 const prisma  = require('../config/prisma');
 const ExcelJS = require('exceljs');
@@ -16,7 +16,12 @@ const { chargerEquipes } = require('../utils/missionEquipe');
 const { formatTrancheHoraire } = require('../utils/trancheHoraire');
 const { getAccessibleProjetIds, projetScopeWhere } = require('../utils/access');
 
-const TYPES_VALIDES = ['moustique', 'tique', 'puce'];
+// `autre` ajouté le 2026-09-24. Il manquait depuis toujours : les autres
+// spécimens (Culicoides, phlébotomes, simulies, tabanidés…) étaient saisissables
+// mais introuvables — ni la recherche ni l'export ne les connaissaient. Le
+// manque s'est vu le 2026-09-23, quand l'import du dictionnaire a enfin créé
+// les 5 799 espèces de ce type.
+const TYPES_VALIDES = ['moustique', 'tique', 'puce', 'autre'];
 
 const parseTypes = (raw) => {
   if (!raw) return TYPES_VALIDES;
@@ -47,8 +52,17 @@ const parseTypes = (raw) => {
 //
 // L'EXPORT suit le même principe, en flux : cf. `fluxSpecimens` plus bas.
 
-const MODELES = { moustique: 'moustique', tique: 'tique', puce: 'puce' };
-const includePour = (type) => (type === 'moustique' ? includeBase : includeWithHote);
+const MODELES = { moustique: 'moustique', tique: 'tique', puce: 'puce', autre: 'autreSpecimen' };
+
+// AutreSpecimen n'a pas d'hôte (pas de colonne `hoteId`) mais porte un
+// `typeSpecimen` — c'est lui qui dit s'il s'agit d'un phlébotome ou d'un
+// scorpion, information sans équivalent chez les trois autres types.
+const includeAutre = { ...includeBase, typeSpecimen: { select: { id: true, code: true, nom: true } } };
+const includePour = (type) => {
+  if (type === 'moustique') return includeBase;
+  if (type === 'autre')     return includeAutre;
+  return includeWithHote;
+};
 
 /**
  * Ordre de parcours des résultats — repris à l'identique par PostgreSQL
@@ -139,9 +153,9 @@ async function chargerPage(params, types, projetIds, offset, limit) {
  * spécimens sur un seul type — et l'export en interroge trois. Le serveur
  * finissait par tomber, sur la seule route qui n'avait aucune borne.
  *
- * Fusion de trois curseurs : un tampon par type, et on émet toujours le plus
- * récent des trois têtes. La mémoire ne dépend donc plus du volume mais de la
- * taille des tampons — trois fois `taille` lignes, quoi qu'il arrive.
+ * Fusion d'un curseur par type : un tampon par type, et on émet toujours le plus
+ * récent de toutes les têtes. La mémoire ne dépend donc plus du volume mais de la
+ * taille des tampons — un tampon de `taille` lignes par type, quoi qu'il arrive.
  *
  * Pourquoi un CURSEUR et non `chargerPage` en boucle : la passe légère de
  * `chargerPage` demande `take: offset + limit`, ce qui redemande à PostgreSQL
@@ -197,7 +211,7 @@ async function* fluxSpecimens(params, types, projetIds, taille = TAILLE_TAMPON_E
   for (;;) {
     // On n'attend QUE s'il y a réellement un tampon à recharger. Une première
     // version faisait un `await Promise.all(...)` à chaque ligne émise, même
-    // quand les trois tampons étaient pleins : 20 000 attentes inutiles,
+    // quand tous les tampons étaient pleins : 20 000 attentes inutiles,
     // mesurées à 2,6× le temps du chargement en bloc.
     const aRemplir = etats.filter((e) => !e.epuise && e.tampon.length === 0);
     if (aRemplir.length > 0) await Promise.all(aRemplir.map(remplir));
@@ -251,7 +265,7 @@ async function calculerStats(params, types, projetIds) {
   const stats = {
     total:          0,
     totalIndividus: 0,
-    parType:        { moustique: 0, tique: 0, puce: 0 },
+    parType:        { moustique: 0, tique: 0, puce: 0, autre: 0 },
     parSexe:        { M: 0, F: 0, inconnu: 0 },
     topEspeces:     [],
     topMissions:    [],
@@ -316,7 +330,7 @@ function computeStats(items) {
   const stats = {
     total:           items.length,
     totalIndividus:  items.reduce((s, x) => s + (x.nombre || 1), 0),
-    parType:         { moustique: 0, tique: 0, puce: 0 },
+    parType:         { moustique: 0, tique: 0, puce: 0, autre: 0 },
     parSexe:         { M: 0, F: 0, inconnu: 0 },
     topEspeces:      [],
     topMissions:     [],
@@ -405,6 +419,9 @@ const search = async (req, res) => {
       solution:     s.solution,
       methode:      s.methode,
       hote:         s.hote ?? null,
+      // Autres spécimens uniquement : sans ce champ, la ligne ne dirait pas
+      // s'il s'agit d'un phlébotome ou d'un scorpion.
+      typeSpecimen: s.typeSpecimen ?? null,
     })),
   });
 };
@@ -437,6 +454,11 @@ const exportExcel = async (req, res) => {
     { header: 'Nombre',       key: 'nombre',     width: 8  },
     { header: 'Sexe',         key: 'sexe',       width: 10 },
     { header: 'Stade',        key: 'stade',      width: 10 },
+    // Autres spécimens uniquement, vide ailleurs — comme "Parité" pour les
+    // moustiques. Sans elle, toutes ces lignes sortiraient sous le seul mot
+    // « autre » : un phlébotome et un scorpion deviendraient indistinguables
+    // dans un export destiné à l'analyse.
+    { header: 'Type (autre)', key: 'sousType',   width: 18 },
     // Colonne "Parité (SOP)" supprimée le 2026-09-02 : la parité étant binaire
     // (Nulle/Pare), elle dupliquait strictement cette colonne en notation NP/P.
     { header: 'Parité',       key: 'parite',     width: 10 },
@@ -513,6 +535,7 @@ const exportExcel = async (req, res) => {
       nombre:    s.nombre,
       sexe:      s.sexe,
       stade:     s.stade,
+      sousType:  s.typeSpecimen?.nom ?? '',
       parite:    s.parite ?? '',
       // Un spécimen ne porte que l'un des deux champs selon son type — ils ne
       // peuvent donc pas se contredire (cf. commentaire de la colonne).
