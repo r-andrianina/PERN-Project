@@ -1,10 +1,15 @@
 // backend/prisma/seed.js
 // Seed des référentiels du Dictionnaire de données + compte admin.
 
-const { PrismaClient } = require('@prisma/client');
+// Le client vient du singleton de l'application, et non d'un `new
+// PrismaClient()` local : depuis Prisma 7, le client EXIGE un adaptateur de
+// pilote, que `src/config/prisma.js` est seul à construire (avec le
+// chargement de `.env` qui va avec). Le seed a donc cessé de démarrer le
+// 2026-09-21 — « PrismaClient was instantiated without any options » — sans
+// que personne le voie : il ne sert qu'aux installations neuves, et la prod
+// avait été semée avant la montée de version.
+const prisma = require('../src/config/prisma');
 const bcrypt = require('bcryptjs');
-
-const prisma = new PrismaClient();
 
 // ----------------------------------------------------------------
 //  Helpers
@@ -258,6 +263,38 @@ async function main() {
     await prisma.typeHabitat.upsert({ where: { nom: h.nom }, update: {}, create: h });
   }
   console.log('Types habitat OK');
+
+  // ============================================================
+  //  TYPES D'« AUTRES SPÉCIMENS »
+  // ============================================================
+  // Ce référentiel était VIDE — dev comme prod — alors que
+  // `AutreSpecimen.typeSpecimenId` est obligatoire : personne ne pouvait donc
+  // créer un autre spécimen, et c'est probablement pour ça que l'absence de
+  // ce type dans la recherche n'avait jamais été signalée (constaté le
+  // 2026-09-24).
+  //
+  // La liste suit l'intention d'origine du modèle — le schéma titre déjà
+  // « SPÉCIMENS — AUTRES (Phlébotomes, Culicoïdes, etc.) » — et ne retient que
+  // des familles RÉELLEMENT présentes dans Dico_Taxo.xlsx, avec le nombre de
+  // lignes qu'elles y occupent. C'est un référentiel CRUD : ces valeurs se
+  // modifient et se désactivent depuis Dictionnaire → Types d'autres
+  // spécimens, sans toucher au code.
+  const typesAutreSpecimen = [
+    { code: 'PHLEBOTOME',  nom: 'Phlébotome',              description: 'Psychodidae, sous-famille Phlebotominae — vecteurs des leishmanioses (938 lignes au dictionnaire)' },
+    { code: 'CULICOIDES',  nom: 'Culicoïde',               description: 'Ceratopogonidae, genre Culicoides — vecteurs d\'arbovirus animaux (1 683 lignes)' },
+    { code: 'SIMULIE',     nom: 'Simulie',                 description: 'Simuliidae — vecteurs de l\'onchocercose (323 lignes)' },
+    { code: 'TABANIDE',    nom: 'Taon',                    description: 'Tabanidae — vecteurs mécaniques (520 lignes)' },
+    { code: 'GLOSSINE',    nom: 'Glossine (mouche tsé-tsé)', description: 'Glossinidae — vecteurs des trypanosomoses (44 lignes)' },
+    { code: 'REDUVE',      nom: 'Réduve hématophage',      description: 'Reduviidae — triatomes et apparentés (513 lignes)' },
+    { code: 'PUNAISE_LIT', nom: 'Punaise de lit',          description: 'Cimicidae (42 lignes)' },
+    { code: 'POU',         nom: 'Pou',                     description: 'Phthiraptera — poux et morpions' },
+    { code: 'ACARIEN',     nom: 'Acarien',                 description: 'Acaridida — trombiculidés, dermanyssidés, etc.' },
+    { code: 'AUTRE',       nom: 'Autre arthropode',        description: 'À préciser dans les notes ou les attributs du spécimen' },
+  ];
+  for (const ts of typesAutreSpecimen) {
+    await prisma.typeAutreSpecimen.upsert({ where: { code: ts.code }, update: {}, create: ts });
+  }
+  console.log('Types autres spécimens OK');
 
   // ── Pathogènes cibles ──────────────────────────────────────
   const pathogenes = [
