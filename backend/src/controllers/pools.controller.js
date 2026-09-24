@@ -1,19 +1,19 @@
 const service = require('../services/pools.service');
 const { logAudit, ACTIONS } = require('../utils/audit');
 
-const list = async (req, res) => res.json(await service.list(req.query));
+const list = async (req, res) => res.json(await service.list(req.query, req.user));
 
-const getOne = async (req, res) => res.json({ pool: await service.getById(parseInt(req.params.id)) });
+const getOne = async (req, res) => res.json({ pool: await service.getById(parseInt(req.params.id), req.user) });
 
 const create = async (req, res) => {
-  const pool = await service.create(req.body, req.user.id);
+  const pool = await service.create(req.body, req.user.id, req.user);
   await logAudit({ req, action: ACTIONS.CREATE, entity: 'Pool', entityId: pool.id, newValues: { code: pool.code, nombreIndividus: pool.nombreIndividus } });
   res.status(201).json({ message: 'Pool créé', pool });
 };
 
 const remove = async (req, res) => {
   const id = parseInt(req.params.id);
-  await service.remove(id);
+  await service.remove(id, req.user);
   await logAudit({ req, action: ACTIONS.DELETE, entity: 'Pool', entityId: id });
   res.json({ message: 'Pool supprimé' });
 };
