@@ -99,7 +99,17 @@ const list = async (req, res) => {
     ...(estLeger
       ? { select: {
           id: true, niveau: true, nom: true, type: true, parentId: true,
-          parent: { select: { id: true, niveau: true, nom: true } },
+          // DEUX niveaux de parent, pas un. Le libellé « Genre espèce » se
+          // construit en remontant jusqu'au rang `genre` : 412 des 475
+          // moustiques ont leur espèce rattachée à un SOUS-GENRE, et s'arrêter
+          // au parent direct affiche « Stegomyia aegypti » au lieu d'« Aedes
+          // aegypti » — faux, mais plausible. Cf. frontend/utils/taxoLabel.js.
+          parent: {
+            select: {
+              id: true, niveau: true, nom: true,
+              parent: { select: { id: true, niveau: true, nom: true } },
+            },
+          },
         } }
       : { include: {
           parent:  { select: { id: true, niveau: true, nom: true } },

@@ -85,7 +85,7 @@ export function SidebarSection({ icon: Icon, iconClass, label, children }) {
  * pages appelantes branchent dessus les mêmes gestionnaires que pour un
  * `<input>` natif.
  */
-export function EditSelect({ label, value, onChange, options, disabled }) {
+export function EditSelect({ label, value, onChange, options, disabled, loadOptions, selectedOption }) {
   return (
     <div>
       <label className="text-xs text-fg-subtle font-medium block mb-1">{label}</label>
@@ -94,6 +94,12 @@ export function EditSelect({ label, value, onChange, options, disabled }) {
         onChange={(val) => onChange({ target: { value: val } })}
         disabled={disabled}
         options={options}
+        // Recherche serveur — les trois pages de détail passent par ici et non
+        // par FormField. Sans ces deux passe-plats, les props étaient ignorées
+        // en silence et le champ « Genre / Espèce » s'affichait vide en
+        // édition, alors que la fiche titrait l'espèce juste au-dessus.
+        loadOptions={loadOptions}
+        selectedOption={selectedOption}
       />
     </div>
   );

@@ -12,11 +12,15 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import api from '../api/axios';
+import { taxoLabel } from '../utils/taxoLabel';
 
-/** « Culicoides abchazicus » — le genre vient du parent (ou du sous-genre). */
-export const libelleEspece = (tx) => (tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom);
-
-const enOption = (tx) => ({ value: tx.id, label: libelleEspece(tx) });
+// Le libellé passe par `taxoLabel`, qui REMONTE la chaîne jusqu'au rang
+// `genre`. Les menus déroulants faisaient `parent.nom + nom`, ce qui donne le
+// SOUS-GENRE quand il y en a un : « Stegomyia aegypti » au lieu d'« Aedes
+// aegypti ». Le reste de l'application avait été corrigé le 2026-09-01 ; ces
+// menus étaient restés en arrière, et affichaient donc un autre nom que le
+// titre de la fiche juste au-dessus.
+const enOption = (tx) => ({ value: tx.id, label: taxoLabel(tx) });
 
 /**
  * @param {'moustique'|'tique'|'puce'|'autre'} type

@@ -14,6 +14,7 @@ import { useFiltreTemporise } from '../../hooks/useFiltreTemporise';
 import { Card, Badge, Button, EmptyState, PageHeader, Select, DataTable, DatePicker } from '../../components/ui';
 import { STADE_OPTIONS_MOUSTIQUE, formatStade } from '../../utils/stade';
 import { GORGEMENT_OPTIONS } from '../../utils/gorgement';
+import { taxoLabel } from '../../utils/taxoLabel';
 import { useT, interpolate } from '../../lib/i18n';
 
 // ── Constantes UI ─────────────────────────────────────────────
@@ -25,11 +26,13 @@ const getTypeLabel = (t) => ({ moustique: t('specimenTypes.moustique'), tique: t
 // autres spécimens introuvables même après leur ajout côté API.
 const TOUS_TYPES = ['moustique', 'tique', 'puce', 'autre'];
 
-// Libellé d'un nœud taxonomique dans le sélecteur — même forme qu'avant le
-// passage à la recherche serveur : « [espece] Culicoides abchazicus ».
+// Libellé d'un nœud taxonomique dans le sélecteur : « [espece] Aedes aegypti ».
+// Le nom passe par `taxoLabel`, qui remonte au rang `genre` — un `parent.nom`
+// brut donnerait le sous-genre (« Stegomyia aegypti ») sur les 412 moustiques
+// dont l'espèce est rattachée à un sous-genre.
 const optionTaxonomie = (tax) => ({
   value: tax.id,
-  label: `[${tax.niveau}] ${tax.parent?.nom ? `${tax.parent.nom} ` : ''}${tax.nom}`,
+  label: `[${tax.niveau}] ${taxoLabel(tax) || tax.nom}`,
 });
 
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
