@@ -355,6 +355,26 @@ function parseLocationNom(raw) {
  *
  * @returns {Promise<{id: number, niveau: string}|null>}
  */
+// Cet import écrit dans la table `moustiques`, et seulement là (cf. l'en-tête
+// du fichier). La résolution DOIT donc être bornée à la taxonomie de type
+// `moustique`.
+//
+// Sans cette borne, depuis que le dictionnaire contient les 5 799 espèces de
+// type `autre` (import du 2026-09-23), une ligne « Culicoides abchazicus »
+// dans un fichier de terrain trouvait sa taxonomie et devenait un MOUSTIQUE,
+// en silence — alors que la saisie manuelle la refuse (specimenFactory.js :
+// « Taxonomie de type non-moustique »). Avant cet import du dictionnaire, la
+// même ligne échouait bruyamment en « Taxonomie introuvable » : l'ajout des
+// espèces avait donc transformé une erreur visible en erreur muette, qui
+// aurait faussé les densités captures/piège/nuit.
+const TYPE_IMPORT = 'moustique';
+
+// Un nœud SANS type est accepté, seul un type différent est refusé — même
+// convention que la saisie manuelle (`specimenFactory.js` : `if (taxoType &&
+// taxo.type && taxo.type !== taxoType)`). La colonne est nullable, et rien ne
+// garantit que les nœuds créés à la main portent un type.
+const TYPE_COMPATIBLE = [{ type: TYPE_IMPORT }, { type: null }];
+
 async function resoudreTaxonomie(db, genus, species) {
   if (!genus) return null;
 
@@ -364,13 +384,16 @@ async function resoudreTaxonomie(db, genus, species) {
         niveau: 'espece',
         nom: { equals: species, mode: 'insensitive' },
         actif: true,
-        // Le parent direct d'une espèce est soit le genre, soit un sous-genre
-        // intermédiaire (ex: Anopheles (Cellia) coustani) — il faut vérifier les
-        // deux, sinon toute espèce rattachée via un sous-genre retombe à tort au
-        // niveau genre.
-        OR: [
-          { parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } },
-          { parent: { niveau: 'sous_genre', parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } } },
+        AND: [
+          { OR: TYPE_COMPATIBLE },
+          // Le parent direct d'une espèce est soit le genre, soit un sous-genre
+          // intermédiaire (ex: Anopheles (Cellia) coustani) — il faut vérifier les
+          // deux, sinon toute espèce rattachée via un sous-genre retombe à tort au
+          // niveau genre.
+          { OR: [
+            { parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } },
+            { parent: { niveau: 'sous_genre', parent: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' } } } },
+          ] },
         ],
       },
       select: { id: true, niveau: true },
@@ -379,9 +402,46 @@ async function resoudreTaxonomie(db, genus, species) {
   }
 
   return db.taxonomieSpecimen.findFirst({
-    where: { niveau: 'genre', nom: { equals: genus, mode: 'insensitive' }, actif: true },
+    where: {
+      niveau: 'genre',
+      nom:    { equals: genus, mode: 'insensitive' },
+      actif:  true,
+      OR:     TYPE_COMPATIBLE,
+    },
     select: { id: true, niveau: true },
   });
+}
+
+/**
+ * Le genre existe-t-il dans le dictionnaire, mais sous un AUTRE type ?
+ * Sert uniquement à rédiger l'erreur : dire « introuvable » d'un Culicoides
+ * serait faux et enverrait l'utilisateur chercher une entrée à créer, alors
+ * qu'elle existe et que le vrai problème est le choix de l'import.
+ * Une requête, seulement sur le chemin d'échec.
+ * @returns {Promise<string|null>} le type trouvé ('autre', 'tique'…) ou null
+ */
+async function typeHorsImport(db, genus) {
+  if (!genus) return null;
+  const n = await db.taxonomieSpecimen.findFirst({
+    where: {
+      niveau: 'genre',
+      nom:    { equals: genus, mode: 'insensitive' },
+      actif:  true,
+      type:   { not: TYPE_IMPORT },
+    },
+    select: { type: true },
+  });
+  return n?.type ?? null;
+}
+
+/** Message d'échec de résolution, précis sur la cause. */
+async function messageTaxonomieIntrouvable(db, taxoLabel, genus, species) {
+  const autreType = await typeHorsImport(db, genus);
+  if (autreType) {
+    return `"${taxoLabel}" est une taxonomie de type « ${autreType} », or cet import ne crée que des moustiques `
+      + `— saisir ce spécimen depuis l'écran « Autres spécimens » (genre: ${genus}, espèce: ${species ?? '—'})`;
+  }
+  return `Taxonomie "${taxoLabel}" introuvable dans le dictionnaire (genre: ${genus ?? '—'}, espèce: ${species ?? '—'})`;
 }
 
 async function resolveSolution(db, rawValue, cache) {
@@ -1099,7 +1159,7 @@ const importMoustiques = async (req, res) => {
         }
         const taxo = taxoCache.get(taxoKey);
         if (!taxo) {
-          addLog('erreur', 'TAXONOMIE_INTROUVABLE', `Taxonomie "${taxoLabel}" introuvable dans le dictionnaire (genre: ${genus ?? '—'}, espèce: ${species ?? '—'})`);
+          addLog('erreur', 'TAXONOMIE_INTROUVABLE', await messageTaxonomieIntrouvable(tx, taxoLabel, genus, species));
           continue;
         }
 
@@ -1803,7 +1863,7 @@ const validateMoustiques = async (req, res) => {
       }
       const taxo = taxoCache.get(taxoKey);
       if (!taxo) {
-        addLog('erreur', 'TAXONOMIE_INTROUVABLE', `"${taxoLabel}" introuvable dans le dictionnaire (genre: ${genus ?? '—'}, espèce: ${species ?? '—'})`);
+        addLog('erreur', 'TAXONOMIE_INTROUVABLE', await messageTaxonomieIntrouvable(prisma, taxoLabel, genus, species));
       } else if (taxo.niveau === 'genre') {
         // cf. importMoustiques — même distinction : "sp"/"sp." (déjà retiré de
         // `species`) veut dire non déterminée sur le terrain (normal, info),

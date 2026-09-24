@@ -6,6 +6,7 @@ const ExcelJS  = require('exceljs');
 const request  = require('supertest');
 const prisma   = require('../../src/config/prisma');
 const app      = require('../../src/app');
+const { importLimiter } = require('../../src/middlewares/rateLimiter');
 
 const MDP_TEST = 'TestIntegr8!';
 
@@ -55,6 +56,16 @@ async function seedReferentiel() {
       role: 'admin', actif: true,
     },
   });
+
+  // Le compteur du limiteur d'imports vit en mémoire du processus, pas en
+  // base : `resetBase()` ne l'efface donc pas, et sa clé est l'id de
+  // l'utilisateur — identique à chaque test puisque TRUNCATE … RESTART
+  // IDENTITY redonne toujours le même. Sans cette remise à zéro, le 21e import
+  // du fichier reçoit un 429 « Trop d'imports lancés » : le test échoue pour
+  // une raison qui n'a rien à voir avec ce qu'il vérifie, et son corps de
+  // réponse n'a même pas de champ `errors` (constaté le 2026-09-24, en
+  // ajoutant deux cas à un fichier qui frôlait déjà le plafond de 20).
+  importLimiter.resetKey(String(admin.id));
 
   const [cdc] = await Promise.all([
     prisma.typeMethodeCollecte.create({ data: { code: 'CDC', nom: 'CDC_LIGHT_TRAP' } }),

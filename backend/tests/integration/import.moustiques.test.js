@@ -310,3 +310,70 @@ describe('Puits témoin H12', () => {
   });
 });
 
+
+// ---------------------------------------------------------------------------
+// Régression du 2026-09-24 — UNE TAXONOMIE « AUTRE » N'EST PAS UN MOUSTIQUE
+//
+// L'import du dictionnaire complet (2026-09-23) a ajouté 5 799 espèces de type
+// `autre` : Culicoides, phlébotomes, simulies… `resoudreTaxonomie` ne filtrait
+// pas sur le type et cet import écrit dans la table `moustiques`. Une ligne
+// « Culicoides abchazicus » dans un fichier de terrain trouvait donc sa
+// taxonomie et devenait un MOUSTIQUE, en silence — alors que la saisie
+// manuelle la refuse depuis toujours.
+//
+// Avant l'import du dictionnaire, la même ligne échouait bruyamment en
+// « Taxonomie introuvable » : ajouter les espèces avait transformé une erreur
+// visible en erreur muette, qui aurait faussé les densités captures/piège/nuit.
+// ---------------------------------------------------------------------------
+describe('Taxonomie d’un autre type que moustique', () => {
+  const semerCulicoides = async () => {
+    const ordre = await prisma.taxonomieSpecimen.create({
+      data: { niveau: 'ordre', nom: 'DipteraAutre', type: 'autre' },
+    });
+    const famille = await prisma.taxonomieSpecimen.create({
+      data: { niveau: 'famille', nom: 'Ceratopogonidae', parentId: ordre.id, type: 'autre' },
+    });
+    const genre = await prisma.taxonomieSpecimen.create({
+      data: { niveau: 'genre', nom: 'Culicoides', parentId: famille.id, type: 'autre' },
+    });
+    await prisma.taxonomieSpecimen.create({
+      data: { niveau: 'espece', nom: 'abchazicus', parentId: genre.id, type: 'autre' },
+    });
+  };
+
+  it('refuse la ligne au lieu de créer un moustique', async () => {
+    await semerCulicoides();
+
+    const r = await importer(
+      token,
+      await fabriquerXlsx([{ series: 'ZZZ_9', taxo: 'Culicoides abchazicus', genre: 'Culicoides', espece: 'abchazicus' }]),
+      'culicoides.xlsx',
+    );
+
+    expect(r.body.errors.length).toBeGreaterThan(0);
+    // `errors` ne porte pas de code, seulement ligne / idTerrain / raison —
+    // les codes vivent dans `logs`.
+    const erreur = r.body.errors[0];
+    // Le message doit dire POURQUOI : « introuvable » enverrait l'utilisateur
+    // créer une entrée qui existe déjà.
+    expect(erreur.raison).toMatch(/autre/i);
+
+    // La garantie qui compte vraiment : rien n'a été écrit.
+    expect(await prisma.moustique.count()).toBe(0);
+  });
+
+  it('continue d’accepter une taxonomie moustique', async () => {
+    // Contre-épreuve : sans elle, un filtre trop large (ou une faute de frappe
+    // sur le type) ferait tout échouer et ce test passerait quand même.
+    await semerCulicoides();
+
+    const r = await importer(
+      token,
+      await fabriquerXlsx([{ series: 'ZZZ_10', taxo: 'Anopheles gambiae', genre: 'Anopheles', espece: 'gambiae' }]),
+      'moustique.xlsx',
+    );
+
+    expect(r.body.errors ?? []).toHaveLength(0);
+    expect(await prisma.moustique.count()).toBe(1);
+  });
+});
