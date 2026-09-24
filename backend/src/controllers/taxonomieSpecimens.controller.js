@@ -64,26 +64,54 @@ const checkDuplicate = async ({ niveau, nom, parentId, type, excludeId }) => {
   return `"${nom}" existe déjà à ce niveau sous ce parent`;
 };
 
-// GET /api/v1/dictionnaire/taxonomie-specimens?niveau=...&type=...&parentId=...&actif=true&search=...
+// GET /api/v1/dictionnaire/taxonomie-specimens?niveau=...&type=...&parentId=...&actif=true&search=...&light=true&limit=50
+//
+// `light` et `limit` existent pour les SÉLECTEURS, qui n'ont besoin que d'un
+// libellé. Sans eux, chaque écran de saisie téléchargeait le dictionnaire
+// entier : 5,7 Mo et 1,8 s pour la page de recherche, 2,5 Mo pour le
+// formulaire « autre spécimen » (mesuré le 2026-09-24, après l'import qui a
+// porté la table à 12 904 nœuds). L'essentiel du poids venait du `_count`,
+// cinq sous-requêtes par ligne dont aucun sélecteur ne se sert.
+//
+// `type` accepte une liste séparée par des virgules — la page de recherche
+// filtre sur les types cochés, et faisait ce tri côté client faute de pouvoir
+// l'exprimer ici.
+const LIMITE_MAX = 500;
+
 const list = async (req, res) => {
-  const { niveau, type, parentId, actif, search } = req.query;
+  const { niveau, type, parentId, actif, search, light, limit } = req.query;
   const where = {};
   if (niveau)               where.niveau   = niveau;
-  if (type)                 where.type     = type;
+  if (type) {
+    const types = type.split(',').map((s) => s.trim()).filter(Boolean);
+    where.type = types.length > 1 ? { in: types } : types[0];
+  }
   if (parentId === 'null')  where.parentId = null;
   else if (parentId)        where.parentId = parseInt(parentId);
   if (actif !== undefined)  where.actif    = actif === 'true';
   if (search)               where.nom      = { contains: search, mode: 'insensitive' };
 
+  const estLeger = light === 'true' || light === '1';
+  const take     = limit ? Math.min(Math.max(parseInt(limit) || 0, 1), LIMITE_MAX) : undefined;
+
   const items = await prisma.taxonomieSpecimen.findMany({
     where,
-    include: {
-      parent:  { select: { id: true, niveau: true, nom: true } },
-      _count:  { select: { enfants: true, moustiques: true, tiques: true, puces: true, autresSpecimens: true } },
-    },
+    ...(estLeger
+      ? { select: {
+          id: true, niveau: true, nom: true, type: true, parentId: true,
+          parent: { select: { id: true, niveau: true, nom: true } },
+        } }
+      : { include: {
+          parent:  { select: { id: true, niveau: true, nom: true } },
+          _count:  { select: { enfants: true, moustiques: true, tiques: true, puces: true, autresSpecimens: true } },
+        } }),
     orderBy: [{ niveau: 'asc' }, { nom: 'asc' }],
+    ...(take ? { take } : {}),
   });
 
+  // `total` reste le nombre de lignes RENVOYÉES, comme avant. Avec `limit`,
+  // l'appelant sait donc seulement qu'il a une page — c'est tout ce dont un
+  // sélecteur a besoin, et ça évite un `count()` sur chaque frappe.
   return res.json({ total: items.length, items });
 };
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useEspecesTaxonomie } from '../../hooks/useEspecesTaxonomie';
 import {
   Microscope, FlaskConical, FileText,
   Pencil, Trash2, Save, X, MapPin, Beaker, Bird,
@@ -30,24 +31,22 @@ export default function TiqueDetail() {
 
   const [specimen,   setSpecimen]   = useState(null);
   const [solutions,  setSolutions]  = useState([]);
-  const [taxonomies, setTaxonomies] = useState([]);
   const [loadError,  setLoadError]  = useState(null);
   const [loading,    setLoading]    = useState(true);
   const [editing,    setEditing]    = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [deleting,   setDeleting]   = useState(false);
   const [editForm,   setEditForm]   = useState({});
+  const { chercherEspeces, optionTaxonomie } = useEspecesTaxonomie('tique', editForm.taxonomieId);
 
   useEffect(() => {
     Promise.all([
       api.get(`/tiques/${id}`),
       api.get('/dictionnaire/solutions-conservation', { params: { actif: 'true' } }),
-      api.get('/dictionnaire/taxonomie-specimens', { params: { type: 'tique', niveau: 'espece', actif: 'true' } }),
     ])
-      .then(([tRes, sRes, txRes]) => {
+      .then(([tRes, sRes]) => {
         setSpecimen(tRes.data.tique);
         setSolutions(sRes.data.items || []);
-        setTaxonomies(txRes.data.items || []);
       })
       .catch(() => setLoadError(t('specimenDetail.loadError')))
       .finally(() => setLoading(false));
@@ -120,7 +119,6 @@ export default function TiqueDetail() {
 
   const tq = specimen;
 
-  const taxoOptions     = taxonomies.map(tx => ({ value: String(tx.id), label: tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom }));
   const solutionOptions = [{ value: '', label: t('specimenDetail.none') }, ...solutions.map(s => ({ value: String(s.id), label: s.nom + (s.temperature ? ` (${s.temperature})` : '') }))];
   const stadeOptions    = [{ value: '', label: '—' }, ...STADE_OPTIONS_TIQUE];
   const sexeOptions     = [{ value: 'M', label: t('sexe.M') }, { value: 'F', label: t('sexe.F') }, { value: 'inconnu', label: t('sexe.inconnu') }];
@@ -167,7 +165,7 @@ export default function TiqueDetail() {
               <div className="space-y-4">
                 <EditSelect label={t('specimenDetail.genreEspece')} value={editForm.taxonomieId}
                   onChange={e => setEditForm(f => ({ ...f, taxonomieId: e.target.value }))}
-                  options={taxoOptions} />
+                  loadOptions={chercherEspeces} selectedOption={optionTaxonomie} />
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <div>
                     <label className="text-xs text-fg-subtle font-medium block mb-1">{t('specimenDetail.nombre')}</label>

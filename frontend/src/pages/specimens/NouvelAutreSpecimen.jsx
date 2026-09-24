@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useEspecesTaxonomie } from '../../hooks/useEspecesTaxonomie';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { ChevronLeft, Bug, FlaskConical, FileText, Plus, Minus, Microscope, Tag } from 'lucide-react';
 import api from '../../api/axios';
@@ -65,7 +66,6 @@ export default function NouvelAutreSpecimen() {
   const [missionId,  setMissionId]  = useState(null);
   const [selectedMethode, setSelectedMethode] = useState(null);
   const [typesSpec,  setTypesSpec]  = useState([]);
-  const [taxonomies, setTaxonomies] = useState([]);
   const [solutions,  setSolutions]  = useState([]);
   const [isLoading,  setIsLoading]  = useState(false);
   const [errors,     setErrors]     = useState({});
@@ -75,21 +75,16 @@ export default function NouvelAutreSpecimen() {
   // NouveauMoustique : les trois autres formulaires laissaient partir une
   // fiche a moitie remplie sans un mot.
   const desarmerGarde = useUnsavedChanges(isDirty);
+  // Espèces du type `autre` — 5 799 depuis l'import du 2026-09-23 : recherche
+  // serveur, plus de préchargement (2,5 Mo par ouverture du formulaire).
+  const { chercherEspeces, optionTaxonomie } = useEspecesTaxonomie('autre', form.taxonomieId);
 
   useEffect(() => {
     Promise.all([
       api.get('/dictionnaire/types-autre-specimen', { params: { actif: 'true' } }),
-      // `type: 'autre'` — sans ce filtre, le menu listait les espèces de
-      // moustiques, tiques et puces, c'est-à-dire exactement celles qui ont
-      // leur propre formulaire, et aucune de celles qu'on vient saisir ici.
-      // C'était sans conséquence tant que le dictionnaire n'avait aucune
-      // branche `autre` ; il en a depuis le 2026-09-23 (Culicoides,
-      // phlébotomes, simulies, tabanidés…).
-      api.get('/dictionnaire/taxonomie-specimens',  { params: { actif: 'true', niveau: 'espece', type: 'autre' } }),
       api.get('/dictionnaire/solutions-conservation', { params: { actif: 'true' } }),
-    ]).then(([tRes, taxRes, sRes]) => {
+    ]).then(([tRes, sRes]) => {
       setTypesSpec(tRes.data.items   || []);
-      setTaxonomies(taxRes.data.items || []);
       setSolutions(sRes.data.items   || []);
     }).catch(() => toast.error(t('nouveauSpecimen.loadRefsError')));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,10 +150,6 @@ export default function NouvelAutreSpecimen() {
 
   // Options sans option vide — FormField l'ajoute automatiquement
   const typeOptions    = typesSpec.map((tp)  => ({ value: tp.id, label: `${tp.code} — ${tp.nom}` }));
-  const taxoOptions    = taxonomies.map((tx) => ({
-    value: tx.id,
-    label: tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom,
-  }));
   const solutionOptions = solutions.map((s) => ({
     value: s.id,
     label: `${s.nom}${s.temperature ? ` · ${s.temperature}` : ''}`,
@@ -244,7 +235,7 @@ export default function NouvelAutreSpecimen() {
                   <FormField
                     label={t('nouvelAutreSpecimen.taxonomie')} name="taxonomieId" type="select"
                     value={form.taxonomieId} onChange={handleChange}
-                    options={taxoOptions}
+                    loadOptions={chercherEspeces} selectedOption={optionTaxonomie}
                     hint={t('nouvelAutreSpecimen.taxonomieHint')}
                   />
                 </div>

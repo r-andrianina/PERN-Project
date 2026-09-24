@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
+import { useEspecesTaxonomie } from '../../hooks/useEspecesTaxonomie';
 import { ChevronLeft, Microscope, FlaskConical, FileText, Check, Loader2, Info, Tag } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from '../../lib/toast';
@@ -42,22 +43,20 @@ export default function NouveauMoustique() {
   const [missionId, setMissionId] = useState(null);
   const [selectedMethode, setSelectedMethode] = useState(null);
   const requiresTrancheHoraire = !!selectedMethode?.typeMethode?.requiresTrancheHoraire;
-  const [taxonomies, setTaxonomies] = useState([]);
   const [solutions,  setSolutions]  = useState([]);
   const [isLoading,  setIsLoading]  = useState(false);
   const [errors,     setErrors]     = useState({});
   const [isDirty,    setIsDirty]    = useState(false);
 
   const desarmerGarde = useUnsavedChanges(isDirty);
+  const { chercherEspeces, optionTaxonomie } = useEspecesTaxonomie('moustique', form.taxonomieId);
 
   useEffect(() => {
-    Promise.all([
-      api.get('/dictionnaire/taxonomie-specimens', { params: { type: 'moustique', niveau: 'espece', actif: 'true' } }),
-      api.get('/dictionnaire/solutions-conservation', { params: { actif: 'true' } }),
-    ]).then(([tRes, sRes]) => {
-      setTaxonomies(tRes.data.items || []);
-      setSolutions(sRes.data.items  || []);
-    }).catch(() => toast.error(t('nouveauSpecimen.loadRefsError')));
+    // La liste des espèces n'est plus préchargée (3 659 moustiques, 1,6 Mo) :
+    // elle est interrogée à la frappe — cf. useEspecesTaxonomie.
+    api.get('/dictionnaire/solutions-conservation', { params: { actif: 'true' } })
+      .then((sRes) => setSolutions(sRes.data.items || []))
+      .catch(() => toast.error(t('nouveauSpecimen.loadRefsError')));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -142,10 +141,6 @@ export default function NouveauMoustique() {
     }
   };
 
-  const taxonomieOptions = taxonomies.map(tx => ({
-    value: tx.id,
-    label: tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom,
-  }));
   const solutionOptions  = solutions.map(s => ({ value: s.id, label: `${s.nom}${s.temperature ? ' (' + s.temperature + ')' : ''}` }));
   const sexeOptions    = [{ value:'M', label: t('sexe.M') }, { value:'F', label: t('sexe.F') }, { value:'inconnu', label: t('sexe.inconnu') }];
   const stadeOptions   = STADE_OPTIONS_MOUSTIQUE;
@@ -157,7 +152,9 @@ export default function NouveauMoustique() {
     { value: 'Entier',  label: t('specimenDetail.organeEntier') },
   ];
 
-  const selectedTaxo = taxonomies.find((tx) => tx.id === parseInt(form.taxonomieId));
+  // L'aperçu affichait l'espèce depuis la liste préchargée ; elle vient
+  // maintenant de la même résolution par id que le sélecteur.
+  const selectedTaxo = optionTaxonomie;
 
   return (
     <div className="space-y-5">
@@ -207,7 +204,8 @@ export default function NouveauMoustique() {
             <FormField
               label={t('nouveauSpecimen.genreEspece')} name="taxonomieId" type="select"
               value={form.taxonomieId} onChange={handleChange}
-              options={taxonomieOptions} required error={errors.taxonomieId}
+              loadOptions={chercherEspeces} selectedOption={optionTaxonomie}
+              required error={errors.taxonomieId}
               hint={t('nouveauSpecimen.genreEspeceHint')}
             />
           </div>
@@ -322,7 +320,7 @@ export default function NouveauMoustique() {
                   <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
                   {selectedTaxo ? (
                     <p className="text-sm font-semibold italic text-specimen-moustique">
-                      {selectedTaxo.parent?.nom ? `${selectedTaxo.parent.nom} ` : ''}{selectedTaxo.nom}
+                      {selectedTaxo.label}
                     </p>
                   ) : (
                     <p className="text-xs text-fg-subtle italic">{t('nouveauSpecimen.toSelect')}</p>

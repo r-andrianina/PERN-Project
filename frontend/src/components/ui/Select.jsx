@@ -37,6 +37,19 @@ export default function Select({
   searchable,
   searchPlaceholder,
   emptyLabel,
+  // ── Recherche CÔTÉ SERVEUR (optionnelle) ────────────────────
+  // `loadOptions(query)` renvoie une promesse d'options. Quand elle est
+  // fournie, la liste n'est plus filtrée côté client : elle est redemandée au
+  // serveur à chaque frappe (temporisée). Prévu pour les référentiels qu'on
+  // ne peut plus précharger — la taxonomie compte 12 904 nœuds, soit 5,7 Mo
+  // par ouverture d'écran avant ce changement.
+  //
+  // `selectedOption` porte le libellé de la valeur courante : elle n'est
+  // presque jamais dans la page chargée (on affiche 50 résultats sur 12 904),
+  // et sans elle le champ afficherait le placeholder alors qu'un filtre est
+  // actif — le pire des deux mondes.
+  loadOptions,
+  selectedOption,
 }) {
   const t = useT();
   placeholder        ??= `— ${t('common.select')} —`;
@@ -51,9 +64,40 @@ export default function Select({
   const searchRef = useRef(null);
   const listRef = useRef(null);
 
-  const showSearch = searchable ?? options.length > 8;
+  const asynchrone = typeof loadOptions === 'function';
+  const [optionsServeur, setOptionsServeur] = useState([]);
+  const [chargement, setChargement] = useState(false);
+
+  // `asynchrone` est un booléen, jamais null : un `??` de plus ici aurait
+  // renvoyé `false` pour tous les selects ordinaires et supprimé leur champ
+  // de recherche au passage.
+  const showSearch = searchable ?? (asynchrone || options.length > 8);
+
+  // Interrogation du serveur : temporisée, et on ignore la réponse d'une
+  // requête devancée par une plus récente (sinon une réponse lente écrase la
+  // liste d'une frappe plus tardive).
+  useEffect(() => {
+    if (!asynchrone || !open) return;
+    let abandonnee = false;
+    setChargement(true);
+    const tid = setTimeout(async () => {
+      try {
+        const res = await loadOptions(query.trim());
+        if (!abandonnee) setOptionsServeur(res || []);
+      } catch {
+        if (!abandonnee) setOptionsServeur([]);
+      } finally {
+        if (!abandonnee) setChargement(false);
+      }
+    }, query.trim() ? 250 : 0);
+    return () => { abandonnee = true; clearTimeout(tid); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, open, asynchrone]);
 
   const filtered = useMemo(() => {
+    // Le serveur a déjà filtré : re-filtrer ici masquerait des résultats
+    // légitimes (il cherche aussi sur le genre parent, pas seulement le label).
+    if (asynchrone) return optionsServeur;
     if (!showSearch || !query.trim()) return options;
     const q = query.trim().toLowerCase();
     // `keywords` (optionnel) élargit la recherche à du texte non affiché
@@ -63,9 +107,12 @@ export default function Select({
     return options.filter((o) =>
       o.label.toLowerCase().includes(q) || o.keywords?.toLowerCase().includes(q)
     );
-  }, [options, query, showSearch]);
+  }, [options, query, showSearch, asynchrone, optionsServeur]);
 
-  const selected = options.find((o) => String(o.value) === String(value ?? ''));
+  const selected =
+    options.find((o) => String(o.value) === String(value ?? ''))
+    ?? filtered.find((o) => String(o.value) === String(value ?? ''))
+    ?? (selectedOption && String(selectedOption.value) === String(value ?? '') ? selectedOption : undefined);
 
   const openMenu = () => {
     if (disabled || !triggerRef.current) return;
@@ -216,7 +263,11 @@ export default function Select({
             </div>
           )}
           <div ref={listRef} role="listbox" className="max-h-60 overflow-y-auto py-1">
-            {filtered.length === 0 ? (
+            {/* « Aucun résultat » pendant que la requête est en vol dirait
+                faux : on annonce l'attente tant qu'elle dure. */}
+            {chargement && filtered.length === 0 ? (
+              <p className="px-3 py-2.5 text-xs text-fg-subtle text-center">{t('common.loading')}</p>
+            ) : filtered.length === 0 ? (
               <p className="px-3 py-2.5 text-xs text-fg-subtle text-center">{emptyLabel}</p>
             ) : filtered.map((opt, i) => {
               const isSelected = String(opt.value) === String(value ?? '');

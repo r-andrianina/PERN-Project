@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useEspecesTaxonomie } from '../../hooks/useEspecesTaxonomie';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { ChevronLeft, Microscope, FlaskConical, FileText, PawPrint, Check, Loader2, Info, Tag } from 'lucide-react';
 import api from '../../api/axios';
@@ -29,7 +30,6 @@ export default function NouveauTique() {
   const [missionId, setMissionId] = useState(null);
   const [selectedMethode, setSelectedMethode] = useState(null);
   const [hotes,      setHotes]      = useState([]);
-  const [taxonomies, setTaxonomies] = useState([]);
   const [solutions,  setSolutions]  = useState([]);
   const [isLoading,  setIsLoading]  = useState(false);
   const [errors,     setErrors]     = useState({});
@@ -39,15 +39,14 @@ export default function NouveauTique() {
   // NouveauMoustique : les trois autres formulaires laissaient partir une
   // fiche a moitie remplie sans un mot.
   const desarmerGarde = useUnsavedChanges(isDirty);
+  const { chercherEspeces, optionTaxonomie } = useEspecesTaxonomie('tique', form.taxonomieId);
 
   useEffect(() => {
     Promise.all([
       api.get('/hotes').catch(() => ({ data: { hotes: [] } })),
-      api.get('/dictionnaire/taxonomie-specimens', { params: { type: 'tique', niveau: 'espece', actif: 'true' } }),
       api.get('/dictionnaire/solutions-conservation', { params: { actif: 'true' } }),
-    ]).then(([hRes, tRes, sRes]) => {
+    ]).then(([hRes, sRes]) => {
       setHotes(hRes.data.hotes       || []);
-      setTaxonomies(tRes.data.items  || []);
       setSolutions(sRes.data.items   || []);
     }).catch(() => toast.error(t('nouveauSpecimen.loadRefsError')));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,9 +121,6 @@ export default function NouveauTique() {
     value: h.id,
     label: `${h.idTerrain || `#${h.id}`} — ${h.taxonomieHote?.nom || t('nouveauTique.hoteFallback')}${h.especeLocale ? ` (${h.especeLocale})` : ''}`,
   }));
-  const taxonomieOptions = taxonomies.map(tx => ({
-    value: tx.id, label: tx.parent ? `${tx.parent.nom} ${tx.nom}` : tx.nom,
-  }));
   const solutionOptions  = solutions.map(s => ({ value: s.id, label: `${s.nom}${s.temperature ? ' (' + s.temperature + ')' : ''}` }));
   const sexeOptions    = [{ value:'M', label: t('sexe.M') }, { value:'F', label: t('sexe.F') }, { value:'inconnu', label: t('sexe.inconnu') }];
   const stadeOptions   = STADE_OPTIONS_TIQUE;
@@ -135,7 +131,9 @@ export default function NouveauTique() {
     { value:'Queue', label: t('nouveauTique.partieQueue') }, { value:'Autre', label: t('nouveauTique.partieAutre') },
   ];
 
-  const selectedTaxo = taxonomies.find((tx) => tx.id === parseInt(form.taxonomieId));
+  // L'aperçu affichait l'espèce depuis la liste préchargée ; elle vient
+  // maintenant de la même résolution par id que le sélecteur.
+  const selectedTaxo = optionTaxonomie;
   const selectedHote = hotes.find((h) => h.id === parseInt(form.hoteId));
 
   return (
@@ -172,7 +170,8 @@ export default function NouveauTique() {
             />
             <FormField label={t('nouveauSpecimen.genreEspece')} name="taxonomieId" type="select"
               value={form.taxonomieId} onChange={handleChange}
-              options={taxonomieOptions} required error={errors.taxonomieId} />
+              loadOptions={chercherEspeces} selectedOption={optionTaxonomie}
+              required error={errors.taxonomieId} />
           </div>
         </div>
 
@@ -277,7 +276,7 @@ export default function NouveauTique() {
                   <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5">{t('nouveauSpecimen.espece')}</p>
                   {selectedTaxo ? (
                     <p className="text-sm font-semibold italic text-specimen-tique">
-                      {selectedTaxo.parent?.nom ? `${selectedTaxo.parent.nom} ` : ''}{selectedTaxo.nom}
+                      {selectedTaxo.label}
                     </p>
                   ) : <p className="text-xs text-fg-subtle italic">{t('nouveauSpecimen.toSelect')}</p>}
                 </div>

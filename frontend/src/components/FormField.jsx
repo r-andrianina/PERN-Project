@@ -49,6 +49,7 @@ function DateTimeField({ value, onChange, name, disabled, error }) {
 export default function FormField({
   label, name, type = 'text', value, onChange, onBlur,
   placeholder, required, options, error, hint, disabled,
+  loadOptions, selectedOption,
 }) {
   const t = useT();
   const baseClass = `
@@ -79,6 +80,13 @@ export default function FormField({
           disabled={disabled}
           error={error}
           options={[{ value: '', label: `— ${t('common.select')} —` }, ...(options ?? [])]}
+          // Recherche côté serveur, pour les référentiels trop gros pour être
+          // préchargés (taxonomie). Sans ces deux passe-plats, chaque
+          // formulaire devrait court-circuiter FormField et poser un <Select>
+          // à la main — c'est-à-dire réécrire son libellé, son erreur et son
+          // espacement.
+          loadOptions={loadOptions}
+          selectedOption={selectedOption}
         />
 
       ) : type === 'date' ? (

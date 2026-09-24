@@ -25,6 +25,13 @@ const getTypeLabel = (t) => ({ moustique: t('specimenTypes.moustique'), tique: t
 // autres spécimens introuvables même après leur ajout côté API.
 const TOUS_TYPES = ['moustique', 'tique', 'puce', 'autre'];
 
+// Libellé d'un nœud taxonomique dans le sélecteur — même forme qu'avant le
+// passage à la recherche serveur : « [espece] Culicoides abchazicus ».
+const optionTaxonomie = (tax) => ({
+  value: tax.id,
+  label: `[${tax.niveau}] ${tax.parent?.nom ? `${tax.parent.nom} ` : ''}${tax.nom}`,
+});
+
 const SEXE_TONE  = { M: 'info', F: 'danger', inconnu: 'default' };
 const getSexeLabel = (t) => ({ M: t('sexe.M'), F: t('sexe.F'), inconnu: t('sexe.inconnu') });
 
@@ -211,7 +218,7 @@ export default function RecherchePage() {
   const [missions,        setMissions]        = useState([]);
   const [localites,       setLocalites]       = useState([]);
   const [methodes,        setMethodes]        = useState([]);
-  const [taxonomies,      setTaxonomies]      = useState([]);
+  const [taxoSelectionnee, setTaxoSelectionnee] = useState(null);
   const [taxonomiesHote,  setTaxonomiesHote]  = useState([]);
   const [solutions,       setSolutions]       = useState([]);
 
@@ -227,17 +234,30 @@ export default function RecherchePage() {
     Promise.all([
       api.get('/projets').catch(() => ({ data: { projets: [] } })),
       api.get('/missions'),
-      api.get('/dictionnaire/taxonomie-specimens', { params: { actif: 'true' } }),
+      // La taxonomie des spécimens N'EST PLUS préchargée : 12 904 nœuds,
+      // 5,7 Mo et 1,8 s à chaque ouverture de l'écran, pour alimenter un menu
+      // dont on lit dix lignes. Elle est désormais interrogée à la frappe
+      // (cf. chercherTaxonomies). Celle des HÔTES reste préchargée : 25 nœuds.
       api.get('/dictionnaire/taxonomie-hotes',     { params: { actif: 'true' } }),
       api.get('/dictionnaire/solutions-conservation', { params: { actif: 'true' } }),
-    ]).then(([p, m, tax, th, s]) => {
+    ]).then(([p, m, th, s]) => {
       setProjets(p.data.projets   || []);
       setMissions(m.data.missions || []);
-      setTaxonomies(tax.data.items   || []);
       setTaxonomiesHote(th.data.items || []);
       setSolutions(s.data.items    || []);
     });
   }, []);
+
+  // Libellé du filtre taxonomique actif : il vient de l'URL sous forme d'id,
+  // et n'a aucune raison de figurer dans la page de résultats affichée.
+  useEffect(() => {
+    if (!f.taxonomieId) { setTaxoSelectionnee(null); return; }
+    if (String(taxoSelectionnee?.value) === String(f.taxonomieId)) return;
+    api.get(`/dictionnaire/taxonomie-specimens/${f.taxonomieId}`)
+      .then((r) => r.data.item && setTaxoSelectionnee(optionTaxonomie(r.data.item)))
+      .catch(() => setTaxoSelectionnee(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f.taxonomieId]);
 
   useEffect(() => {
     if (!f.missionId) { setLocalites([]); return; }
@@ -321,7 +341,20 @@ export default function RecherchePage() {
       });
   };
 
-  const taxonomiesFiltered = taxonomies.filter((tax) => !tax.type || activeTypes.includes(tax.type));
+  // Recherche serveur du filtre taxonomique. `type` porte les types cochés :
+  // ce tri se faisait côté client sur la liste entière, il part maintenant
+  // avec la requête. Sans saisie, on affiche les 50 premiers — de quoi ouvrir
+  // le menu et voir à quoi il ressemble.
+  const chercherTaxonomies = async (q) => {
+    const r = await api.get('/dictionnaire/taxonomie-specimens', {
+      params: {
+        actif: 'true', light: 'true', limit: 50,
+        type: activeTypes.join(','),
+        ...(q ? { search: q } : {}),
+      },
+    });
+    return (r.data.items || []).map(optionTaxonomie);
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -507,13 +540,15 @@ export default function RecherchePage() {
               value={f.taxonomieId || ''}
               onChange={(val) => setFilter('taxonomieId', val)}
               searchPlaceholder={t('recherchePage.searchTaxonomiePlaceholder')}
-              options={[
+              // L'option « toutes » reste locale : elle n'existe dans aucune
+              // réponse du serveur, et doit rester atteignable pour annuler
+              // le filtre même quand la recherche ne ramène rien.
+              options={[{ value: '', label: t('recherchePage.allTaxonomies') }]}
+              loadOptions={async (q) => [
                 { value: '', label: t('recherchePage.allTaxonomies') },
-                ...taxonomiesFiltered.map((tax) => ({
-                  value: tax.id,
-                  label: `[${tax.niveau}] ${tax.parent?.nom ? tax.parent.nom + ' ' : ''}${tax.nom}`,
-                })),
+                ...(await chercherTaxonomies(q)),
               ]}
+              selectedOption={taxoSelectionnee}
             />
           </FilterSection>
 
