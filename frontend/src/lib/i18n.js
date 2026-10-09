@@ -266,6 +266,15 @@ export const translations = {
       termine:  'Terminé',
       suspendu: 'Suspendu',
     },
+    // Avancement d'une mission — DÉRIVÉ des dates et de la saisie, jamais
+    // choisi par un utilisateur (cf. backend/src/utils/missionStatut.js).
+    missionStatus: {
+      planifiee: 'Planifiée',
+      terrain:   'Sur le terrain',
+      a_saisir:  'À saisir',
+      partielle: 'Partielle',
+      complete:  'Complète',
+    },
     projetsPage: {
       title:            'Projets',
       subtitle:         '{n} projet(s) enregistré(s)',
@@ -354,6 +363,8 @@ export const translations = {
       colPeriod:        'Période',
       colLocalities:    'Localités',
       localitiesShort:  'loc.',
+      colStatus:        'Avancement',
+      methodesProductives: '{n}/{total} méthodes ont produit',
     },
     sexe: {
       M:       'Mâle',
@@ -2249,6 +2260,13 @@ export const translations = {
       termine:  'Completed',
       suspendu: 'Suspended',
     },
+    missionStatus: {
+      planifiee: 'Planned',
+      terrain:   'In the field',
+      a_saisir:  'Awaiting entry',
+      partielle: 'Partial',
+      complete:  'Complete',
+    },
     projetsPage: {
       title:            'Projects',
       subtitle:         '{n} project(s) registered',
@@ -2336,6 +2354,8 @@ export const translations = {
       colMissionLead:   'Mission lead',
       colPeriod:        'Period',
       colLocalities:    'Localities',
+      colStatus:        'Progress',
+      methodesProductives: '{n}/{total} methods yielded specimens',
       localitiesShort:  'loc.',
     },
     sexe: {

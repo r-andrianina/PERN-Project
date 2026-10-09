@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from '../../lib/toast';
-import { Card, Breadcrumb } from '../../components/ui';
+import { Card, Breadcrumb, Badge } from '../../components/ui';
 import FormField from '../../components/FormField';
 import LocaliteFieldsForm from '../../components/LocaliteFieldsForm';
 import AgentMultiSelect from '../../components/AgentMultiSelect';
@@ -16,6 +16,16 @@ import { useApiQuery } from '../../hooks';
 import { useT, interpolate } from '../../lib/i18n';
 import { dateNuitPiegeFormatee } from '../../utils/methodeLabel';
 import { roleLabel } from '../../lib/roles';
+
+// Mêmes tons que la liste des missions — un même état doit avoir la même
+// couleur d'un écran à l'autre.
+const STATUT_TONE = {
+  planifiee: 'default',
+  terrain:   'info',
+  a_saisir:  'warning',
+  partielle: 'primary',
+  complete:  'success',
+};
 
 const TYPE_COLOR = {
   moustique: 'bg-specimen-moustique',
@@ -615,6 +625,21 @@ export default function MissionDetail() {
                     <span className="inline-flex items-center gap-1 text-xs font-mono bg-surface-3 text-fg-muted px-2 py-0.5 rounded-lg border border-border-strong">
                       <Hash size={10} /> {mission.ordreMission}
                     </span>
+                    {/* Avancement calculé par le serveur. Le détail chiffré
+                        accompagne le badge dès qu'il reste quelque chose à
+                        saisir : « Partielle » sans dire combien n'aide pas. */}
+                    {mission.statut && (
+                      <Badge tone={STATUT_TONE[mission.statut] ?? 'default'} size="sm">
+                        {t(`missionStatus.${mission.statut}`)}
+                      </Badge>
+                    )}
+                    {(mission.statut === 'partielle' || mission.statut === 'a_saisir') && mission.methodes > 0 && (
+                      <span className="text-2xs text-fg-subtle">
+                        {interpolate(t('missionsPage.methodesProductives'), {
+                          n: mission.methodesAvecSpecimens, total: mission.methodes,
+                        })}
+                      </span>
+                    )}
                   </div>
                   <h1 className="text-xl font-bold text-fg">{mission.ordreMission}</h1>
                   <p className="text-sm text-fg-subtle mt-0.5">{mission.projet?.nom}</p>

@@ -1,6 +1,55 @@
 const prisma   = require('../config/prisma');
 const AppError = require('../utils/AppError');
 const { getAccessibleProjetIds, canBypass } = require('../utils/access');
+const { statutMission } = require('../utils/missionStatut');
+
+// Les quatre tables de spécimens portent toutes une `methodeId`, mais aucune
+// relation ne les réunit : il faut les interroger une par une.
+const MODELES_SPECIMENS = ['moustique', 'tique', 'puce', 'autreSpecimen'];
+
+/**
+ * Ajoute à chaque mission son `statut` dérivé, plus les deux compteurs dont il
+ * découle (`methodes`, `methodesAvecSpecimens`) — affichés tels quels dans
+ * l'interface, pour que l'utilisateur voie POURQUOI une mission est partielle.
+ *
+ * Coût : 1 requête pour les méthodes + 4 pour les types de spécimens, quel que
+ * soit le nombre de missions. Un calcul par mission aurait multiplié par N.
+ */
+const avecStatut = async (missions) => {
+  if (missions.length === 0) return missions;
+
+  const methodes = await prisma.methodeCollecte.findMany({
+    where:  { localite: { missionId: { in: missions.map((m) => m.id) } } },
+    select: { id: true, localite: { select: { missionId: true } } },
+  });
+
+  // `distinct` plutôt que `groupBy` : on ne veut pas compter les spécimens,
+  // seulement savoir si une méthode en a au moins un.
+  const idsMethodes = methodes.map((x) => x.id);
+  const avecSpecimens = new Set();
+  if (idsMethodes.length > 0) {
+    const listes = await Promise.all(MODELES_SPECIMENS.map((modele) =>
+      prisma[modele].findMany({
+        where:    { methodeId: { in: idsMethodes } },
+        select:   { methodeId: true },
+        distinct: ['methodeId'],
+      })));
+    listes.flat().forEach((s) => avecSpecimens.add(s.methodeId));
+  }
+
+  const compteurs = new Map(missions.map((m) => [m.id, { methodes: 0, methodesAvecSpecimens: 0 }]));
+  for (const me of methodes) {
+    const c = compteurs.get(me.localite.missionId);
+    if (!c) continue;
+    c.methodes += 1;
+    if (avecSpecimens.has(me.id)) c.methodesAvecSpecimens += 1;
+  }
+
+  return missions.map((m) => {
+    const c = compteurs.get(m.id) ?? { methodes: 0, methodesAvecSpecimens: 0 };
+    return { ...m, ...c, statut: statutMission({ ...m, ...c }) };
+  });
+};
 
 const INCLUDE_LIST = {
   projet:      { select: { id: true, code: true, nom: true } },
@@ -20,7 +69,7 @@ const INCLUDE_DETAIL = {
           typeMethode:       { select: { id: true, code: true, nom: true } },
           typeHabitat:       { select: { id: true, nom: true } },
           typeEnvironnement: { select: { id: true, nom: true } },
-          _count:            { select: { moustiques: true, tiques: true, puces: true } },
+          _count:            { select: { moustiques: true, tiques: true, puces: true, autresSpecimens: true } },
         },
         orderBy: { createdAt: 'asc' },
       },
@@ -47,7 +96,8 @@ const list = async ({ projetId, search } = {}, user) => {
     if (ids !== null) where.projetId = { in: ids };
   }
 
-  return prisma.mission.findMany({ where, include: INCLUDE_LIST, orderBy: { dateDebut: 'desc' } });
+  const missions = await prisma.mission.findMany({ where, include: INCLUDE_LIST, orderBy: { dateDebut: 'desc' } });
+  return avecStatut(missions);
 };
 
 const getById = async (id, user) => {
@@ -57,7 +107,8 @@ const getById = async (id, user) => {
     const ids = await getAccessibleProjetIds(user.id, user.role);
     if (!ids.includes(mission.projetId)) throw AppError.forbidden('Accès refusé — vous n\'êtes pas membre de ce projet');
   }
-  return mission;
+  const [avec] = await avecStatut([mission]);
+  return avec;
 };
 
 const create = async (data) => {
@@ -72,7 +123,10 @@ const create = async (data) => {
   const projet = await prisma.projet.findUnique({ where: { id: parseInt(projetId) } });
   if (!projet) throw AppError.notFound('Projet introuvable');
 
-  return prisma.mission.create({
+  // Le statut est ajouté ici aussi : sans lui, la mission renvoyée après
+  // création n'aurait pas le même contenu que celle de la liste, et l'écran
+  // afficherait un badge vide jusqu'au rechargement suivant.
+  const creee = await prisma.mission.create({
     data: {
       ordreMission:  ordreMission.trim(),
       projetId:      parseInt(projetId),
@@ -86,6 +140,8 @@ const create = async (data) => {
     },
     include: INCLUDE_LIST,
   });
+  const [avec] = await avecStatut([creee]);
+  return avec;
 };
 
 const update = async (id, data, user) => {
@@ -114,7 +170,7 @@ const update = async (id, data, user) => {
   // l'update après le deleteMany — un userId invalide suffit — laissait la
   // mission SANS AUCUN agent, sans rien pour les rétablir : modifier une
   // mission pouvait donc vider silencieusement sa liste d'agents.
-  return prisma.$transaction(async (tx) => {
+  const modifiee = await prisma.$transaction(async (tx) => {
     if (agentIds !== undefined) {
       await tx.missionAgent.deleteMany({ where: { missionId: id } });
       if (agentIds.length > 0) patch.agents = { create: agentIds.map(uid => ({ userId: parseInt(uid) })) };
@@ -125,6 +181,11 @@ const update = async (id, data, user) => {
       include: { ...INCLUDE_LIST, _count: { select: { localites: true } } },
     });
   });
+
+  // Hors transaction : le recalcul ne lit que des compteurs et n'a aucune
+  // raison de retenir la connexion pendant que les agents sont réécrits.
+  const [avec] = await avecStatut([modifiee]);
+  return avec;
 };
 
 const remove = async (id, user) => {
