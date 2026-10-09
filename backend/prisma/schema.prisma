@@ -181,8 +181,6 @@ model User {
 
   // Relations
   projetsResponsable  Projet[]             @relation("ResponsableProjet")
-  missionsChef        Mission[]            @relation("ChefMission")
-  missionsAgent       MissionAgent[]
   auditLogs           AuditLog[]
   projetsMembre       MembreProjet[]
   manipulationsLabo   ManipulationLabo[]   @relation("OperateurManipulation")
@@ -245,8 +243,9 @@ model Mission {
   id            Int           @id @default(autoincrement())
   ordreMission  String        @unique @map("ordre_mission") @db.VarChar(50)
   projetId      Int           @map("projet_id")
+  // Fiche du dictionnaire Personnel, et non plus compte utilisateur : un chef
+  // ou un agent de terrain n'a pas à avoir un accès à l'application.
   chefMissionId  Int?          @map("chef_mission_id")
-  chefMissionNom String?       @db.VarChar(200) @map("chef_mission_nom")
   dateDebut      DateTime      @map("date_debut") @db.Date
   dateFin       DateTime?     @map("date_fin") @db.Date
   objet         String?       @db.Text
@@ -255,23 +254,53 @@ model Mission {
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
   projet      Projet         @relation(fields: [projetId], references: [id], onDelete: Cascade)
-  chefMission User?          @relation("ChefMission", fields: [chefMissionId], references: [id])
+  chefMission Personnel?     @relation("ChefMission", fields: [chefMissionId], references: [id], onDelete: SetNull)
   agents      MissionAgent[]
   localites   Localite[]
   containers  Container[]
 
+  @@index([chefMissionId])
   @@map("missions")
 }
 
 model MissionAgent {
-  missionId Int @map("mission_id")
-  userId    Int @map("user_id")
+  missionId   Int @map("mission_id")
+  personnelId Int @map("personnel_id")
 
-  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mission   Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  // Restrict : une fiche affectée à une mission se désactive, elle ne se
+  // supprime pas (le référentiel refuse déjà, la base le garantit).
+  personnel Personnel @relation(fields: [personnelId], references: [id], onDelete: Restrict)
 
-  @@id([missionId, userId])
+  @@id([missionId, personnelId])
+  @@index([personnelId])
   @@map("mission_agents")
+}
+
+// Personnel de l'UEM — et intervenants extérieurs ajoutés depuis une mission.
+// Pas de lien avec User : le dictionnaire décrit qui part sur le terrain, pas
+// qui se connecte.
+//
+// `nom` est le nom complet tel qu'écrit dans l'annuaire : l'ordre prénom/nom y
+// varie (« Diego AYALA », « RAZANAKOTO Henintsoa Andrianina ») et aucun
+// découpage automatique ne serait fiable. L'unicité réelle — insensible aux
+// accents, à la casse et à l'ordre des mots — est contrôlée par l'application
+// (cf. utils/personnelNom.js) ; l'index unique ne couvre que la graphie exacte.
+model Personnel {
+  id          Int      @id @default(autoincrement())
+  nom         String   @unique @db.VarChar(200)
+  fonction    String?  @db.VarChar(200)
+  equipe      String?  @db.VarChar(100)
+  actif       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by")
+  updatedById Int?     @map("updated_by")
+
+  missionsChef Mission[]      @relation("ChefMission")
+  missions     MissionAgent[]
+
+  @@map("personnel")
 }
 
 // =============================================================

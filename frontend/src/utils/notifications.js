@@ -18,6 +18,7 @@ const ENTITY_LABELS = {
   SolutionConservation: 'la solution de conservation',
   TypeEnvironnement:    "le type d'environnement",
   TypeHabitat:          "le type d'habitat",
+  Personnel:            'la fiche du personnel',
   User:                 "l'utilisateur",
 };
 
@@ -36,7 +37,7 @@ const FIELD_LABELS = {
   role: 'rôle', capacity: 'capacité', type: 'type',
   taxonomieId: 'taxonomie', solutionId: 'solution', dateCollecte: 'date de collecte',
   region: 'région', district: 'district', commune: 'commune', fokontany: 'fokontany',
-  contacts: 'contacts locaux',
+  contacts: 'contacts locaux', fonction: 'fonction', equipe: 'équipe',
   typeMethodeId: 'type de méthode', typeHabitatId: 'habitat', typeEnvironnementId: 'environnement',
 };
 
@@ -78,6 +79,12 @@ export function formatNotificationText(item) {
     return `${author} a importé ${n} moustique${n > 1 ? 's' : ''} dans ${cible}${fichier}`;
   }
 
+  // Import de l'annuaire du personnel : un lot de fiches, pas une fiche.
+  if (item.entity === 'ImportPersonnel') {
+    const fichier = neu.import ? ` (${neu.import})` : '';
+    return `${author} a importé l'annuaire du personnel${fichier} : ${neu.creees ?? 0} fiche(s) créée(s), ${neu.misesAJour ?? 0} mise(s) à jour`;
+  }
+
   if (GPS_ENTITIES.has(item.entity) && item.action === 'UPDATE') {
     const gpsDetail = describeGpsChange(old, neu);
     if (gpsDetail) return `${author} ${verb} le point GPS [ID: ${item.entityId}] (${gpsDetail})`;
@@ -116,6 +123,8 @@ export function resolveEntityUrl(entity, entityId, action) {
     SolutionConservation: '/dictionnaire/solutions-conservation',
     TypeEnvironnement:    '/dictionnaire/types-environnement',
     TypeHabitat:          '/dictionnaire/types-habitat',
+    Personnel:            '/dictionnaire/personnel',
+    ImportPersonnel:      '/dictionnaire/personnel',
     User:                 '/utilisateurs',
   };
   return urls[entity] ?? null;

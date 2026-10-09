@@ -52,6 +52,7 @@ const TypesMethodePage          = lazy(() => import('../pages/dictionnaire/Types
 const SolutionsConservationPage = lazy(() => import('../pages/dictionnaire/SolutionsConservationPage'));
 const TypesEnvironnementPage    = lazy(() => import('../pages/dictionnaire/TypesEnvironnementPage'));
 const TypesHabitatPage          = lazy(() => import('../pages/dictionnaire/TypesHabitatPage'));
+const PersonnelPage             = lazy(() => import('../pages/dictionnaire/PersonnelPage'));
 const AuditLogsPage             = lazy(() => import('../pages/dictionnaire/AuditLogsPage'));
 const TypesAutreSpecimenPage    = lazy(() => import('../pages/dictionnaire/TypesAutreSpecimenPage'));
 const PathogenesCiblesPage      = lazy(() => import('../pages/dictionnaire/PathogenesCiblesPage'));
@@ -155,6 +156,7 @@ const router = createBrowserRouter([
       { path: 'dictionnaire/solutions-conservation', element: <Suspense fallback={<PageLoader />}><SolutionsConservationPage /></Suspense> },
       { path: 'dictionnaire/types-environnement',    element: <Suspense fallback={<PageLoader />}><TypesEnvironnementPage /></Suspense> },
       { path: 'dictionnaire/types-habitat',          element: <Suspense fallback={<PageLoader />}><TypesHabitatPage /></Suspense> },
+      { path: 'dictionnaire/personnel',              element: <Suspense fallback={<PageLoader />}><PersonnelPage /></Suspense> },
       { path: 'dictionnaire/audit-logs',             element: <Suspense fallback={<PageLoader />}><AuditLogsPage /></Suspense> },
       { path: 'dictionnaire/types-autre-specimen',   element: <Suspense fallback={<PageLoader />}><TypesAutreSpecimenPage /></Suspense> },
       { path: 'dictionnaire/pathogenes-cibles',      element: <Suspense fallback={<PageLoader />}><PathogenesCiblesPage /></Suspense> },

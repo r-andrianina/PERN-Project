@@ -10,12 +10,13 @@ import { Card, Breadcrumb, Badge } from '../../components/ui';
 import FormField from '../../components/FormField';
 import LocaliteFieldsForm from '../../components/LocaliteFieldsForm';
 import AgentMultiSelect from '../../components/AgentMultiSelect';
+import ChefMissionSelect from '../../components/personnel/ChefMissionSelect';
+import usePersonnel from '../../components/personnel/usePersonnel';
 import MethodeFieldsForm from '../../components/MethodeFieldsForm';
 import useAuthStore from '../../store/authStore';
 import { useApiQuery } from '../../hooks';
 import { useT, interpolate } from '../../lib/i18n';
 import { dateNuitPiegeFormatee } from '../../utils/methodeLabel';
-import { roleLabel } from '../../lib/roles';
 
 // Mêmes tons que la liste des missions — un même état doit avoir la même
 // couleur d'un écran à l'autre.
@@ -57,43 +58,29 @@ function MiniBar({ value, max, colorClass = 'bg-primary' }) {
 }
 
 // ── Modal création / édition de localité ──────────────────────
+const initiales = (nom) => (nom ?? '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+
 // ── Édition de la mission (chef, dates, agents, objet) ───────────────
 // Les agents de terrain n'étaient saisissables qu'à la création : le backend
 // acceptait pourtant `agentIds` en PUT, mais aucun écran ne l'appelait. Les
 // missions créées autrement restaient donc sans agents, définitivement.
 function MissionModal({ mission, onClose, onSaved }) {
   const t = useT();
-  const [users, setUsers] = useState([]);
+  const annuaire = usePersonnel();
   const [form, setForm] = useState({
     chefMissionId:  mission.chefMission?.id ? String(mission.chefMission.id) : '',
-    chefMissionNom: mission.chefMissionNom || '',
     dateDebut:      mission.dateDebut ? mission.dateDebut.slice(0, 10) : '',
     dateFin:        mission.dateFin   ? mission.dateFin.slice(0, 10)   : '',
     objet:          mission.objet         || '',
     observations:   mission.observations  || '',
-    agentIds:       mission.agents?.map((a) => a.user?.id).filter(Boolean) ?? [],
+    agentIds:       mission.agents?.map((a) => a.personnel?.id).filter(Boolean) ?? [],
   });
-  // Un chef hors application est saisi en texte libre ; les deux champs
-  // s'excluent, c'est le mode qui décide lequel est envoyé.
-  const [chefMode, setChefMode] = useState(mission.chefMissionNom && !mission.chefMission ? 'externe' : 'systeme');
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
 
   useEffect(() => {
-    api.get('/auth/users')
-      // `actifs`, et non `users` ni `items` (corrigé le 2026-09-18). La route
-      // n'a jamais renvoyé de clé `users` : sa forme est { total, en_attente,
-      // actifs }. Cet écran lisait donc une clé inexistante et retombait sur
-      // un tableau vide — le sélecteur de chef de mission ET celui des agents
-      // étaient vides depuis f40a331, sans aucun message d'erreur puisque la
-      // requête, elle, réussissait.
-      //
-      // Seuls les comptes ACTIFS : un compte en attente de validation ne doit
-      // pas pouvoir être affecté à une mission. Même choix que l'écran de
-      // création (NouvelleMission), qui porte les mêmes sélecteurs.
-      .then((r) => setUsers(r.data.actifs || []))
-      .catch(() => toast.error(t('missionDetail.usersLoadError')));
-  }, [t]);
+    if (annuaire.error) toast.error(t('personnel.loadError'));
+  }, [annuaire.error, t]);
 
   const change = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
@@ -103,8 +90,7 @@ function MissionModal({ mission, onClose, onSaved }) {
     setLoading(true);
     try {
       await api.put(`/missions/${mission.id}`, {
-        chefMissionId:  chefMode === 'systeme' ? (form.chefMissionId || null) : null,
-        chefMissionNom: chefMode === 'externe' ? (form.chefMissionNom || null) : null,
+        chefMissionId:  form.chefMissionId || null,
         dateDebut:      form.dateDebut,
         dateFin:        form.dateFin || null,
         objet:          form.objet || null,
@@ -119,11 +105,6 @@ function MissionModal({ mission, onClose, onSaved }) {
       setLoading(false);
     }
   };
-
-  const userOptions = [
-    { value: '', label: t('missionDetail.noLead') },
-    ...users.map((u) => ({ value: String(u.id), label: `${u.prenom} ${u.nom} — ${roleLabel(u.role, t)}` })),
-  ];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
@@ -147,44 +128,24 @@ function MissionModal({ mission, onClose, onSaved }) {
           {error && <div className="mb-4 p-3 bg-danger/10 border border-danger/20 rounded-xl text-sm text-danger">{error}</div>}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-2 mb-2">
-                <button type="button" onClick={() => setChefMode('systeme')}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors min-h-[44px] md:min-h-0 ${
-                    chefMode === 'systeme' ? 'bg-primary text-white border-primary-600'
-                      : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'}`}>
-                  {t('missionDetail.leadSystemUser')}
-                </button>
-                <button type="button" onClick={() => setChefMode('externe')}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors min-h-[44px] md:min-h-0 ${
-                    chefMode === 'externe' ? 'bg-primary text-white border-primary-600'
-                      : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'}`}>
-                  {t('missionDetail.leadExternal')}
-                </button>
-              </div>
-              {chefMode === 'systeme' ? (
-                <FormField label={t('missionDetail.fieldLead')} name="chefMissionId" type="select"
-                  value={form.chefMissionId} onChange={change} options={userOptions} />
-              ) : (
-                <FormField label={t('missionDetail.fieldLead')} name="chefMissionNom"
-                  value={form.chefMissionNom} onChange={change}
-                  placeholder={t('missionDetail.leadNamePlaceholder')} />
-              )}
-            </div>
+            {/* Chef et agents côte à côte, comme à la création. */}
+            <ChefMissionSelect
+              value={form.chefMissionId}
+              onChange={(id) => setForm((f) => ({ ...f, chefMissionId: id }))}
+              annuaire={annuaire}
+              label={t('missionDetail.fieldLead')}
+            />
+            <AgentMultiSelect
+              value={form.agentIds}
+              onChange={(ids) => setForm((f) => ({ ...f, agentIds: ids }))}
+              annuaire={annuaire} max={20}
+              hint={t('missionDetail.agentsHint')}
+            />
 
             <FormField label={t('missionDetail.startDate')} name="dateDebut" type="date"
               value={form.dateDebut} onChange={change} required />
             <FormField label={t('missionDetail.endDate')} name="dateFin" type="date"
               value={form.dateFin} onChange={change} />
-
-            <div className="md:col-span-2">
-              <AgentMultiSelect
-                value={form.agentIds}
-                onChange={(ids) => setForm((f) => ({ ...f, agentIds: ids }))}
-                users={users} max={20}
-                hint={t('missionDetail.agentsHint')}
-              />
-            </div>
 
             <div className="md:col-span-2">
               <FormField label={t('missionDetail.missionObject')} name="objet" type="textarea"
@@ -567,7 +528,7 @@ export default function MissionDetail() {
   );
 
   const agents = useMemo(
-    () => mission?.agents?.map(a => a.user).filter(Boolean) ?? [],
+    () => mission?.agents?.map(a => a.personnel).filter(Boolean) ?? [],
     [mission]
   );
 
@@ -657,17 +618,10 @@ export default function MissionDetail() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {(mission.chefMission || mission.chefMissionNom) && (
+              {mission.chefMission && (
                 <div className="text-xs">
                   <p className="text-fg-subtle font-medium mb-0.5">{t('missionDetail.missionLead')}</p>
-                  <p className="text-fg">
-                    {mission.chefMission
-                      ? `${mission.chefMission.prenom} ${mission.chefMission.nom}`
-                      : mission.chefMissionNom}
-                  </p>
-                  {mission.chefMissionNom && !mission.chefMission && (
-                    <p className="text-2xs text-fg-subtle mt-0.5">{t('missionDetail.externalPerson')}</p>
-                  )}
+                  <p className="text-fg">{mission.chefMission.nom}</p>
                 </div>
               )}
               {mission.dateDebut && (
@@ -956,34 +910,22 @@ export default function MissionDetail() {
           </Card>
 
           {/* Équipe */}
-          {(mission.chefMission || mission.chefMissionNom || agents.length > 0) && (
+          {(mission.chefMission || agents.length > 0) && (
             <Card padding="md">
               <div className="flex items-center gap-2 mb-3">
                 <Users size={14} className="text-fg-subtle" />
                 <span className="text-xs font-semibold text-fg uppercase tracking-wider">{t('missionDetail.team')}</span>
               </div>
               <div className="space-y-2">
-                {(mission.chefMission || mission.chefMissionNom) && (
+                {mission.chefMission && (
                   <div className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg bg-primary/5 border border-primary/10">
                     <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                      {mission.chefMission ? (
-                        <span className="text-2xs font-bold text-primary">
-                          {mission.chefMission.prenom?.[0]}{mission.chefMission.nom?.[0]}
-                        </span>
-                      ) : (
-                        <span className="text-2xs font-bold text-primary">
-                          {mission.chefMissionNom?.split(' ').map((w) => w[0]).slice(0, 2).join('')}
-                        </span>
-                      )}
+                      <span className="text-2xs font-bold text-primary">{initiales(mission.chefMission.nom)}</span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-fg truncate">
-                        {mission.chefMission
-                          ? `${mission.chefMission.prenom} ${mission.chefMission.nom}`
-                          : mission.chefMissionNom}
-                      </p>
-                      <p className="text-2xs text-primary">
-                        {t('missionDetail.missionLead')}{mission.chefMissionNom && !mission.chefMission ? t('missionDetail.externalSuffix') : ''}
+                      <p className="text-xs font-semibold text-fg truncate">{mission.chefMission.nom}</p>
+                      <p className="text-2xs text-primary truncate">
+                        {t('missionDetail.missionLead')}{mission.chefMission.fonction ? ` · ${mission.chefMission.fonction}` : ''}
                       </p>
                     </div>
                   </div>
@@ -991,13 +933,11 @@ export default function MissionDetail() {
                 {agents.map(a => (
                   <div key={a.id} className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg hover:bg-surface-2 transition-colors">
                     <div className="w-7 h-7 rounded-full bg-surface-3 flex items-center justify-center flex-shrink-0">
-                      <span className="text-2xs font-bold text-fg-muted">
-                        {a.prenom?.[0]}{a.nom?.[0]}
-                      </span>
+                      <span className="text-2xs font-bold text-fg-muted">{initiales(a.nom)}</span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-fg truncate">{a.prenom} {a.nom}</p>
-                      <p className="text-2xs text-fg-subtle">{a.role ? roleLabel(a.role) : ''}</p>
+                      <p className="text-xs font-medium text-fg truncate">{a.nom}</p>
+                      <p className="text-2xs text-fg-subtle truncate">{[a.fonction, a.equipe].filter(Boolean).join(' · ')}</p>
                     </div>
                   </div>
                 ))}

@@ -44,7 +44,7 @@ export default function MissionsPage() {
       hidden:       'hidden lg:table-cell',
       render: (m) => (
         <span className="text-fg-muted text-xs">
-          {m.chefMission ? `${m.chefMission.prenom} ${m.chefMission.nom}` : null}
+          {m.chefMission?.nom ?? null}
         </span>
       ),
     },
@@ -233,7 +233,7 @@ export default function MissionsPage() {
                   <div className="flex items-center gap-4 text-xs text-fg-subtle">
                     {m.chefMission && (
                       <span className="flex items-center gap-1">
-                        <User size={11} /> {m.chefMission.prenom} {m.chefMission.nom}
+                        <User size={11} /> {m.chefMission.nom}
                       </span>
                     )}
                     {m.dateDebut && (

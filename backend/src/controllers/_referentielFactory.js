@@ -14,11 +14,12 @@ const { logAudit, ACTIONS } = require('../utils/audit');
  * @param {object}   [cfg.relationsCount] - { moustiques: true, ... } pour _count d'usage
  * @param {string}   [cfg.label]   - libellé pour les messages (ex: "Solution")
  * @param {string}   [cfg.uniqueField] - champ uniques (ex: "nom" ou "code")
+ * @param {string[]} [cfg.searchFields] - champs couverts par ?search= (défaut : nom, code, description)
  */
 function createReferentielController(cfg) {
   const {
     entity, delegate, fields, required = [], relationsCount = {},
-    label = 'Élément', uniqueField,
+    label = 'Élément', uniqueField, searchFields,
   } = cfg;
 
   const M = () => prisma[delegate];
@@ -39,7 +40,7 @@ function createReferentielController(cfg) {
     const where = {};
     if (actif !== undefined) where.actif = actif === 'true';
     if (search) {
-      const orFields = ['nom', 'code', 'description'].filter((f) => fields.includes(f) || f === 'nom');
+      const orFields = searchFields ?? ['nom', 'code', 'description'].filter((f) => fields.includes(f) || f === 'nom');
       where.OR = orFields.map((f) => ({ [f]: { contains: search, mode: 'insensitive' } }));
     }
     const items = await M().findMany({

@@ -52,6 +52,7 @@ app.use('/api/v1/dictionnaire/types-habitat',           require('./routes/dictio
 app.use('/api/v1/dictionnaire/audit-logs',             require('./routes/dictionnaire/auditLogs.routes'));
 app.use('/api/v1/dictionnaire/types-autre-specimen',   require('./routes/dictionnaire/typesAutreSpecimen.routes'));
 app.use('/api/v1/dictionnaire/pathogenes-cibles',      require('./routes/dictionnaire/pathogenesCibles.routes'));
+app.use('/api/v1/dictionnaire/personnel',              require('./routes/dictionnaire/personnel.routes'));
 
 app.use('/api/v1/notifications', require('./routes/notifications.routes'));
 app.use('/api/v1/recherche',     require('./routes/recherche.routes'));

@@ -51,17 +51,18 @@ const avecStatut = async (missions) => {
   });
 };
 
+const PERSONNEL_SELECT = { id: true, nom: true, fonction: true, equipe: true, actif: true };
+
 const INCLUDE_LIST = {
   projet:      { select: { id: true, code: true, nom: true } },
-  chefMission: { select: { id: true, nom: true, prenom: true } },
-  agents:      { include: { user: { select: { id: true, nom: true, prenom: true, role: true } } } },
+  chefMission: { select: PERSONNEL_SELECT },
+  agents:      { include: { personnel: { select: PERSONNEL_SELECT } } },
   _count:      { select: { localites: true } },
 };
 
 const INCLUDE_DETAIL = {
   ...INCLUDE_LIST,
   projet:    { select: { id: true, code: true, nom: true, statut: true } },
-  chefMission: { select: { id: true, nom: true, prenom: true, email: true } },
   localites: {
     include: {
       methodes: {
@@ -111,11 +112,30 @@ const getById = async (id, user) => {
   return avec;
 };
 
+// Un id de fiche inconnu ferait échouer l'écriture sur la clé étrangère, en
+// erreur Prisma brute ; on le refuse avant, avec un message lisible. Une fiche
+// INACTIVE reste acceptée : une mission modifiée doit pouvoir garder un agent
+// parti depuis — c'est le formulaire qui ne propose que les fiches actives.
+async function verifierPersonnel(chefMissionId, agentIds) {
+  const ids = [...new Set([
+    ...(chefMissionId ? [parseInt(chefMissionId)] : []),
+    ...(agentIds ?? []).map((i) => parseInt(i)),
+  ])];
+  if (!ids.length) return;
+  const trouves = await prisma.personnel.findMany({ where: { id: { in: ids } }, select: { id: true } });
+  if (trouves.length !== ids.length) {
+    const connus = new Set(trouves.map((p) => p.id));
+    const manquants = ids.filter((i) => !connus.has(i));
+    throw AppError.badRequest(`Personne introuvable dans le dictionnaire (id ${manquants.join(', ')})`);
+  }
+}
+
 const create = async (data) => {
-  const { ordreMission, projetId, chefMissionId, chefMissionNom, dateDebut, dateFin, objet, observations, agentIds } = data;
+  const { ordreMission, projetId, chefMissionId, dateDebut, dateFin, objet, observations, agentIds } = data;
 
   if (Array.isArray(agentIds) && agentIds.length > 20)
     throw AppError.badRequest('Maximum 20 agents de terrain par mission');
+  await verifierPersonnel(chefMissionId, agentIds);
 
   const existing = await prisma.mission.findUnique({ where: { ordreMission } });
   if (existing) throw AppError.conflict(`L'ordre de mission "${ordreMission}" existe déjà`);
@@ -131,12 +151,11 @@ const create = async (data) => {
       ordreMission:  ordreMission.trim(),
       projetId:      parseInt(projetId),
       chefMissionId:  chefMissionId ? parseInt(chefMissionId) : null,
-      chefMissionNom: chefMissionNom || null,
       dateDebut:      new Date(dateDebut),
       dateFin:       dateFin ? new Date(dateFin) : null,
       objet:         objet || null,
       observations:  observations || null,
-      agents: agentIds?.length ? { create: agentIds.map(uid => ({ userId: parseInt(uid) })) } : undefined,
+      agents: agentIds?.length ? { create: agentIds.map(pid => ({ personnelId: parseInt(pid) })) } : undefined,
     },
     include: INCLUDE_LIST,
   });
@@ -145,10 +164,11 @@ const create = async (data) => {
 };
 
 const update = async (id, data, user) => {
-  const { chefMissionId, chefMissionNom, dateDebut, dateFin, objet, observations, agentIds } = data;
+  const { chefMissionId, dateDebut, dateFin, objet, observations, agentIds } = data;
 
   if (Array.isArray(agentIds) && agentIds.length > 20)
     throw AppError.badRequest('Maximum 20 agents de terrain par mission');
+  await verifierPersonnel(chefMissionId, agentIds);
 
   if (user && !canBypass(user.role)) {
     const current = await prisma.mission.findUnique({ where: { id }, select: { projetId: true } });
@@ -159,7 +179,6 @@ const update = async (id, data, user) => {
 
   const patch = {};
   if (chefMissionId  !== undefined) patch.chefMissionId  = chefMissionId ? parseInt(chefMissionId) : null;
-  if (chefMissionNom !== undefined) patch.chefMissionNom = chefMissionNom || null;
   if (dateDebut)                   patch.dateDebut     = new Date(dateDebut);
   if (dateFin !== undefined)       patch.dateFin       = dateFin ? new Date(dateFin) : null;
   if (objet !== undefined)         patch.objet         = objet || null;
@@ -167,13 +186,13 @@ const update = async (id, data, user) => {
 
   // Le remplacement des agents (suppression puis recréation) et la mise à jour
   // de la mission doivent former un seul tout. Hors transaction, un échec de
-  // l'update après le deleteMany — un userId invalide suffit — laissait la
+  // l'update après le deleteMany — un id de fiche invalide suffit — laissait la
   // mission SANS AUCUN agent, sans rien pour les rétablir : modifier une
   // mission pouvait donc vider silencieusement sa liste d'agents.
   const modifiee = await prisma.$transaction(async (tx) => {
     if (agentIds !== undefined) {
       await tx.missionAgent.deleteMany({ where: { missionId: id } });
-      if (agentIds.length > 0) patch.agents = { create: agentIds.map(uid => ({ userId: parseInt(uid) })) };
+      if (agentIds.length > 0) patch.agents = { create: agentIds.map(pid => ({ personnelId: parseInt(pid) })) };
     }
 
     return tx.mission.update({

@@ -28,7 +28,7 @@ async function resetBase() {
     TRUNCATE TABLE
       moustiques, tiques, puces, autres_specimens,
       hotes, methodes_collecte, localites, localite_contacts,
-      containers, missions, mission_agents, projets, membres_projet,
+      containers, missions, mission_agents, personnel, projets, membres_projet,
       audit_logs, notification_reads,
       manipulations_labo, pools, pathogenes_cibles,
       taxonomie_specimens, types_methode_collecte, solutions_conservation,
