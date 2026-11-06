@@ -23,6 +23,7 @@ import { dateNuitPiegeFormatee } from '../../utils/methodeLabel';
 const STATUT_TONE = {
   planifiee: 'default',
   terrain:   'info',
+  sans_fin:  'warning',
   a_saisir:  'warning',
   partielle: 'primary',
   complete:  'success',

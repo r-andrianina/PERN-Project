@@ -23,8 +23,10 @@ const getConfig = (t, peutImporter) => ({
       render: (i) => <span className="text-fg-muted text-xs">{i.fonction || '—'}</span> },
     { key: 'equipe',   header: t('personnel.fieldEquipe'),
       render: (i) => <span className="text-fg-muted text-xs">{i.equipe || '—'}</span> },
+    // Décompte distinct fait par le serveur : une mission où la personne est
+    // chef ET agent ne compte qu'une fois.
     { key: 'usage', header: t('personnel.colMissions'),
-      render: (i) => (i._count?.missionsChef ?? 0) + (i._count?.missions ?? 0) },
+      render: (i) => i.nbMissions ?? 0 },
   ],
   headerActions: peutImporter ? ({ refresh }) => <ImportAnnuaire onImported={refresh} /> : undefined,
 });
@@ -95,8 +97,20 @@ function ImportAnnuaire({ onImported }) {
             {result && (
               <div className="p-3 bg-success/10 border border-success/20 rounded-xl text-xs text-fg space-y-1.5">
                 <p className="font-semibold text-success">
-                  {interpolate(t('personnel.importDone'), { c: result.creees, m: result.misesAJour, i: result.inchangees })}
+                  {interpolate(t('personnel.importDone'), {
+                    c: result.creees, m: result.misesAJour, r: result.rapprochees ?? 0, i: result.inchangees,
+                  })}
                 </p>
+                {result.renommages?.length > 0 && (
+                  <>
+                    <p className="text-fg-muted">{interpolate(t('personnel.importRenommages'), { n: result.renommages.length })}</p>
+                    <ul className="max-h-40 overflow-y-auto list-disc pl-4 text-fg-muted">
+                      {result.renommages.map(({ ancien, nouveau }) => (
+                        <li key={ancien}>{ancien} → <span className="text-fg">{nouveau}</span></li>
+                      ))}
+                    </ul>
+                  </>
+                )}
                 {result.absentes?.length > 0 && (
                   <>
                     <p className="text-fg-muted">{interpolate(t('personnel.importAbsentes'), { n: result.absentes.length })}</p>

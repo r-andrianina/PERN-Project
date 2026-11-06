@@ -22,4 +22,23 @@ const cleNom = (nom) =>
     .sort()
     .join(' ');
 
-module.exports = { nettoyerNom, cleNom };
+/**
+ * Vrai si `court` désigne probablement la même personne que `long`, écrite
+ * plus complètement : tous les mots du nom court figurent dans le long, qui en
+ * compte davantage — « Henintsoa Andrianina » ⊂ « RAZANAKOTO Henintsoa
+ * Andrianina ». C'est le cas typique d'une fiche reprise d'un compte
+ * utilisateur, puis retrouvée dans l'annuaire avec le nom de famille.
+ *
+ * La comparaison se fait mot à mot, jamais par sous-chaîne : « Henintsoa »
+ * ne se retrouve pas dans « Henintsoanirina ». Un nom d'un seul mot n'est
+ * jamais rapproché, il est trop pauvre pour identifier quelqu'un.
+ */
+const nomInclus = (court, long) => {
+  const motsCourts = cleNom(court).split(' ').filter(Boolean);
+  const motsLongs = new Set(cleNom(long).split(' ').filter(Boolean));
+  return motsCourts.length >= 2
+    && motsCourts.length < motsLongs.size
+    && motsCourts.every((m) => motsLongs.has(m));
+};
+
+module.exports = { nettoyerNom, cleNom, nomInclus };

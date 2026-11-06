@@ -12,7 +12,34 @@ const AppError = require('../utils/AppError');
 const { logAudit, ACTIONS } = require('../utils/audit');
 const { createReferentielController } = require('./_referentielFactory');
 const { chargerClasseurUtilisateur, premiereFeuille, assertVolumeTraitable } = require('../utils/excelGuards');
-const { nettoyerNom, cleNom } = require('../utils/personnelNom');
+const { nettoyerNom, cleNom, nomInclus } = require('../utils/personnelNom');
+
+/**
+ * Nombre de missions DISTINCTES de chaque fiche, comme chef ou comme agent.
+ * Additionner les deux `_count` compterait deux fois une mission dont la même
+ * personne est à la fois chef et agent — cas réel dans les données reprises.
+ */
+async function ajouterNbMissions(items) {
+  if (!items.length) return items;
+  const ids = items.map((p) => p.id);
+  const missions = await prisma.mission.findMany({
+    where: {
+      OR: [
+        { chefMissionId: { in: ids } },
+        { agents: { some: { personnelId: { in: ids } } } },
+      ],
+    },
+    select: { id: true, chefMissionId: true, agents: { select: { personnelId: true } } },
+  });
+  const parPersonne = new Map();
+  for (const m of missions) {
+    const membres = new Set([m.chefMissionId, ...m.agents.map((a) => a.personnelId)]);
+    for (const id of membres) {
+      if (id != null) parPersonne.set(id, (parPersonne.get(id) ?? 0) + 1);
+    }
+  }
+  return items.map((p) => ({ ...p, nbMissions: parPersonne.get(p.id) ?? 0 }));
+}
 
 const base = createReferentielController({
   entity:         'Personnel',
@@ -21,7 +48,10 @@ const base = createReferentielController({
   required:       ['nom'],
   uniqueField:    'nom',
   searchFields:   ['nom', 'fonction', 'equipe'],
+  // Les _count restent : la suppression les additionne pour refuser d'effacer
+  // une fiche utilisée, et là, un double compte ne change pas la réponse.
   relationsCount: { missionsChef: true, missions: true },
+  enrichirListe:  ajouterNbMissions,
   label:          'Personne',
 });
 
@@ -89,6 +119,7 @@ const importExcel = async (req, res) => {
 
   const erreurs = [];
   const vues = new Map(); // clé → n° de ligne, pour les doublons internes au fichier
+  const nouvelles = [];   // lignes sans fiche de même clé : à créer, ou à rapprocher
   const aCreer = [];
   const aMettreAJour = [];
   let inchangees = 0;
@@ -121,7 +152,7 @@ const importExcel = async (req, res) => {
 
     const fiche = parCle.get(cle);
     if (!fiche) {
-      aCreer.push({ nom, fonction: fonction || null, equipe: equipe || null, actif: actif ?? true });
+      nouvelles.push({ nom, fonction, equipe, actif });
       return;
     }
     // Une cellule vide ne vide pas la fiche : elle laisse la valeur en place.
@@ -139,8 +170,43 @@ const importExcel = async (req, res) => {
     return res.status(400).json({ error: `${erreurs.length} ligne(s) à corriger — rien n'a été importé.`, erreurs });
   }
 
+  // ── Rapprochement des noms incomplets ──
+  // Une ligne sans fiche de même clé peut désigner une fiche écrite plus court :
+  // un compte repris par la migration (« Henintsoa Andrianina ») que l'annuaire
+  // écrit avec le nom de famille (« RAZANAKOTO Henintsoa Andrianina »). La
+  // créer ferait un doublon, et laisserait les missions sur l'ancienne fiche.
+  // On RENOMME donc la fiche existante — mais seulement si c'est univoque dans
+  // les deux sens : une seule fiche candidate pour la ligne, une seule ligne
+  // candidate pour la fiche. Au moindre doute, on crée et on signale la fiche
+  // restée sans ligne, comme avant (`absentes`).
+  const sansLigne = existantes.filter((p) => !vues.has(cleNom(p.nom)));
+  const candidates = nouvelles.map((l) => sansLigne.filter((p) => nomInclus(p.nom, l.nom)));
+  const lignesParFiche = new Map();
+  for (const fiches of candidates) {
+    for (const p of fiches) lignesParFiche.set(p.id, (lignesParFiche.get(p.id) ?? 0) + 1);
+  }
+  const rapprochees = [];
+  nouvelles.forEach((l, i) => {
+    const fiches = candidates[i];
+    if (fiches.length === 1 && lignesParFiche.get(fiches[0].id) === 1) {
+      const fiche = fiches[0];
+      const patch = { nom: l.nom };
+      if (l.fonction && l.fonction !== fiche.fonction) patch.fonction = l.fonction;
+      if (l.equipe && l.equipe !== fiche.equipe) patch.equipe = l.equipe;
+      if (l.actif !== undefined && l.actif !== fiche.actif) patch.actif = l.actif;
+      rapprochees.push({ id: fiche.id, ancien: fiche.nom, nouveau: l.nom, patch });
+      return;
+    }
+    aCreer.push({ nom: l.nom, fonction: l.fonction || null, equipe: l.equipe || null, actif: l.actif ?? true });
+  });
+
   const userId = req.user?.id ?? null;
   await prisma.$transaction(async (tx) => {
+    // Renommer d'abord : les noms visés n'existent pas encore en base (sinon la
+    // ligne aurait trouvé sa fiche par la clé), et rien ne les crée avant.
+    for (const { id, patch } of rapprochees) {
+      await tx.personnel.update({ where: { id }, data: { ...patch, updatedById: userId } });
+    }
     if (aCreer.length) {
       await tx.personnel.createMany({
         data: aCreer.map((p) => ({ ...p, createdById: userId, updatedById: userId })),
@@ -151,22 +217,26 @@ const importExcel = async (req, res) => {
     }
   });
 
-  const resume = { creees: aCreer.length, misesAJour: aMettreAJour.length, inchangees };
+  const resume = {
+    creees: aCreer.length, misesAJour: aMettreAJour.length, rapprochees: rapprochees.length, inchangees,
+  };
+  const renommages = rapprochees.map(({ ancien, nouveau }) => ({ ancien, nouveau }));
   await logAudit({
     // entity_id est obligatoire et l'import ne vise pas une fiche unique.
     req, action: ACTIONS.CREATE, entity: 'ImportPersonnel', entityId: 0,
-    newValues: { import: req.file.originalname, ...resume },
+    newValues: { import: req.file.originalname, ...resume, renommages },
   });
 
-  // Fiches absentes du fichier : souvent un compte repris par la migration sous
-  // une autre graphie (« Michaël TANTELY » contre « Michaël Luciano TANTELY »).
-  // On les signale pour fusion manuelle plutôt que de deviner.
+  // Fiches restées sans ligne, même après rapprochement : homonymie ambiguë,
+  // ou personne réellement absente de l'annuaire. On les signale plutôt que de
+  // deviner.
+  const rapprocheesIds = new Set(rapprochees.map((r) => r.id));
   const absentes = existantes
-    .filter((p) => p.actif && !vues.has(cleNom(p.nom)))
+    .filter((p) => p.actif && !vues.has(cleNom(p.nom)) && !rapprocheesIds.has(p.id))
     .map((p) => p.nom)
     .sort((a, b) => a.localeCompare(b, 'fr'));
 
-  return res.json({ message: 'Import terminé', ...resume, absentes });
+  return res.json({ message: 'Import terminé', ...resume, renommages, absentes });
 };
 
 module.exports = { ...base, create, update, importExcel };
