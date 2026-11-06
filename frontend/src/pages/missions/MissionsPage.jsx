@@ -9,12 +9,13 @@ import { useT, interpolate } from '../../lib/i18n';
 // Statut d'avancement, calculé par le serveur (backend/src/utils/missionStatut.js)
 // et jamais saisi. L'ordre ci-dessous est celui du cycle de vie d'une mission,
 // pas un ordre alphabétique : il sert aussi à ranger les filtres.
-const STATUTS = ['planifiee', 'terrain', 'a_saisir', 'partielle', 'complete'];
+const STATUTS = ['planifiee', 'terrain', 'sans_fin', 'a_saisir', 'partielle', 'complete'];
 
 const STATUT_TONE = {
   planifiee: 'default',
   terrain:   'info',
-  a_saisir:  'warning',   // seul état qui appelle une action
+  sans_fin:  'warning',   // les deux seuls états qui appellent une action
+  a_saisir:  'warning',
   partielle: 'primary',
   complete:  'success',
 };
@@ -44,7 +45,7 @@ export default function MissionsPage() {
       hidden:       'hidden lg:table-cell',
       render: (m) => (
         <span className="text-fg-muted text-xs">
-          {m.chefMission ? `${m.chefMission.prenom} ${m.chefMission.nom}` : null}
+          {m.chefMission?.nom ?? null}
         </span>
       ),
     },
@@ -233,7 +234,7 @@ export default function MissionsPage() {
                   <div className="flex items-center gap-4 text-xs text-fg-subtle">
                     {m.chefMission && (
                       <span className="flex items-center gap-1">
-                        <User size={11} /> {m.chefMission.prenom} {m.chefMission.nom}
+                        <User size={11} /> {m.chefMission.nom}
                       </span>
                     )}
                     {m.dateDebut && (

@@ -1,83 +1,86 @@
 // Multi-select d'agents de terrain — chips + dropdown filtré, max N agents.
-// value     : tableau d'ids
+// value     : tableau d'ids de fiches Personnel
 // onChange  : (ids[]) => void
-// users     : tableau d'utilisateurs disponibles
-// max       : limite (défaut 5)
+// annuaire  : résultat de usePersonnel()
+// max       : limite (défaut 20, plafond du backend)
+//
+// Les agents sont des fiches du dictionnaire Personnel, plus des comptes
+// utilisateurs (2026-10-09) : un chauffeur ou un guide n'a pas de compte.
 
 import { useState, useMemo } from 'react';
-import { X, UserPlus, Search } from 'lucide-react';
+import { X, UserPlus, Search, Plus, Users } from 'lucide-react';
+import AjoutPersonnelModal from './personnel/AjoutPersonnelModal';
 import { useT, interpolate } from '../lib/i18n';
 
-const ROLE_COLOR = {
-  admin:     'bg-purple-100 text-purple-700 border-purple-200',
-  chercheur: 'bg-blue-100 text-blue-700 border-blue-200',
-  terrain:   'bg-amber-100 text-amber-700 border-warning/20',
-  lecteur:   'bg-surface-3 text-fg-muted border-border-strong',
-};
+const initiales = (nom) => nom.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+const sansAccent = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-export default function AgentMultiSelect({ value = [], onChange, users = [], max = 5, label, hint }) {
+export default function AgentMultiSelect({ value = [], onChange, annuaire, max = 20, label, hint }) {
   const t = useT();
   label ??= t('agentMultiSelect.defaultLabel');
+  const { actifs, parId, equipes, refetch } = annuaire;
   const [search, setSearch] = useState('');
+  const [equipe, setEquipe] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [ajout, setAjout] = useState(null); // nom pré-rempli, ou null
 
   const selectedSet = useMemo(() => new Set(value.map((v) => parseInt(v))), [value]);
-  const parId       = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
 
   // Les pastilles se construisent depuis `value` — la sélection fait foi — et
-  // non depuis `users`, qui n'est que le catalogue des comptes choisissables
-  // (2026-09-18).
-  //
-  // Partir du catalogue faisait disparaître de l'affichage un agent dont le
-  // compte a été désactivé après son affectation, alors qu'il restait compté
-  // par le « n / max » juste au-dessus et toujours enregistré sur la mission.
-  // Un compteur qui annonce 3 au-dessus de 2 pastilles est le genre d'écart
-  // qu'on met longtemps à comprendre. L'agent non résolu apparaît donc en
-  // pastille neutre, et reste retirable.
-  const selectedUsers = useMemo(() => [...selectedSet].map(
+  // non depuis le catalogue (2026-09-18) : une fiche désactivée après
+  // l'affectation reste affichée, comptée, et retirable.
+  const selected = useMemo(() => [...selectedSet].map(
     (id) => parId.get(id) ?? { id, introuvable: true },
   ), [selectedSet, parId]);
 
-  const available = users.filter((u) => !selectedSet.has(u.id));
-  const filtered = available.filter((u) =>
-    !search || `${u.prenom} ${u.nom} ${u.email}`.toLowerCase().includes(search.toLowerCase())
+  const q = sansAccent(search.trim());
+  const filtered = actifs.filter((p) =>
+    !selectedSet.has(p.id)
+    && (!equipe || p.equipe === equipe)
+    && (!q || sansAccent(`${p.nom} ${p.fonction ?? ''} ${p.equipe ?? ''}`).includes(q)),
   );
 
   const isMax = value.length >= max;
 
-  const add = (uid) => {
+  const add = (id) => {
     if (isMax) return;
-    onChange([...value, uid]);
+    onChange([...value, id]);
     setSearch('');
     setShowDropdown(false);
   };
-  const remove = (uid) => onChange(value.filter((v) => parseInt(v) !== uid));
+  const remove = (id) => onChange(value.filter((v) => parseInt(v) !== id));
 
   return (
     <div className="space-y-1.5 relative">
-      <div className="flex items-center justify-between">
-        <label className="block text-xs font-semibold text-fg-muted tracking-wide">{label}</label>
+      {/* min-h : même hauteur d'en-tête que ChefMissionSelect, posé à côté. */}
+      <div className="flex items-center justify-between gap-2 min-h-[28px]">
+        <label className="text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
+          <Users size={12} /> {label}
+        </label>
         <span className={`text-2xs font-medium ${isMax ? 'text-warning' : 'text-fg-subtle'}`}>
           {value.length} / {max}
         </span>
       </div>
 
       {/* Chips des sélectionnés */}
-      <div className="min-h-[44px] px-3 py-2 rounded-xl border border-border-strong bg-surface flex flex-wrap items-center gap-2">
-        {selectedUsers.map((u) => (
+      <div className="min-h-[42px] px-3 py-1.5 rounded-xl border border-border-strong bg-surface flex flex-wrap items-center gap-2">
+        {selected.map((p) => (
           <span
-            key={u.id}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted border-border-strong'}`}
+            key={p.id}
+            title={p.introuvable ? undefined : [p.fonction, p.equipe].filter(Boolean).join(' · ')}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${
+              p.introuvable || !p.actif ? 'bg-surface-3 text-fg-muted border-border-strong' : 'bg-primary/10 text-primary border-primary/20'
+            }`}
           >
             <span className="w-4 h-4 rounded-full bg-surface/70 flex items-center justify-center text-2xs font-bold">
-              {u.introuvable ? '?' : `${u.prenom?.[0] ?? ''}${u.nom?.[0] ?? ''}`}
+              {p.introuvable ? '?' : initiales(p.nom)}
             </span>
-            {u.introuvable
-              ? <span className="italic">{interpolate(t('agentMultiSelect.compteIntrouvable'), { id: u.id })}</span>
-              : `${u.prenom} ${u.nom}`}
+            {p.introuvable
+              ? <span className="italic">{interpolate(t('agentMultiSelect.ficheIntrouvable'), { id: p.id })}</span>
+              : <>{p.nom}{!p.actif && <span className="italic">{t('personnel.inactiveSuffix')}</span>}</>}
             <button
               type="button"
-              onClick={() => remove(u.id)}
+              onClick={() => remove(p.id)}
               className="ml-0.5 -mr-0.5 hover:bg-surface/50 rounded-full p-0.5"
             >
               <X size={10} />
@@ -101,43 +104,75 @@ export default function AgentMultiSelect({ value = [], onChange, users = [], max
       {/* Dropdown */}
       {showDropdown && !isMax && (
         <div className="absolute z-20 w-full mt-1 bg-surface rounded-xl shadow-xl border border-border-strong overflow-hidden">
-          <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+          <div className="px-3 py-2 border-b border-border flex flex-wrap items-center gap-2">
             <Search size={13} className="text-fg-subtle" />
             <input
               type="text"
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('agentMultiSelect.searchUser')}
-              className="flex-1 text-sm bg-transparent border-none outline-none"
+              placeholder={t('agentMultiSelect.searchPerson')}
+              className="flex-1 min-w-[140px] text-sm bg-transparent border-none outline-none"
             />
+            {equipes.length > 0 && (
+              <select
+                value={equipe} onChange={(e) => setEquipe(e.target.value)}
+                aria-label={t('personnel.fieldEquipe')}
+                className="text-xs rounded-lg border border-border-strong bg-surface text-fg py-1 pl-2 pr-7"
+              >
+                <option value="">{t('personnel.allTeams')}</option>
+                {equipes.map((e) => <option key={e} value={e}>{e}</option>)}
+              </select>
+            )}
           </div>
           <div className="max-h-64 overflow-y-auto">
             {filtered.length === 0 ? (
-              <p className="px-3 py-4 text-xs text-fg-subtle text-center">{t('agentMultiSelect.noUserAvailable')}</p>
+              <p className="px-3 py-4 text-xs text-fg-subtle text-center">{t('agentMultiSelect.noPersonAvailable')}</p>
             ) : (
-              filtered.map((u) => (
+              filtered.map((p) => (
                 <button
-                  key={u.id}
+                  key={p.id}
                   type="button"
-                  onClick={() => add(u.id)}
+                  onClick={() => add(p.id)}
                   className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-primary/10 transition-colors"
                 >
-                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-2xs font-bold flex-shrink-0 ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted'}`}>
-                    {u.prenom?.[0]}{u.nom?.[0]}
+                  <span className="w-7 h-7 rounded-lg flex items-center justify-center text-2xs font-bold flex-shrink-0 bg-primary/10 text-primary">
+                    {initiales(p.nom)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-fg truncate">{u.prenom} {u.nom}</p>
-                    <p className="text-2xs text-fg-subtle truncate">{u.email}</p>
+                    <p className="text-sm text-fg truncate">{p.nom}</p>
+                    {p.fonction && <p className="text-2xs text-fg-subtle truncate">{p.fonction}</p>}
                   </div>
-                  <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded border ${ROLE_COLOR[u.role] || 'bg-surface-3 text-fg-muted border-border-strong'}`}>
-                    {u.role}
-                  </span>
+                  {p.equipe && (
+                    <span className="text-2xs font-semibold px-1.5 py-0.5 rounded border bg-surface-3 text-fg-muted border-border-strong truncate max-w-[40%]">
+                      {p.equipe}
+                    </span>
+                  )}
                 </button>
               ))
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => { setAjout(search.trim()); setShowDropdown(false); }}
+            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-medium text-primary border-t border-border hover:bg-primary/10"
+          >
+            <Plus size={13} /> {t('personnel.addPerson')}
+          </button>
         </div>
+      )}
+
+      {ajout !== null && (
+        <AjoutPersonnelModal
+          nomInitial={ajout}
+          equipes={equipes}
+          onClose={() => setAjout(null)}
+          onCreated={async (item) => {
+            setAjout(null);
+            await refetch();
+            if (value.length < max) onChange([...value, item.id]);
+          }}
+        />
       )}
     </div>
   );

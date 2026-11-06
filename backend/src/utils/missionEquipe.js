@@ -11,8 +11,6 @@
 
 const prisma = require('../config/prisma');
 
-const nomComplet = (u) => [u?.prenom, u?.nom].filter(Boolean).join(' ');
-
 /**
  * @param {number[]} missionIds  ids de mission (doublons et null tolérés)
  * @returns {Promise<Map<number, { chef: string, agents: string }>>}
@@ -26,18 +24,15 @@ async function chargerEquipes(missionIds) {
     where:  { id: { in: ids } },
     select: {
       id: true,
-      // chefMissionNom : repli texte libre quand le chef n'est pas un
-      // utilisateur de l'application (intervenant extérieur).
-      chefMissionNom: true,
-      chefMission: { select: { nom: true, prenom: true } },
-      agents: { select: { user: { select: { nom: true, prenom: true } } } },
+      chefMission: { select: { nom: true } },
+      agents: { select: { personnel: { select: { nom: true } } } },
     },
   });
 
   for (const m of missions) {
     equipes.set(m.id, {
-      chef:   m.chefMission ? nomComplet(m.chefMission) : (m.chefMissionNom ?? ''),
-      agents: m.agents.map((a) => nomComplet(a.user)).filter(Boolean).sort().join(', '),
+      chef:   m.chefMission?.nom ?? '',
+      agents: m.agents.map((a) => a.personnel?.nom).filter(Boolean).sort((x, y) => x.localeCompare(y, 'fr')).join(', '),
     });
   }
   return equipes;

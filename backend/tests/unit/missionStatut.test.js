@@ -25,9 +25,16 @@ describe('statutMission — avant et pendant le terrain', () => {
     expect(statutMission({ dateDebut: '2026-10-05', dateFin: '2026-10-09' }, AUJ)).toBe('terrain');
   });
 
-  it('sans date de fin, elle reste sur le terrain — la date manquante est l\'anomalie', () => {
+  it('commencée sans date de fin : on signale la date manquante, pas « sur le terrain »', () => {
+    // La saisie ne change rien : tant que la fin manque, c'est elle qu'il faut
+    // compléter — même si tous les pièges ont produit.
     expect(statutMission({ dateDebut: '2026-01-05', dateFin: null, methodes: 3, methodesAvecSpecimens: 3 }, AUJ))
-      .toBe('terrain');
+      .toBe('sans_fin');
+    expect(statutMission({ dateDebut: '2026-10-09', dateFin: null }, AUJ)).toBe('sans_fin');
+  });
+
+  it('à venir sans date de fin : planifiée, la fin peut encore attendre', () => {
+    expect(statutMission({ dateDebut: '2026-10-20', dateFin: null }, AUJ)).toBe('planifiee');
   });
 
   it('les dates priment sur la saisie : une mission en cours n\'est jamais « à saisir »', () => {
@@ -84,6 +91,7 @@ describe('statutMission — robustesse', () => {
 
 describe('STATUT_EST_INCOMPLET', () => {
   it('ne retient que ce qui demande une action de saisie', () => {
+    expect(STATUT_EST_INCOMPLET('sans_fin')).toBe(true);
     expect(STATUT_EST_INCOMPLET('a_saisir')).toBe(true);
     expect(STATUT_EST_INCOMPLET('partielle')).toBe(true);
     expect(STATUT_EST_INCOMPLET('complete')).toBe(false);

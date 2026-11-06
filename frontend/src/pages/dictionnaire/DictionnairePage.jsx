@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
-import { BookOpen, Bug, Rabbit, FlaskConical, Map, Trees, Beaker, History, ChevronRight, Layers, Biohazard } from 'lucide-react';
+import { BookOpen, Bug, Rabbit, FlaskConical, Map, Trees, Beaker, History, ChevronRight, Layers, Biohazard, Users } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { Card, PageHeader } from '../../components/ui';
 import { useT } from '../../lib/i18n';
 
 const getCards = (t) => [
+  { path: '/dictionnaire/personnel',              label: t('personnel.titre'),                          desc: t('personnel.cardDesc'),                     Icon: Users,        iconCls: 'text-primary bg-primary/10' },
   { path: '/dictionnaire/taxonomie-specimens',    label: t('dictionnairePage.cardTaxoSpecimensLabel'), desc: t('dictionnairePage.cardTaxoSpecimensDesc'), Icon: Bug,          iconCls: 'text-specimen-moustique bg-specimen-moustique/10' },
   { path: '/dictionnaire/taxonomie-hotes',        label: t('dictionnairePage.cardTaxoHotesLabel'),     desc: t('dictionnairePage.cardTaxoHotesDesc'),     Icon: Rabbit,       iconCls: 'text-specimen-tique bg-specimen-tique/10' },
   { path: '/dictionnaire/types-methode',          label: t('dictionnairePage.cardMethodesLabel'),      desc: t('dictionnairePage.cardMethodesDesc'),      Icon: Beaker,       iconCls: 'text-info bg-info/10' },

@@ -12,7 +12,7 @@
 // Une mission rentrée du terrain dont les spécimens ne sont pas saisis
 // n'apparaissait nulle part.
 
-const STATUTS = ['planifiee', 'terrain', 'a_saisir', 'partielle', 'complete'];
+const STATUTS = ['planifiee', 'terrain', 'sans_fin', 'a_saisir', 'partielle', 'complete'];
 
 /** Jour civil au format YYYY-MM-DD, en UTC. */
 // Les colonnes sont des `@db.Date` : comparer des instants ferait basculer une
@@ -27,7 +27,7 @@ const jour = (d) => (d ? new Date(d).toISOString().slice(0, 10) : null);
  * @param {number} mission.methodes               nombre de méthodes de collecte
  * @param {number} mission.methodesAvecSpecimens  dont au moins un spécimen saisi
  * @param {Date}   [maintenant]                   injecté pour les tests
- * @returns {'planifiee'|'terrain'|'a_saisir'|'partielle'|'complete'}
+ * @returns {'planifiee'|'terrain'|'sans_fin'|'a_saisir'|'partielle'|'complete'}
  */
 function statutMission({ dateDebut, dateFin, methodes = 0, methodesAvecSpecimens = 0 }, maintenant = new Date()) {
   const aujourdhui = jour(maintenant);
@@ -40,10 +40,13 @@ function statutMission({ dateDebut, dateFin, methodes = 0, methodesAvecSpecimens
 
   if (debut > aujourdhui) return 'planifiee';
 
-  // Date de fin absente = mission jamais clôturée. Elle reste « sur le
-  // terrain » indéfiniment, et c'est le comportement voulu : l'anomalie est la
-  // date manquante, et la faire remarquer vaut mieux que de deviner une fin.
-  if (!fin || fin >= aujourdhui) return 'terrain';
+  // Date de fin absente = mission jamais clôturée. L'anomalie est la date
+  // manquante, et on la NOMME plutôt que de deviner une fin. Jusqu'au
+  // 2026-11-06 ce cas affichait « sur le terrain » : 8 missions de dev sur 10
+  // y étaient depuis mai, et le libellé faisait croire à des équipes encore
+  // parties au lieu de signaler un champ à remplir.
+  if (!fin) return 'sans_fin';
+  if (fin >= aujourdhui) return 'terrain';
 
   // ── Mission terminée : l'avancement se lit dans la saisie ──
   // Aucune méthode du tout : rien n'a encore été enregistré de ce terrain.
@@ -58,6 +61,6 @@ function statutMission({ dateDebut, dateFin, methodes = 0, methodesAvecSpecimens
  * piège peut n'avoir rien capturé. « Partielle » signale donc quelque chose à
  * VÉRIFIER, pas une faute — le libellé côté interface doit rester neutre.
  */
-const STATUT_EST_INCOMPLET = (s) => s === 'a_saisir' || s === 'partielle';
+const STATUT_EST_INCOMPLET = (s) => s === 'sans_fin' || s === 'a_saisir' || s === 'partielle';
 
 module.exports = { statutMission, STATUTS, STATUT_EST_INCOMPLET };

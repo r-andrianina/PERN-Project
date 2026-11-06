@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ChevronLeft, MapPin, ClipboardList, Plus, Trash2, Check, Loader2, Calendar, User,
-  Navigation, UserCheck, UserX, Beaker, X, Edit2, Layers,
+  Navigation, Beaker, X, Edit2, Layers,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from '../../lib/toast';
@@ -10,6 +10,8 @@ import FormField from '../../components/FormField';
 import LocaliteFieldsForm from '../../components/LocaliteFieldsForm';
 import MethodeFieldsForm from '../../components/MethodeFieldsForm';
 import AgentMultiSelect from '../../components/AgentMultiSelect';
+import ChefMissionSelect from '../../components/personnel/ChefMissionSelect';
+import usePersonnel from '../../components/personnel/usePersonnel';
 import { useApiQuery } from '../../hooks';
 import { useT, interpolate } from '../../lib/i18n';
 import { dateNuitPiegeFormatee } from '../../utils/methodeLabel';
@@ -182,14 +184,13 @@ export default function NouvelleMission() {
   const navigate = useNavigate();
 
   const [mission, setMission] = useState({
-    ordreMission: '', projetId: '', chefMissionId: '', chefMissionNom: '',
+    ordreMission: '', projetId: '', chefMissionId: '',
     dateDebut: '', dateFin: '', objet: '', observations: '',
     agentIds: [],
   });
-  const [chefMode, setChefMode] = useState('systeme'); // 'systeme' | 'externe'
   const [localites, setLocalites]   = useState([defaultLocalite()]);
   const [projets, setProjets]       = useState([]);
-  const [users, setUsers]           = useState([]);
+  const annuaire = usePersonnel();
   const [isLoading, setIsLoading]   = useState(false);
   const [errors, setErrors]         = useState({});
   const [activeLocalite, setActiveLocalite] = useState(0);
@@ -197,13 +198,9 @@ export default function NouvelleMission() {
   const [bulkModal, setBulkModal] = useState(null); // { localiteIndex }
 
   useEffect(() => {
-    Promise.all([api.get('/projets'), api.get('/auth/users')])
-      .then(([pRes, uRes]) => {
-        setProjets(pRes.data.projets);
-        // Repli explicite : sans lui, une réponse inattendue poserait
-        // `undefined` dans l'état et le premier `.map` ferait tomber l'écran.
-        setUsers(uRes.data.actifs || []);
-      }).catch(() => toast.error(t('nouvelleMission.loadRefsError')));
+    api.get('/projets')
+      .then((pRes) => setProjets(pRes.data.projets))
+      .catch(() => toast.error(t('nouvelleMission.loadRefsError')));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -313,8 +310,7 @@ export default function NouvelleMission() {
       const missionRes = await api.post('/missions', {
         ...mission,
         projetId:       parseInt(mission.projetId),
-        chefMissionId:  chefMode === 'systeme' && mission.chefMissionId ? parseInt(mission.chefMissionId) : null,
-        chefMissionNom: chefMode === 'externe' ? mission.chefMissionNom || null : null,
+        chefMissionId:  mission.chefMissionId ? parseInt(mission.chefMissionId) : null,
         agentIds:       mission.agentIds.map((id) => parseInt(id)),
         dateFin:        mission.dateFin || null,
       });
@@ -359,11 +355,9 @@ export default function NouvelleMission() {
   };
 
   const projetOptions = projets.map(p => ({ value: p.id, label: p.porteur ? `${p.nom} / ${p.porteur}` : p.nom }));
-  const userOptions   = users.map(u  => ({ value: u.id, label: `${u.prenom} ${u.nom} (${u.role})` }));
   const selectedProjet   = projets.find((p) => p.id === parseInt(mission.projetId));
-  const selectedChef     = chefMode === 'systeme' ? users.find((u) => u.id === parseInt(mission.chefMissionId)) : null;
-  const chefLabel        = chefMode === 'systeme' ? (selectedChef ? `${selectedChef.prenom} ${selectedChef.nom}` : null) : (mission.chefMissionNom || null);
-  const selectedAgents   = users.filter((u) => mission.agentIds.includes(u.id));
+  const chefLabel        = annuaire.parId.get(parseInt(mission.chefMissionId))?.nom ?? null;
+  const selectedAgents   = mission.agentIds.map((id) => annuaire.parId.get(parseInt(id))).filter(Boolean);
 
   return (
     <div className="space-y-5">
@@ -402,54 +396,23 @@ export default function NouvelleMission() {
               value={mission.projetId} onChange={handleMissionChange}
               options={projetOptions} required error={errors.projetId}
             />
-            {/* Chef de mission — utilisateur du système ou personne externe.
-                Pleine largeur : plus haut que les autres champs (label +
-                bascule + select/texte), le mettre en pleine largeur évite un
-                appariement de ligne déséquilibré et laisse Date de
-                début/Date de fin se retrouver naturellement côte à côte. */}
-            <div className="space-y-2 md:col-span-2">
-              <p className="text-xs font-semibold text-fg-muted tracking-wide flex items-center gap-1.5">
-                <User size={12} /> {t('nouvelleMission.missionLead')}
-              </p>
-              <div className="flex gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => { setChefMode('systeme'); setMission((m) => ({ ...m, chefMissionNom: '' })); }}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-                    chefMode === 'systeme'
-                      ? 'bg-primary text-white border-primary-600'
-                      : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'
-                  }`}
-                >
-                  <UserCheck size={12} /> {t('nouvelleMission.systemUser')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setChefMode('externe'); setMission((m) => ({ ...m, chefMissionId: '' })); }}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-                    chefMode === 'externe'
-                      ? 'bg-primary text-white border-primary-600'
-                      : 'bg-surface text-fg-muted border-border-strong hover:bg-surface-2'
-                  }`}
-                >
-                  <UserX size={12} /> {t('nouvelleMission.externalPerson')}
-                </button>
-              </div>
-              {chefMode === 'systeme' ? (
-                <FormField
-                  name="chefMissionId" type="select"
-                  value={mission.chefMissionId} onChange={handleMissionChange}
-                  options={userOptions}
-                />
-              ) : (
-                <FormField
-                  name="chefMissionNom"
-                  value={mission.chefMissionNom} onChange={handleMissionChange}
-                  placeholder={t('nouvelleMission.leadNamePlaceholder')}
-                  hint={t('nouvelleMission.leadNameHint')}
-                />
-              )}
-            </div>
+            {/* Équipe : chef et agents côte à côte, puis les dates sur la
+                ligne suivante. Les deux composants ont un en-tête de même
+                hauteur, pour que leurs champs partent au même niveau. */}
+            <ChefMissionSelect
+              value={mission.chefMissionId}
+              onChange={(id) => setMission((m) => ({ ...m, chefMissionId: id }))}
+              annuaire={annuaire}
+              label={t('nouvelleMission.missionLead')}
+            />
+            <AgentMultiSelect
+              label={t('agentMultiSelect.defaultLabel')}
+              value={mission.agentIds}
+              onChange={(ids) => setMission((m) => ({ ...m, agentIds: ids }))}
+              annuaire={annuaire}
+              max={20}
+              hint={t('nouvelleMission.agentsHint')}
+            />
             <FormField
               label={t('nouvelleMission.startDate')} name="dateDebut" type="date"
               value={mission.dateDebut} onChange={handleMissionChange}
@@ -459,16 +422,6 @@ export default function NouvelleMission() {
               label={t('nouvelleMission.endDate')} name="dateFin" type="date"
               value={mission.dateFin} onChange={handleMissionChange}
             />
-            <div className="md:col-span-2">
-              <AgentMultiSelect
-                label={t('agentMultiSelect.defaultLabel')}
-                value={mission.agentIds}
-                onChange={(ids) => setMission((m) => ({ ...m, agentIds: ids }))}
-                users={users}
-                max={20}
-                hint={t('nouvelleMission.agentsHint')}
-              />
-            </div>
             <div className="md:col-span-2">
               <FormField
                 label={t('nouvelleMission.missionObject')} name="objet" type="textarea"
@@ -695,7 +648,6 @@ export default function NouvelleMission() {
                   <div>
                     <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-0.5 flex items-center gap-1">
                       <User size={9} /> {t('nouvelleMission.lead')}
-                      {chefMode === 'externe' && <span className="ml-1 text-warning">{t('nouvelleMission.external')}</span>}
                     </p>
                     <p className="text-xs text-fg">{chefLabel}</p>
                   </div>
@@ -704,9 +656,9 @@ export default function NouvelleMission() {
                   <div>
                     <p className="text-2xs text-fg-subtle uppercase tracking-wider mb-1.5">{interpolate(t('nouvelleMission.agentsCount'), { n: selectedAgents.length })}</p>
                     <div className="flex flex-wrap gap-1">
-                      {selectedAgents.map((u) => (
-                        <span key={u.id} className="text-2xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                          {u.prenom} {u.nom?.[0]}.
+                      {selectedAgents.map((p) => (
+                        <span key={p.id} className="text-2xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                          {p.nom}
                         </span>
                       ))}
                     </div>

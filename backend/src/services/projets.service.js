@@ -39,7 +39,7 @@ const getById = async (id, user) => {
       ...INCLUDE_PROJET,
       missions: {
         include: {
-          chefMission: { select: { id: true, nom: true, prenom: true } },
+          chefMission: { select: { id: true, nom: true } },
           _count:      { select: { localites: true } },
         },
         orderBy: { dateDebut: 'desc' },

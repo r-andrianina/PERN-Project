@@ -26,6 +26,7 @@ const ENTITIES = [
   'Auth',
   'TaxonomieSpecimen', 'TaxonomieHote',
   'TypeMethodeCollecte', 'SolutionConservation', 'TypeEnvironnement', 'TypeHabitat',
+  'Personnel', 'ImportPersonnel',
 ];
 
 export default function AuditLogsPage() {

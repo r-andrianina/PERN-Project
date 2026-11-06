@@ -14,7 +14,9 @@ const isMin = (r, m) => (ROLES[r] || 0) >= ROLES[m];
 
 export default function ReferentielSimplePage({ config }) {
   const t = useT();
-  const { endpoint, label, labelPluriel, fields, listColumns } = config;
+  // headerActions : boutons propres à un référentiel (ex. import de l'annuaire
+  // du personnel), rendus à côté de « Nouveau » ; reçoit `refresh`.
+  const { endpoint, label, labelPluriel, fields, listColumns, headerActions } = config;
   const { user } = useAuthStore();
   const canEdit   = isMin(user?.role, 'chercheur');
   const canDelete = user?.role === 'admin';
@@ -152,7 +154,12 @@ export default function ReferentielSimplePage({ config }) {
       <PageHeader
         title={labelPluriel}
         subtitle={interpolate(t('referentielSimple.entriesCount'), { n: items.length })}
-        actions={canEdit && <Button icon={Plus} onClick={openCreate}>{t('referentielSimple.newBtn')}</Button>}
+        actions={(headerActions || canEdit) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {headerActions?.({ refresh })}
+            {canEdit && <Button icon={Plus} onClick={openCreate}>{t('referentielSimple.newBtn')}</Button>}
+          </div>
+        )}
       />
 
       {/* Filtres */}
